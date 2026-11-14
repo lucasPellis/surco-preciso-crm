@@ -53,11 +53,24 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 		),
 	},
 	{
+		id: "phone",
+		header: "Teléfono",
+		sortable: true,
+		width: "40",
+		cell: (row) =>
+			row.phone ? (
+				<span className="block truncate tabular-nums">{row.phone}</span>
+			) : (
+				<EmptyCellValue />
+			),
+	},
+	{
 		id: "title",
 		header: "Title",
 		sortable: true,
 		width: "40",
 		hideBelow: "lg",
+		defaultHidden: true,
 		cell: (row) =>
 			row.title ? (
 				<span className="block truncate">{row.title}</span>
@@ -71,6 +84,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 		sortable: true,
 		width: "56",
 		hideBelow: "md",
+		defaultHidden: true,
 		cell: (row) =>
 			row.email ? (
 				<span className="block truncate text-muted-foreground">
@@ -85,6 +99,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 		header: "Company",
 		sortable: true,
 		width: "40",
+		defaultHidden: true,
 		cell: (row) => <CompanyCell company={row.company} />,
 	},
 	{

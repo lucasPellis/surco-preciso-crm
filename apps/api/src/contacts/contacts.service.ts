@@ -90,6 +90,7 @@ const FACT_COLUMNS: FactColumns = {
 const SORTABLE: OrderByColumns<Prisma.ContactOrderByWithRelationInput[]> = {
 	name: (dir) => [{ lastName: dir }, { firstName: dir }],
 	email: (dir) => [{ email: dir }],
+	phone: (dir) => [{ phone: { sort: dir, nulls: "last" } }],
 	title: (dir) => [{ title: dir }, { lastName: "asc" }],
 	company: (dir) => [{ company: { name: dir } }, { lastName: "asc" }],
 	leadSource: (dir) => [{ leadSource: { name: dir } }, { lastName: "asc" }],
@@ -128,6 +129,7 @@ export class ContactsService {
 					firstName: true,
 					lastName: true,
 					email: true,
+					phone: true,
 					title: true,
 					imageUrl: true,
 					source: true,
