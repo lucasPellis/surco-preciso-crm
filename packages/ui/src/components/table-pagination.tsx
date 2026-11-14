@@ -58,10 +58,10 @@ export function TablePagination({
 				) : (
 					(meta ??
 					(total === 0
-						? "No results"
-						: `Showing ${numberFormat.format(rangeStart)}–${numberFormat.format(
+						? "Sin resultados"
+						: `Mostrando ${numberFormat.format(rangeStart)}–${numberFormat.format(
 								rangeEnd,
-							)} of ${numberFormat.format(total)}`))
+							)} de ${numberFormat.format(total)}`))
 				)}
 			</span>
 			{totalPages > 1 && (
@@ -82,7 +82,7 @@ export function TablePagination({
 						}}
 					>
 						<ChevronLeftIcon data-icon="inline-start" />
-						Previous
+						Anterior
 					</Button>
 					<span className="text-muted-foreground text-sm tabular-nums">
 						{page} / {totalPages}
@@ -102,7 +102,7 @@ export function TablePagination({
 							onPageChange(targetPage);
 						}}
 					>
-						Next
+						Siguiente
 						<ChevronRightIcon data-icon="inline-end" />
 					</Button>
 				</div>

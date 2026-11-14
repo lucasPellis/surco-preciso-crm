@@ -62,11 +62,17 @@ test("empty archived lists keep status, filters, sort, and column controls", () 
 			</NuqsTestingAdapter>
 		</TooltipProvider>,
 	);
-	for (const label of ["Status", "Filters", "Sort", "Columns", "Archived"]) {
+	for (const label of [
+		"Status",
+		"Filtros",
+		"Ordenar",
+		"Columnas",
+		"Archived",
+	]) {
 		expect(html).toContain(label);
 	}
 	expect(html).toContain('aria-pressed="true"');
 	expect(html).toMatch(
-		/<button(?=[^>]*disabled="")[^>]*>(?:(?!<\/button>).)*Filters/s,
+		/<button(?=[^>]*disabled="")[^>]*>(?:(?!<\/button>).)*Filtros/s,
 	);
 });

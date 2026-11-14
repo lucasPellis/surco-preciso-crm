@@ -357,13 +357,13 @@ function FacetSubmenu({
 						className="max-h-72"
 					>
 						<CommandInput
-							placeholder={`Search ${facet.label.toLowerCase()}…`}
+							placeholder={`Buscar ${facet.label.toLowerCase()}…`}
 							value={facet.search}
 							onValueChange={facet.onSearchChange}
 							onKeyDown={(event) => event.stopPropagation()}
 						/>
 						<CommandList>
-							<CommandEmpty>{facet.empty ?? "Nothing matches."}</CommandEmpty>
+							<CommandEmpty>{facet.empty ?? "Sin coincidencias."}</CommandEmpty>
 							<CommandGroup>
 								{facet.options.map((option) => {
 									const checked = selected.includes(option.value);
@@ -395,7 +395,7 @@ function FacetSubmenu({
 							<>
 								<DropdownMenuGroup>
 									<DropdownMenuItem onSelect={() => onChange([])}>
-										Clear
+										Limpiar
 									</DropdownMenuItem>
 								</DropdownMenuGroup>
 								<DropdownMenuSeparator />
@@ -460,7 +460,7 @@ function SelectionBar<TRow>({
 				<span className="font-medium text-foreground tabular-nums">
 					{selection.state.count}
 				</span>{" "}
-				selected
+				{selection.state.count === 1 ? "seleccionado" : "seleccionados"}
 			</span>
 			<div className="ml-auto flex items-center gap-2">
 				{selection.actions}
@@ -469,7 +469,7 @@ function SelectionBar<TRow>({
 					size="sm"
 					onClick={() => selection.state.clear()}
 				>
-					Clear
+					Limpiar
 				</Button>
 			</div>
 		</div>
@@ -614,7 +614,7 @@ export function DataTable<TRow, TSub = unknown>({
 						>
 							<span className="flex items-center gap-2">
 								<ListFilterIcon />
-								Table options
+								Opciones de la tabla
 								{activeFilterCount > 0 && (
 									<span className="tabular-nums opacity-60">
 										({activeFilterCount})
@@ -648,7 +648,7 @@ export function DataTable<TRow, TSub = unknown>({
 											className="justify-start sm:justify-center"
 										>
 											<LayoutListIcon data-icon="inline-start" />
-											{tabs.label ?? "View"}
+											{tabs.label ?? "Vista"}
 											<span className="truncate opacity-60">
 												{activeTabLabel}
 											</span>
@@ -689,7 +689,7 @@ export function DataTable<TRow, TSub = unknown>({
 											className="justify-start sm:justify-center"
 										>
 											<ListFilterIcon data-icon="inline-start" />
-											Filters
+											Filtros
 											{activeFacetFilterCount > 0 && (
 												<span className="tabular-nums opacity-60">
 													({activeFacetFilterCount})
@@ -718,7 +718,7 @@ export function DataTable<TRow, TSub = unknown>({
 											className="justify-start sm:justify-center"
 										>
 											<ArrowUpDownIcon data-icon="inline-start" />
-											Sort
+											Ordenar
 										</Button>
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="end" className="min-w-48">
@@ -726,10 +726,10 @@ export function DataTable<TRow, TSub = unknown>({
 											value={query.sort}
 											onValueChange={query.setSort}
 										>
-											<DropdownMenuLabel>Sort by</DropdownMenuLabel>
+											<DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
 											{anyExpandable && (
 												<DropdownMenuRadioItem value="detail">
-													Detail
+													Detalle
 												</DropdownMenuRadioItem>
 											)}
 											{sortableColumns.map((column) => (
@@ -749,10 +749,10 @@ export function DataTable<TRow, TSub = unknown>({
 											}
 										>
 											<DropdownMenuRadioItem value="asc">
-												Ascending
+												Ascendente
 											</DropdownMenuRadioItem>
 											<DropdownMenuRadioItem value="desc">
-												Descending
+												Descendente
 											</DropdownMenuRadioItem>
 										</DropdownMenuRadioGroup>
 									</DropdownMenuContent>
@@ -766,7 +766,7 @@ export function DataTable<TRow, TSub = unknown>({
 											className="justify-start sm:justify-center"
 										>
 											<Columns3Icon data-icon="inline-start" />
-											Columns
+											Columnas
 											<span className="tabular-nums opacity-60">
 												(
 												{
@@ -780,7 +780,7 @@ export function DataTable<TRow, TSub = unknown>({
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="end" className="min-w-48">
 										<DropdownMenuGroup>
-											<DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+											<DropdownMenuLabel>Mostrar columnas</DropdownMenuLabel>
 											{hideable.map((column) => (
 												<DropdownMenuCheckboxItem
 													key={column.id}
@@ -815,7 +815,7 @@ export function DataTable<TRow, TSub = unknown>({
 						<div className={TABLE_EMPTY_OVERLAY_CLASS}>
 							{typeof empty === "string" || empty == null ? (
 								<p className="text-muted-foreground">
-									{empty ?? "No results found."}
+									{empty ?? "No se encontraron resultados."}
 								</p>
 							) : (
 								empty
@@ -850,7 +850,7 @@ export function DataTable<TRow, TSub = unknown>({
 													onCheckedChange={(checked) =>
 														selection.state.toggleAll(checked === true)
 													}
-													aria-label="Select every row on this page"
+													aria-label="Seleccionar todas las filas de esta página"
 												/>
 											</CellControl>
 										)}
@@ -953,8 +953,8 @@ export function DataTable<TRow, TSub = unknown>({
 														}
 														aria-label={
 															selection.rowLabel
-																? `Select ${selection.rowLabel(row)}`
-																: "Select row"
+																? `Seleccionar ${selection.rowLabel(row)}`
+																: "Seleccionar fila"
 														}
 													/>
 												</CellControl>

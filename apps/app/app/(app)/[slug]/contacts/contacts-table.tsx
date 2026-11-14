@@ -37,7 +37,7 @@ type ContactRow = RouterOutputs["contacts"]["list"]["rows"][number];
 const COLUMNS: DataTableColumn<ContactRow>[] = [
 	{
 		id: "name",
-		header: "Name",
+		header: "Nombre",
 		sortable: true,
 		hideable: false,
 		cell: (row) => (
@@ -66,7 +66,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	},
 	{
 		id: "title",
-		header: "Title",
+		header: "Cargo",
 		sortable: true,
 		width: "40",
 		hideBelow: "lg",
@@ -96,7 +96,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	},
 	{
 		id: "company",
-		header: "Company",
+		header: "Empresa",
 		sortable: true,
 		width: "40",
 		defaultHidden: true,
@@ -120,7 +120,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	},
 	{
 		id: "owner",
-		header: "Owner",
+		header: "Responsable",
 		sortable: true,
 		width: "40",
 		hideBelow: "md",
@@ -128,8 +128,8 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	},
 	{
 		id: "createdAt",
-		header: "Created",
-		label: "Created date",
+		header: "Creado",
+		label: "Fecha de creación",
 		sortable: true,
 		align: "right",
 		width: "28",
@@ -142,7 +142,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	},
 	{
 		id: "lastActivity",
-		header: "Last activity",
+		header: "Última actividad",
 		sortable: true,
 		align: "right",
 		width: "32",
@@ -161,8 +161,8 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 
 const ARCHIVED_COLUMN: DataTableColumn<ContactRow> = {
 	id: "archivedAt",
-	header: "Archived",
-	label: "Archived date",
+	header: "Archivado",
+	label: "Fecha de archivado",
 	sortable: true,
 	align: "right",
 	width: "32",
@@ -226,9 +226,9 @@ export function ContactsTable() {
 	const facets: DataTableFacet[] = [
 		{
 			id: "owner",
-			label: "Owner",
+			label: "Responsable",
 			options: [
-				{ value: "unassigned", label: "Unassigned" },
+				{ value: "unassigned", label: "Sin asignar" },
 				...(users.data ?? []).map((user) => ({
 					value: user.id,
 					label: user.name,
@@ -237,16 +237,16 @@ export function ContactsTable() {
 		},
 		{
 			id: "company",
-			label: "Company",
+			label: "Empresa",
 			searchable: true,
 			search: companyText,
 			onSearchChange: setCompanyText,
 			stale: companies.isFetching || companyText.trim() !== companyQuery.trim(),
-			empty: companies.isFetching ? "Searching…" : "No company matches.",
+			empty: companies.isFetching ? "Buscando…" : "Ninguna empresa coincide.",
 			options: [
 				...(companyQuery.trim()
 					? []
-					: [{ value: "none", label: "No company" }]),
+					: [{ value: "none", label: "Sin empresa" }]),
 				...(companies.data ?? []).map((company) => ({
 					value: company.id,
 					label: company.name,
@@ -266,28 +266,28 @@ export function ContactsTable() {
 		},
 		{
 			id: "title",
-			label: "Title",
+			label: "Cargo",
 			options: Object.keys(facetCounts?.title ?? {})
 				.sort()
 				.map((value) => ({ value, label: value })),
 		},
 		{
 			id: "seniority",
-			label: "Seniority",
+			label: "Jerarquía",
 			options: Object.keys(facetCounts?.seniority ?? {})
 				.sort()
 				.map((value) => ({ value, label: value })),
 		},
 		{
 			id: "persona",
-			label: "Persona",
+			label: "Perfil",
 			options: Object.keys(facetCounts?.persona ?? {})
 				.sort()
 				.map((value) => ({ value, label: value })),
 		},
 		{
 			id: "activity",
-			label: "Activity",
+			label: "Actividad",
 			options: ACTIVITY_FACET_OPTIONS.filter(
 				(option) => (facetCounts?.activity?.[option.value] ?? 0) > 0,
 			),
@@ -306,9 +306,9 @@ export function ContactsTable() {
 
 	return (
 		<DataTable
-			label="Contacts"
+			label="Contactos"
 			query={query}
-			search={<ListSearch placeholder="Search contacts…" />}
+			search={<ListSearch placeholder="Buscar contactos…" />}
 			actions={
 				<>
 					<SavedViewsMenu entity="CONTACT" table={table} />
@@ -319,7 +319,7 @@ export function ContactsTable() {
 						onClick={() => toggleArchived(!input.archived)}
 					>
 						<ArchiveIcon data-icon="inline-start" />
-						Archived
+						Archivados
 					</Button>
 				</>
 			}
@@ -351,12 +351,12 @@ export function ContactsTable() {
 			empty={
 				<ListEmpty
 					query={query}
-					noun="contacts"
+					noun="contactos"
 					archived={input.archived}
 					blank={{
-						title: "No contacts yet",
+						title: "Todavía no hay contactos",
 						description:
-							"Add a contact to keep track of the people you sell to.",
+							"Agrega un contacto para llevar el registro de las personas a las que les vendes.",
 					}}
 				/>
 			}

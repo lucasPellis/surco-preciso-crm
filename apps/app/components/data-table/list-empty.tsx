@@ -22,7 +22,9 @@ export function ListEmpty({
 	if (q) return <NoSearchMatch query={q} noun={noun} />;
 
 	if (archived) {
-		return <p className="text-muted-foreground">No archived {noun}.</p>;
+		return (
+			<p className="text-muted-foreground">No hay {noun} en el archivo.</p>
+		);
 	}
 
 	const filtered = Object.entries(query.filters).some(([id, values]) =>
@@ -31,7 +33,9 @@ export function ListEmpty({
 
 	if (filtered) {
 		return (
-			<p className="text-muted-foreground">No {noun} match these filters.</p>
+			<p className="text-muted-foreground">
+				No hay {noun} que coincidan con estos filtros.
+			</p>
 		);
 	}
 

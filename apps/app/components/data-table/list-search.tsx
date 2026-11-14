@@ -69,7 +69,7 @@ function ListSearchInput({
 			{value ? (
 				<InputGroupAddon align="inline-end">
 					<InputGroupButton
-						aria-label="Clear search"
+						aria-label="Borrar búsqueda"
 						size="icon-xs"
 						onClick={() => {
 							setValue("");
@@ -100,10 +100,10 @@ export function NoSearchMatch({
 			</EmptyMedia>
 			<EmptyHeader>
 				<EmptyTitle>
-					No {noun} match “{query}”
+					No hay {noun} que coincidan con “{query}”
 				</EmptyTitle>
 				<EmptyDescription>
-					Check the spelling or try a shorter word.
+					Revisa la ortografía o prueba con una palabra más corta.
 				</EmptyDescription>
 			</EmptyHeader>
 			<Button
@@ -111,7 +111,7 @@ export function NoSearchMatch({
 				size="sm"
 				variant="outline"
 			>
-				Clear search
+				Borrar búsqueda
 			</Button>
 		</Empty>
 	);
