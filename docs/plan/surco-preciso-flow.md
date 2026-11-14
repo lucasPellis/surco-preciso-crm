@@ -160,6 +160,22 @@ Lead to deal:
   `web` source and a deal in `NEW`. With no default owner, the contact is filed and no
   deal opens.
 
+Pipeline screen:
+
+- Route `/pipeline`, nav entry *Embudo*. A board with one column per stage: the five
+  open stages, then Ganado and Perdido. The closed columns show the last 30 days
+  (`DEAL_BOARD` in `apps/api/src/deals/deals-config.ts`). A column shows 50 cards and
+  its real count.
+- `deals.board` returns the columns. The scope toggle is the overview's: *Yo* or
+  *Todos*.
+- Drag a card to another column to change its stage. The move is optimistic and rolls
+  back on error. A drop on Perdido opens the loss reason dialog. The grip button is the
+  keyboard handle, and each card also has the stage menu.
+- *Nuevo lead* opens the contact form in lead mode. It creates the contact, the company
+  if missing, and the deal in `NEW`.
+- `packages/ui/src/components/pipeline-board.tsx` holds the generic board. The deal
+  cards live in `pipeline-view.tsx`.
+
 Open in step 3:
 
 - `deals.list` and `deals.byId` return the source. The deals table has an *Origen*
@@ -169,5 +185,26 @@ Open in step 3:
 
 ## Language
 
-The UI is English today. New strings for Surco Preciso are Spanish, neutral.
-Translating the existing UI is a separate step. Until then the UI mixes both.
+The UI is English today. Every new string and every screen we touch is Spanish,
+neutral, with no voseo. There is no i18n library: the strings live in the code.
+
+Translate a whole screen when you touch it, never a single string. A screen is
+translated when no English label, button, placeholder, toast or empty state is left.
+The navigation and the screens nobody touched stay English until their turn.
+
+Glossary. Use these words and no others:
+
+| English | Spanish |
+| --- | --- |
+| Deal | Oportunidad |
+| Contact | Contacto |
+| Company | Empresa |
+| Owner | Responsable |
+| Stage | Etapa |
+| Lead source | Origen |
+| Pipeline | Embudo |
+| Amount | Monto |
+| Archive | Archivar |
+| Settings | Configuración |
+
+Add a row here when a screen needs a new term.

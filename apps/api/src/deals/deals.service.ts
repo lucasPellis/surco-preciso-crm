@@ -50,6 +50,7 @@ import {
 import type {
 	ClosingWindow,
 	DealAttachContactInput,
+	DealBoardInput,
 	DealBulkOwnerInput,
 	DealBulkStageInput,
 	DealContactRoleInput,
@@ -60,6 +61,7 @@ import type {
 	SetStageInput,
 } from "./deals.contracts";
 import { CLOSING_WINDOWS } from "./deals.contracts";
+import { DEAL_BOARD } from "./deals-config";
 
 const OWNER_SELECT = {
 	id: true,
@@ -194,6 +196,72 @@ export class DealsService {
 			openValueCents: number | null;
 			reportingCurrency: string;
 			unconverted: { count: number; currencies: string[] };
+		};
+	}
+
+	async board(input: DealBoardInput, userId: string) {
+		const base = await this.conversion.reportingCurrency();
+		const owner = ownerFilter<Prisma.DealWhereInput>(
+			input.scope === "me" ? [userId] : [],
+		);
+		const since = new Date(Date.now() - DEAL_BOARD.closedWindowMs);
+
+		const columns = await Promise.all(
+			[...OPEN_DEAL_STAGES, ...CLOSED_DEAL_STAGES].map(async (stage) => {
+				const where: Prisma.DealWhereInput = {
+					AND: [
+						archivedFilter(false),
+						{ stage },
+						...(isClosedStage(stage) ? [{ closedAt: { gte: since } }] : []),
+						...(owner ? [owner] : []),
+					],
+				};
+
+				const [rows, total, value] = await Promise.all([
+					this.db.deal.findMany({
+						where,
+						take: DEAL_BOARD.cardsPerColumn,
+						orderBy: [{ stageChangedAt: "desc" }],
+						select: {
+							id: true,
+							name: true,
+							stage: true,
+							amount: true,
+							currency: true,
+							company: { select: COMPANY_SELECT },
+							owner: { select: OWNER_SELECT },
+							leadSource: { select: LEAD_SOURCE_SELECT },
+							stageChangedAt: true,
+							lastActivityAt: true,
+						},
+					}),
+					this.db.deal.count({ where }),
+					this.db.deal.aggregate({
+						where: { AND: [where, this.conversion.countedWhere(base)] },
+						_sum: { baseAmount: true },
+					}),
+				]);
+
+				return {
+					stage,
+					total,
+					valueCents: toCents(value._sum.baseAmount),
+					cards: rows.map(
+						({ amount, stageChangedAt, lastActivityAt, ...row }) => ({
+							...row,
+							amountCents: toCents(amount),
+							stageChangedAt: stageChangedAt.toISOString(),
+							lastActivityAt: lastActivityAt?.toISOString() ?? null,
+						}),
+					),
+				};
+			}),
+		);
+
+		return {
+			columns,
+			reportingCurrency: base,
+			closedWindowDays: DEAL_BOARD.closedWindowDays,
 		};
 	}
 

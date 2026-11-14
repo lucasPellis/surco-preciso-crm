@@ -39,24 +39,39 @@ import { useTRPC } from "@/lib/trpc/client";
 
 const NONE = "none";
 
-function AddButton(props: ComponentProps<typeof Button>) {
+function AddButton({
+	lead,
+	...props
+}: ComponentProps<typeof Button> & { lead: boolean }) {
 	return (
 		<Button {...props}>
 			<Icon icon={PlusIcon} data-icon="inline-start" />
-			New contact
+			{lead ? "Nuevo lead" : "Nuevo contacto"}
 		</Button>
 	);
 }
 
-export function CreateContactSheet({ companyId }: { companyId?: string }) {
+export function CreateContactSheet({
+	companyId,
+	lead = false,
+}: {
+	companyId?: string;
+	lead?: boolean;
+}) {
 	return (
-		<Suspense fallback={<AddButton disabled />}>
-			<CreateContactForm companyId={companyId} />
+		<Suspense fallback={<AddButton lead={lead} disabled />}>
+			<CreateContactForm companyId={companyId} lead={lead} />
 		</Suspense>
 	);
 }
 
-function CreateContactForm({ companyId }: { companyId?: string }) {
+function CreateContactForm({
+	companyId,
+	lead,
+}: {
+	companyId?: string;
+	lead: boolean;
+}) {
 	const openRecord = useOpenRecord();
 	const validation = useFormSheetValidation();
 	const trpc = useTRPC();
@@ -94,11 +109,11 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 			onSuccess: async (contact) => {
 				await cache.contact(contact.id);
 				toast.success(
-					`${[contact.firstName, contact.lastName].filter(Boolean).join(" ")} added.`,
+					`${[contact.firstName, contact.lastName].filter(Boolean).join(" ")} ${lead ? "entró al embudo en Nuevo." : "agregado."}`,
 				);
 				await setOpen(null);
 				reset();
-				openRecord({ kind: "contact", id: contact.id });
+				if (!lead) openRecord({ kind: "contact", id: contact.id });
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -136,15 +151,16 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 			onOpenChange={(next) => setOpen(next || null)}
 		>
 			<SheetTrigger asChild>
-				<AddButton />
+				<AddButton lead={lead} />
 			</SheetTrigger>
 			<FormSheetContent side="right">
 				<SheetHeader>
-					<SheetTitle>New contact</SheetTitle>
+					<SheetTitle>{lead ? "Nuevo lead" : "Nuevo contacto"}</SheetTitle>
 					<SheetDescription>
-						Email addresses and phone numbers are unique, so the same person
-						cannot be added twice. Without a company, one is created with the
-						person's name.
+						{lead ? "Se crea el contacto y una oportunidad en Nuevo. " : ""}
+						El email y el teléfono son únicos, así que la misma persona no se
+						puede cargar dos veces. Sin empresa, se crea una con el nombre de la
+						persona.
 					</SheetDescription>
 				</SheetHeader>
 
@@ -169,7 +185,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 					}}
 				>
 					<Field data-invalid={!!validation.errors[firstNameId]}>
-						<FieldLabel htmlFor={firstNameId}>First name</FieldLabel>
+						<FieldLabel htmlFor={firstNameId}>Nombre</FieldLabel>
 						<Input
 							id={firstNameId}
 							aria-invalid={!!validation.errors[firstNameId]}
@@ -190,7 +206,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 					</Field>
 
 					<Field data-invalid={!!validation.errors[lastNameId]}>
-						<FieldLabel htmlFor={lastNameId}>Last name</FieldLabel>
+						<FieldLabel htmlFor={lastNameId}>Apellido</FieldLabel>
 						<Input
 							id={lastNameId}
 							aria-invalid={!!validation.errors[lastNameId]}
@@ -246,7 +262,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 					</Field>
 
 					<Field data-invalid={!!validation.errors[titleId]}>
-						<FieldLabel htmlFor={titleId}>Title</FieldLabel>
+						<FieldLabel htmlFor={titleId}>Cargo</FieldLabel>
 						<Input
 							id={titleId}
 							aria-invalid={!!validation.errors[titleId]}
@@ -255,7 +271,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 							}
 							value={title}
 							onChange={(event) => setTitle(event.target.value)}
-							placeholder="Head of Security"
+							placeholder="Gerente de campo"
 							autoComplete="off"
 						/>
 						<FieldError id={`${titleId}-error`}>
@@ -264,17 +280,17 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 					</Field>
 
 					<Field>
-						<FieldLabel htmlFor="create-contact-company">Company</FieldLabel>
+						<FieldLabel htmlFor="create-contact-company">Empresa</FieldLabel>
 						<CompanyPicker
 							id="create-contact-company"
 							value={company}
 							onValueChange={setCompany}
-							none={{ value: NONE, label: "No company" }}
+							none={{ value: NONE, label: "Sin empresa" }}
 						/>
 					</Field>
 
 					<Field>
-						<FieldLabel htmlFor="create-contact-owner">Owner</FieldLabel>
+						<FieldLabel htmlFor="create-contact-owner">Responsable</FieldLabel>
 						<Select value={ownerId} onValueChange={setOwnerId}>
 							<SelectTrigger id="create-contact-owner">
 								<SelectValue />
@@ -329,7 +345,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 						disabled={create.isPending}
 					>
 						{create.isPending ? <Spinner data-icon="inline-start" /> : null}
-						Add contact
+						{lead ? "Agregar lead" : "Agregar contacto"}
 					</Button>
 				</FormSheetFooter>
 			</FormSheetContent>

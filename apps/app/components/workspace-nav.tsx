@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	Building2Icon,
 	HandshakeIcon,
+	KanbanIcon,
 	LayoutDashboardIcon,
 	ListChecksIcon,
 	type LucideIcon,
@@ -65,6 +66,7 @@ const PRIMARY: NavItem[] = [
 		match: "prefix",
 	},
 	{ title: "Contacts", href: "/contacts", icon: UsersIcon, match: "prefix" },
+	{ title: "Embudo", href: "/pipeline", icon: KanbanIcon, match: "prefix" },
 	{ title: "Deals", href: "/deals", icon: HandshakeIcon, match: "prefix" },
 	{ title: "Tasks", href: "/tasks", icon: ListChecksIcon, match: "prefix" },
 ];

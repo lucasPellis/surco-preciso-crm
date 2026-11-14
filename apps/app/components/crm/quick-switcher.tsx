@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Building2Icon,
 	HandshakeIcon,
+	KanbanIcon,
 	LayoutDashboardIcon,
 	ListChecksIcon,
 	type LucideIcon,
@@ -88,6 +89,13 @@ const PAGES: Destination[] = [
 		href: "/contacts",
 		icon: UsersIcon,
 		keywords: ["people", "leads"],
+	},
+	{
+		id: "pipeline",
+		label: "Embudo",
+		href: "/pipeline",
+		icon: KanbanIcon,
+		keywords: ["tablero", "etapas", "leads", "oportunidades", "pipeline"],
 	},
 	{
 		id: "deals",

@@ -3,6 +3,7 @@ import { FIELD_ENTITIES, FIELD_TYPES } from "@crm/db/fields";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
 import { currencyCode } from "../currency/currency.contracts";
+import { DASHBOARD_SCOPES } from "../dashboard/dashboard.contracts";
 import { recordFieldValues } from "../fields/fields.contracts";
 import { listInput } from "../trpc/list-input";
 
@@ -217,6 +218,38 @@ const dealListRowOutput = z.object({
 	createdAt: z.string(),
 	archivedAt: z.string().nullable(),
 	fields: z.record(z.string(), fieldValueOutput),
+});
+
+export const dealBoardInput = z.object({
+	scope: z.enum(DASHBOARD_SCOPES).default("me"),
+});
+
+export type DealBoardInput = z.infer<typeof dealBoardInput>;
+
+const dealBoardCardOutput = z.object({
+	id: z.string(),
+	name: z.string(),
+	stage: stageEnum,
+	currency: z.string(),
+	amountCents: z.number().nullable(),
+	company: dealCompanyOutput,
+	owner: dealOwnerOutput,
+	leadSource: dealLeadSourceOutput.nullable(),
+	stageChangedAt: z.string(),
+	lastActivityAt: z.string().nullable(),
+});
+
+const dealBoardColumnOutput = z.object({
+	stage: stageEnum,
+	total: z.number(),
+	valueCents: z.number().nullable(),
+	cards: z.array(dealBoardCardOutput),
+});
+
+export const dealBoardOutput = z.object({
+	columns: z.array(dealBoardColumnOutput),
+	reportingCurrency: z.string(),
+	closedWindowDays: z.number(),
 });
 
 export const dealListOutput = z.object({

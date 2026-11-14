@@ -37,7 +37,17 @@ const closeReasonParams = {
 	[SEARCH_PARAM.dialog.closeStage]: parseAsString,
 };
 
-function useStageMutation(onDone?: () => void) {
+export function useRequestClose() {
+	const [, setCloseParams] = useQueryStates(closeReasonParams);
+
+	return (dealId: string, stage: DealStage) =>
+		void setCloseParams({
+			[SEARCH_PARAM.dialog.closeDeal]: dealId,
+			[SEARCH_PARAM.dialog.closeStage]: stage,
+		});
+}
+
+export function useStageMutation(onDone?: () => void) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
@@ -135,7 +145,7 @@ export function CloseReasonDialog() {
 	};
 
 	const setStage = useStageMutation(() => {
-		toast.success("Deal closed.");
+		toast.success("Oportunidad marcada como perdida.");
 		close();
 	});
 
@@ -163,12 +173,12 @@ export function CloseReasonDialog() {
 					}}
 				>
 					<Field>
-						<FieldLabel htmlFor={reasonId}>Reason</FieldLabel>
+						<FieldLabel htmlFor={reasonId}>Motivo</FieldLabel>
 						<Textarea
 							id={reasonId}
 							value={reason}
 							onChange={(event) => setReason(event.target.value)}
-							placeholder="Went with an incumbent vendor"
+							placeholder="Eligió a otro proveedor"
 							rows={3}
 						/>
 					</Field>
@@ -181,10 +191,10 @@ export function CloseReasonDialog() {
 						disabled={setStage.isPending || reason.trim() === ""}
 					>
 						{setStage.isPending ? <Spinner /> : null}
-						Save
+						Guardar
 					</Button>
 					<Button variant="outline" onClick={close}>
-						Cancel
+						Cancelar
 					</Button>
 				</DialogFooter>
 			</DialogContent>
