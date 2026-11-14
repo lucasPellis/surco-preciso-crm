@@ -50,7 +50,7 @@ function AddButton(props: ComponentProps<typeof Button>) {
 	return (
 		<Button {...props}>
 			<Icon icon={PlusIcon} data-icon="inline-start" />
-			New deal
+			Nueva oportunidad
 		</Button>
 	);
 }
@@ -97,7 +97,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 		trpc.deals.create.mutationOptions({
 			onSuccess: async (deal) => {
 				await cache.deal(deal.id);
-				toast.success(`${deal.name} added.`);
+				toast.success(`${deal.name} agregada.`);
 				await setOpen(null);
 				reset();
 				openRecord({ kind: "deal", id: deal.id });
@@ -138,9 +138,9 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 			</SheetTrigger>
 			<FormSheetContent side="right">
 				<SheetHeader>
-					<SheetTitle>New deal</SheetTitle>
+					<SheetTitle>Nueva oportunidad</SheetTitle>
 					<SheetDescription>
-						Every deal belongs to a company and has someone's name against it.
+						Toda oportunidad pertenece a una empresa y tiene un responsable.
 					</SheetDescription>
 				</SheetHeader>
 
@@ -152,9 +152,9 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 						event.preventDefault();
 						const errors: Record<string, string> = {};
 						if (company === UNSET)
-							errors["create-deal-company"] = "Choose a company.";
+							errors["create-deal-company"] = "Elige una empresa.";
 						if (resolvedOwner === UNSET)
-							errors["create-deal-owner"] = "Choose an owner.";
+							errors["create-deal-owner"] = "Elige un responsable.";
 						if (!validation.validate(event.currentTarget, errors)) return;
 						const parsed = Number.parseFloat(amount);
 						create.mutate({
@@ -171,7 +171,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 					}}
 				>
 					<Field data-invalid={!!validation.errors[nameId]}>
-						<FieldLabel htmlFor={nameId}>Name</FieldLabel>
+						<FieldLabel htmlFor={nameId}>Nombre</FieldLabel>
 						<Input
 							id={nameId}
 							aria-invalid={!!validation.errors[nameId]}
@@ -180,7 +180,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 							}
 							value={name}
 							onChange={(event) => setName(event.target.value)}
-							placeholder="Stripe Comp AI"
+							placeholder="Juan Pérez"
 							autoComplete="off"
 							pattern=".*\S.*"
 							required
@@ -191,7 +191,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 					</Field>
 
 					<Field data-invalid={!!validation.errors["create-deal-company"]}>
-						<FieldLabel htmlFor="create-deal-company">Company</FieldLabel>
+						<FieldLabel htmlFor="create-deal-company">Empresa</FieldLabel>
 						<CompanyPicker
 							id="create-deal-company"
 							aria-invalid={!!validation.errors["create-deal-company"]}
@@ -212,7 +212,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 					</Field>
 
 					<Field data-invalid={!!validation.errors["create-deal-owner"]}>
-						<FieldLabel htmlFor="create-deal-owner">Owner</FieldLabel>
+						<FieldLabel htmlFor="create-deal-owner">Responsable</FieldLabel>
 						<Select
 							value={resolvedOwner}
 							onValueChange={(value) => {
@@ -229,7 +229,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 										: undefined
 								}
 							>
-								<SelectValue placeholder="Choose an owner" />
+								<SelectValue placeholder="Elegir un responsable" />
 							</SelectTrigger>
 							<SelectContent>
 								{(users.data ?? []).map((user) => (
@@ -245,7 +245,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 					</Field>
 
 					<Field>
-						<FieldLabel htmlFor="create-deal-stage">Stage</FieldLabel>
+						<FieldLabel htmlFor="create-deal-stage">Etapa</FieldLabel>
 						<Select value={stage} onValueChange={setStage}>
 							<SelectTrigger id="create-deal-stage">
 								<SelectValue />
@@ -259,13 +259,13 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 							</SelectContent>
 						</Select>
 						<FieldDescription>
-							A new deal starts open. Close it from the pipeline once there is
-							an outcome to record.
+							Una oportunidad nueva empieza abierta. Ciérrala desde el funnel
+							cuando haya un resultado que registrar.
 						</FieldDescription>
 					</Field>
 
 					<Field data-invalid={!!validation.errors[amountId]}>
-						<FieldLabel htmlFor={amountId}>Amount</FieldLabel>
+						<FieldLabel htmlFor={amountId}>Monto</FieldLabel>
 						<div className="flex gap-2">
 							<Input
 								id={amountId}
@@ -283,7 +283,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 								{validation.errors[amountId]}
 							</FieldError>
 							<Select value={resolvedCurrency} onValueChange={setCurrency}>
-								<SelectTrigger aria-label="Currency" className="w-28 shrink-0">
+								<SelectTrigger aria-label="Moneda" className="w-28 shrink-0">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -298,12 +298,14 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 					</Field>
 
 					<Field data-invalid={!!validation.errors[closeDateId]}>
-						<FieldLabel htmlFor={closeDateId}>Expected close date</FieldLabel>
+						<FieldLabel htmlFor={closeDateId}>
+							Fecha de cierre estimada
+						</FieldLabel>
 						<DatePicker
 							id={closeDateId}
 							value={closeDate}
 							onChange={setCloseDate}
-							placeholder="No date yet"
+							placeholder="Sin fecha todavía"
 						/>
 					</Field>
 				</FormSheetForm>
@@ -311,7 +313,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 				<FormSheetFooter>
 					<Button type="submit" form="create-deal" disabled={create.isPending}>
 						{create.isPending ? <Spinner data-icon="inline-start" /> : null}
-						Add deal
+						Agregar oportunidad
 					</Button>
 				</FormSheetFooter>
 			</FormSheetContent>

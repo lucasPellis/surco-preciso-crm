@@ -10,7 +10,7 @@ import { EmptyCellValue } from "@crm/ui/components/empty-cell";
 import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
 import { MetaRow } from "@crm/ui/components/meta-row";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatCount, formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { ArchiveIcon } from "lucide-react";
 import { useMemo } from "react";
@@ -37,7 +37,7 @@ type DealRow = RouterOutputs["deals"]["list"]["rows"][number];
 const COLUMNS: DataTableColumn<DealRow>[] = [
 	{
 		id: "name",
-		header: "Deal",
+		header: "Oportunidad",
 		sortable: true,
 		hideable: false,
 		cell: (row) => (
@@ -46,21 +46,21 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 	},
 	{
 		id: "company",
-		header: "Company",
+		header: "Empresa",
 		sortable: true,
 		width: { sm: "40" },
 		cell: (row) => <CompanyCell company={row.company} />,
 	},
 	{
 		id: "stage",
-		header: "Stage",
+		header: "Etapa",
 		sortable: true,
 		width: { sm: "40" },
 		cell: (row) => <DealStageMenu dealId={row.id} stage={row.stage} />,
 	},
 	{
 		id: "amount",
-		header: "Amount",
+		header: "Monto",
 		sortable: true,
 		align: "right",
 		width: "36",
@@ -92,7 +92,7 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 	},
 	{
 		id: "owner",
-		header: "Owner",
+		header: "Responsable",
 		sortable: true,
 		width: "40",
 		hideBelow: "md",
@@ -100,7 +100,7 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 	},
 	{
 		id: "expectedCloseDate",
-		header: "Close date",
+		header: "Fecha de cierre",
 		sortable: true,
 		width: "32",
 		hideBelow: "lg",
@@ -115,8 +115,8 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 	},
 	{
 		id: "createdAt",
-		header: "Created",
-		label: "Created date",
+		header: "Creada",
+		label: "Fecha de creación",
 		sortable: true,
 		align: "right",
 		width: "28",
@@ -129,10 +129,10 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 	},
 	{
 		id: "lastActivity",
-		header: "Last activity",
+		header: "Última actividad",
 		sortable: true,
 		align: "right",
-		width: "32",
+		width: "40",
 		hideBelow: "lg",
 		cell: (row) => (
 			<span className="text-muted-foreground">
@@ -148,8 +148,8 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 
 const ARCHIVED_COLUMN: DataTableColumn<DealRow> = {
 	id: "archivedAt",
-	header: "Archived",
-	label: "Archived date",
+	header: "Archivada",
+	label: "Fecha de archivado",
 	sortable: true,
 	align: "right",
 	width: "32",
@@ -202,7 +202,7 @@ export function DealsTable() {
 	const facets: DataTableFacet[] = [
 		{
 			id: "owner",
-			label: "Owner",
+			label: "Responsable",
 			options: (users.data ?? []).flatMap((user) =>
 				(facetCounts?.owner?.[user.id] ?? 0) > 0
 					? [{ value: user.id, label: user.name }]
@@ -222,14 +222,14 @@ export function DealsTable() {
 		},
 		{
 			id: "stage",
-			label: "Stage",
+			label: "Etapa",
 			options: DEAL_STAGE_OPTIONS.filter(
 				(option) => (facetCounts?.stage?.[option.value] ?? 0) > 0,
 			),
 		},
 		{
 			id: "closing",
-			label: "Closing",
+			label: "Cierre",
 			options: CLOSING_OPTIONS.flatMap((option) =>
 				(facetCounts?.closing?.[option.value] ?? 0) > 0
 					? [{ value: option.value, label: option.label }]
@@ -256,9 +256,9 @@ export function DealsTable() {
 
 	return (
 		<DataTable
-			label="Deals"
+			label="Oportunidades"
 			query={query}
-			search={<ListSearch placeholder="Search deals…" />}
+			search={<ListSearch placeholder="Buscar oportunidades…" />}
 			actions={
 				<Button
 					variant={input.archived ? "contrast" : "outline"}
@@ -267,7 +267,7 @@ export function DealsTable() {
 					onClick={() => toggleArchived(!input.archived)}
 				>
 					<ArchiveIcon data-icon="inline-start" />
-					Archived
+					Archivadas
 				</Button>
 			}
 			columns={columns}
@@ -277,11 +277,11 @@ export function DealsTable() {
 			facets={facets}
 			tabs={{
 				id: "status",
-				label: "Status",
-				allLabel: "All deals",
+				label: "Estado",
+				allLabel: "Todas",
 				options: [
-					{ value: "open", label: "Open" },
-					{ value: "closed", label: "Closed" },
+					{ value: "open", label: "Abiertas" },
+					{ value: "closed", label: "Cerradas" },
 				],
 			}}
 			selection={{
@@ -307,28 +307,35 @@ export function DealsTable() {
 			empty={
 				<ListEmpty
 					query={query}
-					noun="deals"
+					noun="oportunidades"
 					archived={input.archived}
 					blank={{
-						title: "No deals yet",
-						description: "Add a deal to start tracking the pipeline.",
+						title: "Todavía no hay oportunidades",
+						description:
+							"Agrega una oportunidad para empezar a seguir el funnel.",
 					}}
 				/>
 			}
 			meta={
 				input.archived || openPipelineCents === null ? undefined : (
 					<MetaRow>
-						<span>{deals.data?.total ?? 0} deals</span>
+						<span>
+							{formatCount(
+								deals.data?.total ?? 0,
+								"oportunidad",
+								"oportunidades",
+							)}
+						</span>
 						<span>
 							<span className="tabular-nums">
 								{formatMoney(openPipelineCents, reportingCurrency)}
 							</span>{" "}
-							open pipeline
+							en el funnel abierto
 						</span>
 						{unconverted && unconverted.count > 0 ? (
 							<span>
-								{unconverted.count} not counted (no{" "}
-								{unconverted.currencies.join(", ")} rate)
+								{unconverted.count} sin contar (falta la cotización de{" "}
+								{unconverted.currencies.join(", ")})
 							</span>
 						) : null}
 					</MetaRow>
