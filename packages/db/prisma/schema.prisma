@@ -509,6 +509,10 @@ model Contact {
 
   source RecordSource @default(MANUAL)
 
+  leadSourceId String?
+  leadSource   LeadSource? @relation(fields: [leadSourceId], references: [id], onDelete: SetNull)
+  originDetail String?
+
   lastActivityAt DateTime?
   archivedAt     DateTime?
 
@@ -524,11 +528,29 @@ model Contact {
   updatedAt       DateTime           @updatedAt
 
   @@unique([email], map: "contact_email_active_key", where: { archivedAt: null })
+  @@unique([phone], map: "contact_phone_active_key", where: { archivedAt: null })
   @@index([companyId])
   @@index([ownerId])
+  @@index([leadSourceId])
   @@index([lastActivityAt])
   @@index([archivedAt])
   @@map("contact")
+}
+
+model LeadSource {
+  id         String    @id @default(cuid())
+  key        String    @unique
+  name       String
+  icon       String?
+  position   Int       @default(0)
+  archivedAt DateTime?
+
+  contacts  Contact[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([archivedAt])
+  @@map("lead_source")
 }
 
 enum FactBand {

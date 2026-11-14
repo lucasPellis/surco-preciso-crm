@@ -102,8 +102,11 @@ export class TrackingFilingService {
 			return this.skip(submission.id, CONTACT_CAP_REASON);
 		}
 
-		const companyId = await this.companies.companyForEmail(email);
 		const { firstName, lastName } = splitName(submission.name, email);
+		const companyId = await this.companies.resolveForContact({
+			email,
+			name: [firstName, lastName].filter(Boolean).join(" "),
+		});
 
 		let contact: { id: string };
 		try {

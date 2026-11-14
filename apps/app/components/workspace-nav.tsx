@@ -81,6 +81,7 @@ const SETTINGS_PAGES: { title: string; href: string }[] = [
 	{ title: "Tracking & Analytics", href: "/settings/tracking" },
 	{ title: "Connections", href: "/settings/connections" },
 	{ title: "Currencies", href: "/settings/currencies" },
+	{ title: "Orígenes", href: "/settings/lead-sources" },
 	{ title: "Members", href: "/settings/members" },
 	{ title: "API Keys", href: "/settings/api-keys" },
 	{ title: "SSO", href: "/settings/sso" },

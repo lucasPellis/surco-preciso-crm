@@ -8,6 +8,7 @@ import {
 import { OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
 import { lockIdempotencyKey, lockIdempotencyKeys } from "@crm/db/idempotency";
+import { normalizePhone } from "@crm/db/phone";
 import {
 	COMPANY_IMPORT,
 	type CompanyImportInput,
@@ -386,7 +387,7 @@ export class CompaniesService {
 					row: rowNumber,
 					name,
 					domain,
-					phone: blankToNull(row.phone ?? ""),
+					phone: normalizePhone(row.phone ?? ""),
 					city: blankToNull(row.city ?? ""),
 					stateCode: blankToNull(row.stateCode ?? ""),
 					industry: blankToNull(row.industry ?? ""),
@@ -495,7 +496,7 @@ export class CompaniesService {
 			data.stateCode = blankToNull(input.stateCode);
 		}
 		if (input.country !== undefined) data.country = blankToNull(input.country);
-		if (input.phone !== undefined) data.phone = blankToNull(input.phone);
+		if (input.phone !== undefined) data.phone = normalizePhone(input.phone);
 		if (input.email !== undefined) data.email = blankToNull(input.email);
 		if (input.linkedinUrl !== undefined) {
 			data.linkedinUrl = blankToNull(input.linkedinUrl);

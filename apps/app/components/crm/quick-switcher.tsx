@@ -161,6 +161,12 @@ const SETTINGS: Destination[] = [
 		keywords: ["exchange rates", "money"],
 	},
 	{
+		id: "settings-lead-sources",
+		label: "Orígenes",
+		href: "/settings/lead-sources",
+		keywords: ["lead source", "canal", "campaña", "utm", "channel"],
+	},
+	{
 		id: "settings-members",
 		label: "Members",
 		href: "/settings/members",

@@ -77,7 +77,16 @@ async function clean() {
 		where: { id: { startsWith: "visitor-" } },
 	});
 	await db.contact.deleteMany({ where: { email: { endsWith: `@${domain}` } } });
+	const free = await db.contact.findUnique({
+		where: { email: `free-${suffix}@gmail.com` },
+		select: { companyId: true },
+	});
 	await db.contact.deleteMany({ where: { email: `free-${suffix}@gmail.com` } });
+	if (free?.companyId) {
+		await db.company.deleteMany({
+			where: { id: free.companyId, domain: null },
+		});
+	}
 	await db.company.deleteMany({ where: { domain } });
 	await db.suppressedContact.deleteMany({
 		where: { email: { endsWith: `@${domain}` } },
@@ -153,7 +162,7 @@ describe("filing a form submission", () => {
 		await db.suppressedDomain.deleteMany({ where: { domain } });
 	});
 
-	it("files a free-mail address as a contact with no company", async () => {
+	it("files a free-mail address under a company named after the person", async () => {
 		const { outcome, stored } = await submit(`free-${suffix}@gmail.com`);
 
 		expect(outcome.filed).toBe(true);
@@ -161,10 +170,17 @@ describe("filing a form submission", () => {
 
 		const contact = await db.contact.findUnique({
 			where: { email: `free-${suffix}@gmail.com` },
-			select: { companyId: true, source: true },
+			select: {
+				source: true,
+				company: {
+					select: { name: true, domain: true, enrichmentStatus: true },
+				},
+			},
 		});
 
-		expect(contact?.companyId).toBeNull();
+		expect(contact?.company?.name).toBe("Dana Reed");
+		expect(contact?.company?.domain).toBeNull();
+		expect(contact?.company?.enrichmentStatus).toBe("SKIPPED");
 		expect(contact?.source).toBe("TRACKING");
 	});
 

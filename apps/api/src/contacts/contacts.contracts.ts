@@ -6,6 +6,8 @@ import {
 	RecordSource,
 } from "@crm/db";
 import { FIELD_ENTITIES, FIELD_TYPES } from "@crm/db/fields";
+import { LEAD_SOURCE } from "@crm/db/lead-source";
+import { isPlausiblePhone } from "@crm/db/phone";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
 import { recordFieldValues } from "../fields/fields.contracts";
@@ -14,6 +16,7 @@ import { activityFacetInput, listInput } from "../trpc/list-input";
 export const contactListInput = listInput.extend({
 	owner: z.array(z.string()).default([]),
 	company: z.array(z.string()).default([]),
+	leadSource: z.array(z.string()).default([]),
 	source: z.array(z.string()).default([]),
 	title: z.array(z.string()).default([]),
 	seniority: z.array(z.string()).default([]),
@@ -25,14 +28,25 @@ export const contactListInput = listInput.extend({
 
 export type ContactListInput = z.infer<typeof contactListInput>;
 
+const phoneInput = z
+	.string()
+	.trim()
+	.refine(isPlausiblePhone, "That is not a phone number.");
+
 export const contactCreateInput = z.object({
 	firstName: z.string().trim().min(1, "A contact needs a first name."),
 	lastName: z.string().trim().optional(),
 	email: z.email("That is not an email address.").optional().or(z.literal("")),
-	phone: z.string().trim().optional(),
+	phone: phoneInput.optional(),
 	title: z.string().trim().optional(),
 	companyId: z.string().nullable().optional(),
 	ownerId: z.string().nullable().optional(),
+	leadSourceId: z.string().nullable().optional(),
+	originDetail: z
+		.string()
+		.trim()
+		.max(LEAD_SOURCE.originDetailMaxLength)
+		.optional(),
 });
 
 export type ContactCreateInput = z.infer<typeof contactCreateInput>;
@@ -41,13 +55,15 @@ const contactUpdateInput = z.object({
 	firstName: z.string().trim().min(1).optional(),
 	lastName: z.string().optional(),
 	email: z.string().optional(),
-	phone: z.string().optional(),
+	phone: phoneInput.optional(),
 	title: z.string().optional(),
 	linkedinUrl: z.string().optional(),
 	twitterUrl: z.string().optional(),
 	githubUrl: z.string().optional(),
 	companyId: z.string().nullable().optional(),
 	ownerId: z.string().nullable().optional(),
+	leadSourceId: z.string().nullable().optional(),
+	originDetail: z.string().max(LEAD_SOURCE.originDetailMaxLength).optional(),
 	fields: recordFieldValues.optional(),
 });
 
@@ -123,6 +139,12 @@ const contactCompanyOutput = z.object({
 	logoUrl: z.string().nullable(),
 });
 
+const contactLeadSourceOutput = z.object({
+	id: z.string(),
+	name: z.string(),
+	icon: z.string().nullable(),
+});
+
 const contactOwnerOutput = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -142,6 +164,8 @@ export const contactRowOutput = z.object({
 	),
 	company: contactCompanyOutput.nullable(),
 	owner: contactOwnerOutput.nullable(),
+	leadSource: contactLeadSourceOutput.nullable(),
+	originDetail: z.string().nullable(),
 	lastActivityAt: z.string().nullable(),
 	createdAt: z.string(),
 	archivedAt: z.string().nullable(),
@@ -242,6 +266,8 @@ export const contactByIdOutput = z.object({
 	),
 	enrichmentError: z.string().nullable(),
 	owner: contactOwnerOutput.nullable(),
+	leadSource: contactLeadSourceOutput.nullable(),
+	originDetail: z.string().nullable(),
 	company: contactCompanyOutput
 		.extend({
 			industry: z.string().nullable(),

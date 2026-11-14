@@ -1,4 +1,5 @@
 import type { Prisma } from "@crm/db";
+import { normalizePhone } from "@crm/db/phone";
 import type { Brand } from "./context-dev";
 
 export type BrandUpdate = Prisma.CompanyUpdateInput;
@@ -142,7 +143,7 @@ export function brandToUpdate(
 	fill("country", clean(brand.address?.country));
 	fill("countryCode", clean(brand.address?.country_code));
 
-	fill("phone", clean(brand.phone));
+	fill("phone", normalizePhone(brand.phone ?? ""));
 	fill("email", clean(brand.email));
 
 	fill("linkedinUrl", social(brand.socials, "linkedin"));

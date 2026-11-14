@@ -301,6 +301,7 @@ function ContactRail({ contact }: { contact: Contact }) {
 	const cache = useCrmCache();
 
 	const users = useQuery(trpc.users.list.queryOptions());
+	const leadSources = useQuery(trpc.leadSources.list.queryOptions());
 
 	const { applied, proposed } = factsByField(contact.facts);
 
@@ -416,6 +417,31 @@ function ContactRail({ contact }: { contact: Contact }) {
 						onSave={(ownerId) =>
 							save({ ownerId: ownerId === NONE ? null : ownerId })
 						}
+					/>
+					<InlineSelectField
+						label="Origen"
+						value={contact.leadSource?.id ?? NONE}
+						options={[
+							{ value: NONE, label: "Desconocido" },
+							...(leadSources.data?.sources ?? [])
+								.filter(
+									(source) =>
+										!source.archived || source.id === contact.leadSource?.id,
+								)
+								.map((source) => ({ value: source.id, label: source.name })),
+						]}
+						onSave={(leadSourceId) =>
+							save({
+								leadSourceId: leadSourceId === NONE ? null : leadSourceId,
+							})
+						}
+					/>
+					<InlineField
+						label="Detalle del origen"
+						value={contact.originDetail}
+						placeholder="Campaña, feria o quién lo refirió"
+						saving={isSaving("originDetail")}
+						onSave={(originDetail) => save({ originDetail })}
 					/>
 					<RecordFields
 						fields={contact.fields}

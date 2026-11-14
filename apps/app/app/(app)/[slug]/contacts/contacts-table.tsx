@@ -7,6 +7,7 @@ import {
 	type DataTableFacet,
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
+import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
 import { useSearchInput } from "@crm/ui/hooks/use-search-input";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
@@ -87,6 +88,22 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 		cell: (row) => <CompanyCell company={row.company} />,
 	},
 	{
+		id: "leadSource",
+		header: "Origen",
+		sortable: true,
+		width: "40",
+		hideBelow: "md",
+		cell: (row) =>
+			row.leadSource ? (
+				<span className="flex min-w-0 items-center gap-2">
+					<LeadSourceMark icon={row.leadSource.icon} />
+					<span className="truncate">{row.leadSource.name}</span>
+				</span>
+			) : (
+				<EmptyCellValue />
+			),
+	},
+	{
 		id: "owner",
 		header: "Owner",
 		sortable: true,
@@ -157,6 +174,7 @@ export function ContactsTable() {
 		placeholderData: (previous) => previous,
 	});
 	const users = useQuery(trpc.users.list.queryOptions());
+	const leadSources = useQuery(trpc.leadSources.list.queryOptions());
 
 	const [companyQuery, setCompanyQuery] = useState("");
 	const [companyText, setCompanyText] = useSearchInput(
@@ -219,6 +237,17 @@ export function ContactsTable() {
 					label: company.name,
 				})),
 			].filter((option) => (facetCounts?.company?.[option.value] ?? 0) > 0),
+		},
+		{
+			id: "leadSource",
+			label: "Origen",
+			options: [
+				...(leadSources.data?.sources ?? []).map((source) => ({
+					value: source.id,
+					label: source.name,
+				})),
+				{ value: "none", label: "Desconocido" },
+			].filter((option) => (facetCounts?.leadSource?.[option.value] ?? 0) > 0),
 		},
 		{
 			id: "title",

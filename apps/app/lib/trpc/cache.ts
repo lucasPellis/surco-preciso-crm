@@ -36,6 +36,7 @@ export type CrmCache = {
 	microsoft(options?: Options): Promise<void>;
 	settings(options?: Options): Promise<void>;
 	currency(options?: Options): Promise<void>;
+	leadSources(options?: Options): Promise<void>;
 	workspace(options?: Options): Promise<void>;
 	slack(options?: Options): Promise<void>;
 	sso(options?: Options): Promise<void>;
@@ -294,6 +295,9 @@ export function useCrmCache(): CrmCache {
 				],
 				options,
 			),
+
+		leadSources: (options) =>
+			run([trpc.leadSources.list.queryKey()], [], options),
 
 		workspace: (options) =>
 			run(

@@ -11,6 +11,7 @@ import {
 } from "@crm/ui/components/form-sheet";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
+import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
 import {
 	Select,
 	SelectContent,
@@ -68,16 +69,25 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 	const [firstName, setFirstName] = useState("");
 	const [lastName, setLastName] = useState("");
 	const [email, setEmail] = useState("");
+	const [phone, setPhone] = useState("");
 	const [title, setTitle] = useState("");
 	const [company, setCompany] = useState(companyId ?? NONE);
 	const [ownerId, setOwnerId] = useState(NONE);
+	const [leadSourceId, setLeadSourceId] = useState(NONE);
+	const [originDetail, setOriginDetail] = useState("");
 
 	const firstNameId = useId();
 	const lastNameId = useId();
 	const emailId = useId();
+	const phoneId = useId();
 	const titleId = useId();
+	const originDetailId = useId();
 
 	const users = useQuery(trpc.users.list.queryOptions());
+	const leadSources = useQuery(trpc.leadSources.list.queryOptions());
+	const activeSources = (leadSources.data?.sources ?? []).filter(
+		(source) => !source.archived,
+	);
 
 	const create = useMutation(
 		trpc.contacts.create.mutationOptions({
@@ -99,9 +109,12 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 		setFirstName("");
 		setLastName("");
 		setEmail("");
+		setPhone("");
 		setTitle("");
 		setCompany(companyId ?? NONE);
 		setOwnerId(NONE);
+		setLeadSourceId(NONE);
+		setOriginDetail("");
 	};
 
 	return (
@@ -110,9 +123,12 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 				firstName !== "" ||
 				lastName !== "" ||
 				email !== "" ||
+				phone !== "" ||
 				title !== "" ||
 				company !== (companyId ?? NONE) ||
-				ownerId !== NONE
+				ownerId !== NONE ||
+				leadSourceId !== NONE ||
+				originDetail !== ""
 			}
 			pending={create.isPending}
 			onDiscard={reset}
@@ -126,8 +142,9 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 				<SheetHeader>
 					<SheetTitle>New contact</SheetTitle>
 					<SheetDescription>
-						Email addresses are unique, so importing the same person twice
-						updates them rather than duplicating them.
+						Email addresses and phone numbers are unique, so the same person
+						cannot be added twice. Without a company, one is created with the
+						person's name.
 					</SheetDescription>
 				</SheetHeader>
 
@@ -142,9 +159,12 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 							firstName,
 							lastName: lastName || undefined,
 							email: email || undefined,
+							phone: phone || undefined,
 							title: title || undefined,
 							companyId: company === NONE ? null : company,
 							ownerId: ownerId === NONE ? null : ownerId,
+							leadSourceId: leadSourceId === NONE ? null : leadSourceId,
+							originDetail: originDetail || undefined,
 						});
 					}}
 				>
@@ -206,6 +226,25 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 						</FieldError>
 					</Field>
 
+					<Field data-invalid={!!validation.errors[phoneId]}>
+						<FieldLabel htmlFor={phoneId}>Teléfono</FieldLabel>
+						<Input
+							id={phoneId}
+							aria-invalid={!!validation.errors[phoneId]}
+							aria-describedby={
+								validation.errors[phoneId] ? `${phoneId}-error` : undefined
+							}
+							type="tel"
+							value={phone}
+							onChange={(event) => setPhone(event.target.value)}
+							placeholder="+54 9 11 2345 6789"
+							autoComplete="off"
+						/>
+						<FieldError id={`${phoneId}-error`}>
+							{validation.errors[phoneId]}
+						</FieldError>
+					</Field>
+
 					<Field data-invalid={!!validation.errors[titleId]}>
 						<FieldLabel htmlFor={titleId}>Title</FieldLabel>
 						<Input
@@ -249,6 +288,37 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 								))}
 							</SelectContent>
 						</Select>
+					</Field>
+
+					<Field>
+						<FieldLabel htmlFor="create-contact-lead-source">Origen</FieldLabel>
+						<Select value={leadSourceId} onValueChange={setLeadSourceId}>
+							<SelectTrigger id="create-contact-lead-source">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={NONE}>Desconocido</SelectItem>
+								{activeSources.map((source) => (
+									<SelectItem key={source.id} value={source.id}>
+										<span className="flex items-center gap-2">
+											<LeadSourceMark icon={source.icon} />
+											{source.name}
+										</span>
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</Field>
+
+					<Field>
+						<FieldLabel htmlFor={originDetailId}>Detalle del origen</FieldLabel>
+						<Input
+							id={originDetailId}
+							value={originDetail}
+							onChange={(event) => setOriginDetail(event.target.value)}
+							placeholder="Campaña, feria o quién lo refirió"
+							autoComplete="off"
+						/>
 					</Field>
 				</FormSheetForm>
 

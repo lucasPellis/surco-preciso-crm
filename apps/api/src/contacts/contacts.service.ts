@@ -8,7 +8,9 @@ import {
 	type RecordSource,
 } from "@crm/db";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
+import { normalizePhone } from "@crm/db/phone";
 import {
+	BadRequestException,
 	ConflictException,
 	Injectable,
 	Logger,
@@ -67,6 +69,9 @@ const COMPANY_SELECT = {
 } as const;
 
 const NO_COMPANY = "none";
+const NO_LEAD_SOURCE = "none";
+
+const LEAD_SOURCE_SELECT = { id: true, name: true, icon: true } as const;
 
 type FactColumns = Record<string, string | undefined>;
 
@@ -84,6 +89,7 @@ const SORTABLE: OrderByColumns<Prisma.ContactOrderByWithRelationInput[]> = {
 	email: (dir) => [{ email: dir }],
 	title: (dir) => [{ title: dir }, { lastName: "asc" }],
 	company: (dir) => [{ company: { name: dir } }, { lastName: "asc" }],
+	leadSource: (dir) => [{ leadSource: { name: dir } }, { lastName: "asc" }],
 	createdAt: (dir) => [{ createdAt: dir }],
 	owner: (dir) => [{ owner: { name: dir } }, { lastName: "asc" }],
 	lastActivity: (dir) => [{ lastActivityAt: { sort: dir, nulls: "last" } }],
@@ -124,6 +130,8 @@ export class ContactsService {
 					source: true,
 					company: { select: COMPANY_SELECT },
 					owner: { select: OWNER_SELECT },
+					leadSource: { select: LEAD_SOURCE_SELECT },
+					originDetail: true,
 					lastActivityAt: true,
 					createdAt: true,
 					archivedAt: true,
@@ -198,6 +206,8 @@ export class ContactsService {
 					select: { ...COMPANY_SELECT, industry: true, primaryContactId: true },
 				},
 				owner: { select: OWNER_SELECT },
+				leadSource: { select: LEAD_SOURCE_SELECT },
+				originDetail: true,
 				deals: {
 					select: {
 						role: true,
@@ -278,13 +288,21 @@ export class ContactsService {
 			}
 		}
 
+		const phone = normalizePhone(input.phone ?? "");
+		if (phone) await this.assertPhoneFree(phone);
+		if (input.leadSourceId) await this.assertSourceActive(input.leadSourceId);
+
 		const companyId =
 			input.companyId ??
-			(email
-				? await this.companies.companyForEmail(email, {
-						ownerId: input.ownerId,
-					})
-				: null);
+			(await this.companies.resolveForContact({
+				email,
+				phone,
+				name: nameOf({
+					firstName: input.firstName.trim(),
+					lastName: blankToNull(input.lastName ?? ""),
+				}),
+				ownerId: input.ownerId,
+			}));
 
 		const contact = await this.agent.withCrmEvents(async (tx, emit) => {
 			await this.allowAgain(tx, email);
@@ -294,10 +312,12 @@ export class ContactsService {
 					firstName: input.firstName.trim(),
 					lastName: blankToNull(input.lastName ?? ""),
 					email,
-					phone: blankToNull(input.phone ?? ""),
+					phone,
 					title: blankToNull(input.title ?? ""),
 					companyId,
 					ownerId: input.ownerId ?? null,
+					leadSourceId: input.leadSourceId ?? null,
+					originDetail: blankToNull(input.originDetail ?? ""),
 				},
 				select: {
 					id: true,
@@ -476,7 +496,9 @@ export class ContactsService {
 		const email =
 			input.email === undefined ? null : normalizeEmail(input.email);
 		if (input.email !== undefined) data.email = email;
-		if (input.phone !== undefined) data.phone = blankToNull(input.phone);
+		const phone =
+			input.phone === undefined ? undefined : normalizePhone(input.phone);
+		if (phone !== undefined) data.phone = phone;
 		if (input.title !== undefined) data.title = blankToNull(input.title);
 		if (input.linkedinUrl !== undefined) {
 			data.linkedinUrl = blankToNull(input.linkedinUrl);
@@ -497,6 +519,17 @@ export class ContactsService {
 				? { connect: { id: input.ownerId } }
 				: { disconnect: true };
 		}
+		if (input.leadSourceId !== undefined) {
+			data.leadSource = input.leadSourceId
+				? { connect: { id: input.leadSourceId } }
+				: { disconnect: true };
+		}
+		if (input.originDetail !== undefined) {
+			data.originDetail = blankToNull(input.originDetail);
+		}
+
+		if (phone) await this.assertPhoneFree(phone, id);
+		if (input.leadSourceId) await this.assertSourceActive(input.leadSourceId);
 
 		try {
 			return await this.db.$transaction(async (tx) => {
@@ -804,6 +837,17 @@ export class ContactsService {
 		return { OR: [{ companyId: { in: ids } }, { companyId: null }] };
 	}
 
+	private leadSourceFilter(
+		values: string[],
+	): Prisma.ContactWhereInput | undefined {
+		if (values.length === 0) return undefined;
+
+		const { ids, includesSentinel } = splitSentinel(values, NO_LEAD_SOURCE);
+		if (includesSentinel && ids.length === 0) return { leadSourceId: null };
+		if (!includesSentinel) return { leadSourceId: { in: ids } };
+		return { OR: [{ leadSourceId: { in: ids } }, { leadSourceId: null }] };
+	}
+
 	private buildWhere(
 		input: ContactListInput,
 		filterableFields: FieldDefinitionWithOptions[],
@@ -819,6 +863,9 @@ export class ContactsService {
 
 		const company = this.companyFilter(input.company);
 		if (company) and.push(company);
+
+		const leadSource = this.leadSourceFilter(input.leadSource);
+		if (leadSource) and.push(leadSource);
 
 		if (input.source.length > 0) {
 			and.push({ source: { in: input.source as RecordSource[] } });
@@ -846,6 +893,7 @@ export class ContactsService {
 		const [
 			owners,
 			companies,
+			leadSources,
 			sources,
 			titles,
 			seniorities,
@@ -860,6 +908,11 @@ export class ContactsService {
 			}),
 			this.db.contact.groupBy({
 				by: ["companyId"],
+				where,
+				_count: { _all: true },
+			}),
+			this.db.contact.groupBy({
+				by: ["leadSourceId"],
 				where,
 				_count: { _all: true },
 			}),
@@ -892,6 +945,7 @@ export class ContactsService {
 		return {
 			owner: countsByKey(owners, "ownerId", FACET_UNASSIGNED),
 			company: countsByKey(companies, "companyId", NO_COMPANY),
+			leadSource: countsByKey(leadSources, "leadSourceId", NO_LEAD_SOURCE),
 			source: countsByKey(sources, "source"),
 			title: countsByKey(titles, "title"),
 			seniority: countsByKey(seniorities, "seniority"),
@@ -906,6 +960,30 @@ export class ContactsService {
 		};
 	}
 
+	private async assertPhoneFree(phone: string, exceptId?: string) {
+		const existing = await this.db.contact.findFirst({
+			where: {
+				phone,
+				archivedAt: null,
+				...(exceptId ? { id: { not: exceptId } } : {}),
+			},
+			select: { firstName: true, lastName: true },
+		});
+		if (existing) {
+			throw new ConflictException(`${nameOf(existing)} already uses ${phone}.`);
+		}
+	}
+
+	private async assertSourceActive(leadSourceId: string) {
+		const source = await this.db.leadSource.findFirst({
+			where: { id: leadSourceId, archivedAt: null },
+			select: { id: true },
+		});
+		if (!source) {
+			throw new BadRequestException("That lead source is not available.");
+		}
+	}
+
 	private translate(cause: unknown, id: string): never {
 		if (cause instanceof PrismaNamespace.PrismaClientKnownRequestError) {
 			if (cause.code === "P2025") {
@@ -913,7 +991,7 @@ export class ContactsService {
 			}
 			if (cause.code === "P2002") {
 				throw new ConflictException(
-					"Another contact already uses that email address.",
+					"Another contact already uses that email address or phone number.",
 				);
 			}
 		}

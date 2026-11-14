@@ -655,6 +655,7 @@ async function seedContacts(
 ): Promise<SeededContact[]> {
 	const contacts: SeededContact[] = [];
 	const used = new Set<string>();
+	let phoneSerial = 0;
 
 	for (const company of companies) {
 		for (let index = 0; index < integer(2, 4); index++) {
@@ -671,7 +672,7 @@ async function seedContacts(
 					lastName,
 					email,
 					title: pick(TITLES),
-					phone: chance(0.4) ? `+1 415 555 ${integer(1000, 9999)}` : null,
+					phone: chance(0.4) ? `+1415555${1000 + phoneSerial++}` : null,
 					companyId: company.id,
 					ownerId: pick(ownerIds),
 					createdAt: daysFromNow(-integer(10, 300), 12),
