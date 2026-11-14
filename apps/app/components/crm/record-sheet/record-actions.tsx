@@ -36,9 +36,9 @@ import {
 } from "./record-stack";
 
 const NOUN = {
-	company: "company",
-	contact: "contact",
-	deal: "deal",
+	company: "empresa",
+	contact: "contacto",
+	deal: "oportunidad",
 } satisfies Record<RecordKind, string>;
 
 const RECORD_PROCEDURES = {
@@ -53,9 +53,7 @@ function useArchiveRecord(record: RecordRef) {
 
 	const handlers = {
 		onSuccess: (archived: { name: string }) => {
-			toast.success(
-				`${archived.name || `The ${NOUN[record.kind]}`} was archived.`,
-			);
+			toast.success(`Archivado: ${archived.name || NOUN[record.kind]}.`);
 			void cache[record.kind](record.id);
 		},
 		onError: (error: { message: string }) => toast.error(error.message),
@@ -72,9 +70,7 @@ function useRestoreRecord(record: RecordRef) {
 
 	const handlers = {
 		onSuccess: (restored: { name: string }) => {
-			toast.success(
-				`${restored.name || `The ${NOUN[record.kind]}`} was restored.`,
-			);
+			toast.success(`Restaurado: ${restored.name || NOUN[record.kind]}.`);
 			void cache[record.kind](record.id);
 		},
 		onError: (error: { message: string }) => toast.error(error.message),
@@ -93,7 +89,7 @@ function usePurgeRecord(record: RecordRef) {
 	const handlers = {
 		onSuccess: (purged: { name: string }) => {
 			toast.success(
-				`${purged.name || `The ${NOUN[record.kind]}`} was deleted forever.`,
+				`Eliminado para siempre: ${purged.name || NOUN[record.kind]}.`,
 			);
 			void cache.removed(record);
 			close();
@@ -130,7 +126,7 @@ export function RecordActions({
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" size="icon-sm" disabled={pending}>
 						<Icon icon={EllipsisVerticalIcon} />
-						<span className="sr-only">More actions</span>
+						<span className="sr-only">Más acciones</span>
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="min-w-44">
@@ -140,14 +136,14 @@ export function RecordActions({
 								onSelect={() => restore.mutate({ id: record.id })}
 							>
 								<Icon icon={Undo2Icon} />
-								Restore {NOUN[record.kind]}
+								Restaurar {NOUN[record.kind]}
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								variant="destructive"
 								onSelect={() => setConfirming(true)}
 							>
 								<Icon icon={Trash2Icon} />
-								Delete {NOUN[record.kind]} forever
+								Eliminar {NOUN[record.kind]} para siempre
 							</DropdownMenuItem>
 						</>
 					) : (
@@ -155,7 +151,7 @@ export function RecordActions({
 							onSelect={() => archive.mutate({ id: record.id })}
 						>
 							<Icon icon={ArchiveIcon} />
-							Archive {NOUN[record.kind]}
+							Archivar {NOUN[record.kind]}
 						</DropdownMenuItem>
 					)}
 				</DropdownMenuContent>
@@ -164,17 +160,17 @@ export function RecordActions({
 			<AlertDialog open={confirming} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete {name} forever?</AlertDialogTitle>
+						<AlertDialogTitle>¿Eliminar {name} para siempre?</AlertDialogTitle>
 						<AlertDialogDescription>{consequence}</AlertDialogDescription>
 					</AlertDialogHeader>
 
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>Cancelar</AlertDialogCancel>
 						<AlertDialogAction
 							variant="destructive"
 							onClick={() => purge.mutate({ id: record.id })}
 						>
-							Delete forever
+							Eliminar para siempre
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

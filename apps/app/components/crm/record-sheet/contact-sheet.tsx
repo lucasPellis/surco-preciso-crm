@@ -74,16 +74,16 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 };
 
 const DEAL_COLUMNS = [
-	{ id: "deal", header: "Deal", width: "w-[32%]", className: "pl-0" },
-	{ id: "role", header: "Role", width: "w-[16%]" },
-	{ id: "stage", header: "Stage", width: "w-[22%]" },
+	{ id: "deal", header: "Oportunidad", width: "w-[32%]", className: "pl-0" },
+	{ id: "role", header: "Rol", width: "w-[16%]" },
+	{ id: "stage", header: "Etapa", width: "w-[22%]" },
 	{
 		id: "amount",
-		header: "Amount",
+		header: "Monto",
 		width: "w-[16%]",
 		align: "right" as const,
 	},
-	{ id: "owner", header: "Owner", width: "w-[14%]" },
+	{ id: "owner", header: "Responsable", width: "w-[14%]" },
 ];
 
 export function ContactSheet({ contactId }: { contactId: string }) {
@@ -106,7 +106,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 		trpc.companies.setPrimaryContact.mutationOptions({
 			onSuccess: async () => {
 				await cache.contact(contactId);
-				toast.success("Primary contact updated.");
+				toast.success("Contacto principal actualizado.");
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -115,25 +115,25 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 	const tabs: RecordSheetTab[] = [
 		{
 			value: "overview",
-			label: "Overview",
+			label: "Resumen",
 			content: contact ? <ContactOverview contact={contact} /> : null,
 		},
 		{
 			value: "deals",
-			label: "Deals",
+			label: "Oportunidades",
 			count: contact?.deals.length,
 			fills: true,
 			content: contact ? <ContactDeals contact={contact} /> : null,
 		},
 		{
 			value: "activity",
-			label: "Activity",
+			label: "Actividad",
 			fills: true,
 			content: contact ? <Timeline anchor={{ contactId: contact.id }} /> : null,
 		},
 		{
 			value: "agent",
-			label: "Agent",
+			label: "Agente",
 			fills: true,
 			content: contact ? (
 				<AgentPanel record={{ kind: "contact", id: contact.id }} />
@@ -163,7 +163,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 				kind="contact"
 				loading={query.isPending}
 				error={query.error?.message ?? null}
-				title={contact ? contactName(contact) : "Contact"}
+				title={contact ? contactName(contact) : "Contacto"}
 				media={
 					contact ? (
 						<PersonAvatar
@@ -184,7 +184,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 								<CompanyLink company={contact.company} />
 							) : null}
 							{contact.isPrimaryContact ? (
-								<StatusIndicator tone="success" label="Primary contact" />
+								<StatusIndicator tone="success" label="Contacto principal" />
 							) : null}
 							{contact.enrichmentStatus !== "COMPLETE" ? (
 								<EnrichmentIndicator
@@ -221,13 +221,13 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 									}
 								>
 									<Icon icon={StarIcon} data-icon="inline-start" />
-									<span className="hidden sm:inline">Make primary</span>
+									<span className="hidden sm:inline">Hacer principal</span>
 								</Button>
 							) : null}
 							<RecordActions
 								record={{ kind: "contact", id: contact.id }}
 								name={contactName(contact)}
-								consequence={`Their notes, agent conversations and everything the agent found go too. Emails and meetings stay filed against the company.${contact.email ? ` The sync will not bring ${contact.email} back. Only adding them yourself will.` : ""}`}
+								consequence={`Se eliminan también sus notas, las conversaciones con el agente y todo lo que el agente encontró. Los emails y las reuniones quedan archivados en la empresa.${contact.email ? ` La sincronización no volverá a traer a ${contact.email}. Solo se puede volver a agregar a mano.` : ""}`}
 								archivedAt={contact.archivedAt}
 							/>
 						</>
@@ -278,10 +278,10 @@ function ContactOverview({ contact }: { contact: Contact }) {
 			{contact.brief ? (
 				<Background brief={contact.brief} />
 			) : hasRelationship ? null : (
-				<RecordSection label="Background">
+				<RecordSection label="Contexto">
 					<RecordEmpty>
-						Nothing is known about {contactName(contact)} yet. Research, emails
-						and meetings show here as they arrive.
+						Todavía no se sabe nada de {contactName(contact)}. La investigación,
+						los emails y las reuniones aparecerán aquí a medida que lleguen.
 					</RecordEmpty>
 				</RecordSection>
 			)}
@@ -335,24 +335,27 @@ function ContactRail({ contact }: { contact: Contact }) {
 
 	return (
 		<>
-			<DetailSheetSection title="Details" action={<FieldsCog kind="contact" />}>
+			<DetailSheetSection
+				title="Detalles"
+				action={<FieldsCog kind="contact" />}
+			>
 				<DetailSheetProperties columns={1}>
 					<InlineField
-						label="First name"
+						label="Nombre"
 						value={contact.firstName}
 						saving={isSaving("firstName")}
 						onSave={(firstName) => firstName && save({ firstName })}
 					/>
 					<InlineField
-						label="Last name"
+						label="Apellido"
 						value={contact.lastName}
 						saving={isSaving("lastName")}
 						onSave={(lastName) => save({ lastName })}
 					/>
 					<InlineField
-						label="Title"
+						label="Cargo"
 						value={contact.title}
-						placeholder="Head of Security"
+						placeholder="Gerente de campo"
 						saving={isSaving("title")}
 						onSave={(title) => save({ title })}
 						{...agentProps("title")}
@@ -365,7 +368,7 @@ function ContactRail({ contact }: { contact: Contact }) {
 						onSave={(email) => save({ email })}
 					/>
 					<InlineField
-						label="Phone"
+						label="Teléfono"
 						value={contact.phone}
 						type="tel"
 						saving={isSaving("phone")}
@@ -399,16 +402,16 @@ function ContactRail({ contact }: { contact: Contact }) {
 						value={contact.company?.id ?? NONE}
 						company={contact.company}
 						saving={isSaving("companyId")}
-						none={{ value: NONE, label: "No company" }}
+						none={{ value: NONE, label: "Sin empresa" }}
 						onSave={(companyId) =>
 							save({ companyId: companyId === NONE ? null : companyId })
 						}
 					/>
 					<InlineSelectField
-						label="Owner"
+						label="Responsable"
 						value={contact.owner?.id ?? NONE}
 						options={[
-							{ value: NONE, label: "Unassigned" },
+							{ value: NONE, label: "Sin asignar" },
 							...(users.data ?? []).map((user) => ({
 								value: user.id,
 								label: user.name,
@@ -452,7 +455,7 @@ function ContactRail({ contact }: { contact: Contact }) {
 			</DetailSheetSection>
 
 			{hasContactLinks(contact) ? (
-				<DetailSheetSection title="Links">
+				<DetailSheetSection title="Enlaces">
 					<ContactSocials contact={contact} />
 				</DetailSheetSection>
 			) : null}
@@ -465,16 +468,16 @@ function Background({ brief }: { brief: NonNullable<Contact["brief"]> }) {
 	const previous = sections.previousRoles ?? [];
 
 	const lines = [
-		{ label: "Current role", value: sections.currentRole },
-		{ label: "Tenure", value: sections.tenure },
-		{ label: "Seniority", value: sections.seniority },
-		{ label: "Function", value: sections.function },
-		{ label: "Based", value: sections.location },
+		{ label: "Cargo actual", value: sections.currentRole },
+		{ label: "Antigüedad", value: sections.tenure },
+		{ label: "Jerarquía", value: sections.seniority },
+		{ label: "Función", value: sections.function },
+		{ label: "Ubicación", value: sections.location },
 	].filter((line) => Boolean(line.value));
 
 	return (
 		<DetailSheetSection
-			title="Background"
+			title="Contexto"
 			action={
 				<span className="flex items-baseline gap-x-3 text-13 text-muted-foreground">
 					{brief.sourceUrl ? (
@@ -484,7 +487,7 @@ function Background({ brief }: { brief: NonNullable<Contact["brief"]> }) {
 							rel="noreferrer noopener"
 							className="underline-offset-2 hover:underline"
 						>
-							Source
+							Fuente
 						</a>
 					) : null}
 					<LocalDateTime date={brief.refreshedAt} options={DATE_OPTIONS} />
@@ -501,7 +504,7 @@ function Background({ brief }: { brief: NonNullable<Contact["brief"]> }) {
 				))}
 
 				{previous.length > 0 ? (
-					<DetailSheetProperty label="Previously" wide>
+					<DetailSheetProperty label="Antes" wide>
 						<PreviousRoles roles={previous} />
 					</DetailSheetProperty>
 				) : null}
@@ -515,7 +518,7 @@ function PreviousRoles({ roles }: { roles: string[] }) {
 		<Accordion type="single" collapsible>
 			<AccordionItem value="previous">
 				<AccordionTrigger variant="subtle">
-					{roles.length === 1 ? "1 role" : `${roles.length} roles`}
+					{roles.length === 1 ? "1 cargo" : `${roles.length} cargos`}
 				</AccordionTrigger>
 				<AccordionContent>
 					<ul className="space-y-1">
@@ -544,7 +547,7 @@ function WeKnowThem({
 	const first = name.split(" ")[0] ?? name;
 
 	return (
-		<DetailSheetSection title="We know them">
+		<DetailSheetSection title="Lo que sabemos">
 			<DetailSheetProperties>
 				{emails > 0 ? (
 					<DetailSheetProperty label="Emails">
@@ -553,27 +556,27 @@ function WeKnowThem({
 				) : null}
 
 				{emails > 0 ? (
-					<DetailSheetProperty label="Last reply">
+					<DetailSheetProperty label="Última respuesta">
 						{lastReplyAt ? (
 							<LocalRelativeDate date={lastReplyAt} />
 						) : (
 							<span className="text-muted-foreground">
-								{first} has never replied
+								{first} nunca respondió
 							</span>
 						)}
 					</DetailSheetProperty>
 				) : null}
 
 				{meetings > 0 ? (
-					<DetailSheetProperty label="Meetings">
+					<DetailSheetProperty label="Reuniones">
 						<span className="tabular-nums">{meetings}</span>
 					</DetailSheetProperty>
 				) : null}
 
 				{nextMeeting ? (
-					<DetailSheetProperty label="Next meeting" wide>
+					<DetailSheetProperty label="Próxima reunión" wide>
 						<span className="flex min-w-0 flex-col">
-							<span>{nextMeeting.title ?? "Meeting"}</span>
+							<span>{nextMeeting.title ?? "Reunión"}</span>
 							<span className="text-muted-foreground">
 								<LocalDateTime
 									date={nextMeeting.startsAt}
@@ -585,7 +588,7 @@ function WeKnowThem({
 				) : null}
 
 				{colleagues.length > 0 ? (
-					<DetailSheetProperty label="Also here" wide>
+					<DetailSheetProperty label="También en la empresa" wide>
 						<Colleagues colleagues={colleagues} />
 					</DetailSheetProperty>
 				) : null}
@@ -632,8 +635,8 @@ function ContactDeals({ contact }: { contact: Contact }) {
 		return (
 			<DetailSheetEmpty
 				icon={HandshakeIcon}
-				title="Not on any deals"
-				description={`${contactName(contact)} is not attached to anything being sold yet. Deals are opened on the company, then people are added to them.`}
+				title="Sin oportunidades"
+				description={`${contactName(contact)} todavía no está en ninguna oportunidad.`}
 			/>
 		);
 	}

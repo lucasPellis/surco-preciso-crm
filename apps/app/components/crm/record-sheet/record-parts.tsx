@@ -25,9 +25,9 @@ import {
 } from "./record-stack";
 
 const KIND_LABEL = {
-	company: "Company",
-	contact: "Contact",
-	deal: "Deal",
+	company: "Empresa",
+	contact: "Contacto",
+	deal: "Oportunidad",
 } satisfies Record<RecordKind, string>;
 
 function useRecordName(ref: RecordRef | undefined): string | null {
@@ -92,7 +92,7 @@ export function RecordSheetFrame({
 				back={
 					previous
 						? {
-								label: previousName ? `Back to ${previousName}` : "Back",
+								label: previousName ? `Volver a ${previousName}` : "Volver",
 								onBack: close,
 							}
 						: undefined
@@ -112,7 +112,7 @@ export function RecordSheetFrame({
 				<RecordSheetLoading tabs={tabs.length} />
 			) : error ? (
 				<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 p-6 text-center">
-					<p className="font-medium text-sm">This record could not be loaded</p>
+					<p className="font-medium text-sm">No se pudo cargar este registro</p>
 					<p className="text-muted-foreground text-sm">{error}</p>
 				</div>
 			) : (
