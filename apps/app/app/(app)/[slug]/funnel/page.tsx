@@ -13,7 +13,7 @@ import { Suspense } from "react";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
-import { CreateContactSheet } from "../contacts/create-contact-sheet";
+import { CreateLeadSheet } from "../contacts/create-lead-sheet";
 import {
 	OverviewScopeToggle,
 	OverviewScopeToggleFallback,
@@ -42,7 +42,7 @@ export default function FunnelPage({
 					<Suspense fallback={<OverviewScopeToggleFallback />}>
 						<OverviewScopeToggle />
 					</Suspense>
-					<CreateContactSheet lead />
+					<CreateLeadSheet />
 				</PageShellActions>
 			</PageShellHeader>
 

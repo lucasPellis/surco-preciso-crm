@@ -301,6 +301,12 @@ The rules live in `docs/plan/surco-preciso-flow.md`. The ones that bite:
 - **Phone is stored normalized (`normalizePhone`, `@crm/db/phone`) and is unique among
   active contacts.** Normalize at the boundary, in the service, before any compare. The
   agent writes `Company.phone` through the same function.
+- **A lead needs a phone or an email.** `contactCreateInput` refuses both empty. Direct
+  service callers, such as the tracker, are not bound by it.
+- **A duplicate is a `CONFLICT` with a sentence, and nothing more.** `DomainErrorMiddleware`
+  carries `code` and `message` only. A client that must open the existing record calls
+  `contacts.findDuplicate({ phone, email })` after the conflict. Do not add a payload to
+  the error formatter for this.
 - **Company resolution is exact matching only** (`CompanyDirectoryService.resolveForContact`):
   work-email domain, then one company with that phone, then a new company named after
   the person. No scoring, no guessing. This is what keeps it out of the intelligence rule

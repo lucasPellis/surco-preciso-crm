@@ -18,7 +18,10 @@ import {
 	contactBulkInput,
 	contactBulkOwnerInput,
 	contactByIdOutput,
+	contactCreatedOutput,
 	contactCreateInput,
+	contactDuplicateInput,
+	contactDuplicateOutput,
 	contactEnrichOutput,
 	contactIdInput,
 	contactListInput,
@@ -55,9 +58,18 @@ export class ContactsRouter {
 		return this.contacts.byId(id);
 	}
 
+	@Query({
+		input: contactDuplicateInput,
+		output: contactDuplicateOutput,
+		meta: restMeta("POST", "/contacts/duplicate", ["Contacts"]),
+	})
+	async findDuplicate(@Input() input: z.infer<typeof contactDuplicateInput>) {
+		return this.contacts.findDuplicate(input);
+	}
+
 	@Mutation({
 		input: contactCreateInput,
-		output: contactBasicOutput,
+		output: contactCreatedOutput,
 		meta: restMeta("POST", "/contacts", ["Contacts"]),
 	})
 	async create(

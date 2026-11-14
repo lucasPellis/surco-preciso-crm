@@ -113,7 +113,7 @@ const PAGES: Destination[] = [
 const CREATE: Destination[] = [
 	{
 		id: "new-contact",
-		label: "Nuevo contacto",
+		label: "Nuevo lead",
 		href: `/contacts?${SEARCH_PARAM.dialog.create}=true`,
 		icon: PlusIcon,
 		keywords: ["agregar", "crear", "persona", "lead"],

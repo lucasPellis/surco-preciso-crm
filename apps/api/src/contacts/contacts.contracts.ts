@@ -33,23 +33,48 @@ const phoneInput = z
 	.trim()
 	.refine(isPlausiblePhone, "That is not a phone number.");
 
-export const contactCreateInput = z.object({
-	firstName: z.string().trim().min(1, "A contact needs a first name."),
-	lastName: z.string().trim().optional(),
-	email: z.email("That is not an email address.").optional().or(z.literal("")),
-	phone: phoneInput.optional(),
-	title: z.string().trim().optional(),
-	companyId: z.string().nullable().optional(),
-	ownerId: z.string().nullable().optional(),
-	leadSourceId: z.string().nullable().optional(),
-	originDetail: z
-		.string()
-		.trim()
-		.max(LEAD_SOURCE.originDetailMaxLength)
-		.optional(),
-});
+const contactEmailInput = z
+	.email("That is not an email address.")
+	.optional()
+	.or(z.literal(""));
+
+export const contactCreateInput = z
+	.object({
+		firstName: z.string().trim().min(1, "A contact needs a first name."),
+		lastName: z.string().trim().optional(),
+		email: contactEmailInput,
+		phone: phoneInput.optional(),
+		title: z.string().trim().optional(),
+		companyId: z.string().nullable().optional(),
+		ownerId: z.string().nullable().optional(),
+		leadSourceId: z.string().nullable().optional(),
+		originDetail: z
+			.string()
+			.trim()
+			.max(LEAD_SOURCE.originDetailMaxLength)
+			.optional(),
+	})
+	.refine((value) => Boolean(value.phone || value.email), {
+		message: "A lead needs a phone or an email.",
+		path: ["phone"],
+	});
 
 export type ContactCreateInput = z.infer<typeof contactCreateInput>;
+
+export const contactDuplicateInput = z.object({
+	phone: z.string().trim().optional(),
+	email: z.string().trim().optional(),
+});
+
+export type ContactDuplicateInput = z.infer<typeof contactDuplicateInput>;
+
+export const contactDuplicateOutput = z
+	.object({
+		contactId: z.string(),
+		name: z.string(),
+		dealId: z.string().nullable(),
+	})
+	.nullable();
 
 const contactUpdateInput = z.object({
 	firstName: z.string().trim().min(1).optional(),
@@ -290,6 +315,10 @@ export const contactBasicOutput = z.object({
 	id: z.string(),
 	firstName: z.string(),
 	lastName: z.string().nullable(),
+});
+
+export const contactCreatedOutput = contactBasicOutput.extend({
+	dealId: z.string().nullable(),
 });
 
 export const contactNameOutput = z.object({

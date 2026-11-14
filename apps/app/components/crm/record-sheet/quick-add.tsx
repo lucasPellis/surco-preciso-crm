@@ -75,11 +75,13 @@ export function QuickAddContact({
 	const [firstName, setFirstName] = useState("");
 	const [lastName, setLastName] = useState("");
 	const [email, setEmail] = useState("");
+	const [phone, setPhone] = useState("");
 	const [title, setTitle] = useState("");
 
 	const firstNameId = useId();
 	const lastNameId = useId();
 	const emailId = useId();
+	const phoneId = useId();
 	const titleId = useId();
 
 	const create = useMutation(
@@ -97,13 +99,16 @@ export function QuickAddContact({
 		<QuickAddForm
 			submitLabel="Agregar contacto"
 			pending={create.isPending}
-			ready={firstName.trim() !== ""}
+			ready={
+				firstName.trim() !== "" && (email.trim() !== "" || phone.trim() !== "")
+			}
 			onCancel={onDone}
 			onSubmit={() =>
 				create.mutate({
 					firstName,
 					lastName: lastName || undefined,
 					email: email || undefined,
+					phone: phone || undefined,
 					title: title || undefined,
 					companyId,
 					ownerId,
@@ -136,6 +141,17 @@ export function QuickAddContact({
 					type="email"
 					value={email}
 					onChange={(event) => setEmail(event.target.value)}
+					autoComplete="off"
+				/>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor={phoneId}>Teléfono</FieldLabel>
+				<Input
+					id={phoneId}
+					type="tel"
+					value={phone}
+					onChange={(event) => setPhone(event.target.value)}
+					placeholder="+54 9 11 2345 6789"
 					autoComplete="off"
 				/>
 			</Field>

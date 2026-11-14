@@ -6,6 +6,7 @@ import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../src/companies/company-directory.service";
 import {
 	type ContactCreateInput,
+	contactCreateInput,
 	contactListInput,
 } from "../src/contacts/contacts.contracts";
 import { ContactsService } from "../src/contacts/contacts.service";
@@ -172,6 +173,68 @@ describe("a phone number belongs to one contact", () => {
 		});
 
 		expect(updated.id).toBe(row.id);
+	});
+});
+
+describe("a lead needs a way to be reached", () => {
+	it("refuses a lead with no phone and no email", () => {
+		const result = contactCreateInput.safeParse({ firstName: "Sin datos" });
+
+		expect(result.success).toBe(false);
+	});
+
+	it("accepts a lead with only a phone or only an email", () => {
+		expect(
+			contactCreateInput.safeParse({ firstName: "Ana", phone: phone(60) })
+				.success,
+		).toBe(true);
+		expect(
+			contactCreateInput.safeParse({ firstName: "Ana", email: "ana@gmail.com" })
+				.success,
+		).toBe(true);
+	});
+});
+
+describe("finding the lead that already exists", () => {
+	it("returns the contact and its open deal for the same number", async () => {
+		const row = await file({ firstName: "Lola", phone: phone(61) }, actorId);
+		const deal = await db.dealContact.findFirstOrThrow({
+			where: { contactId: row.id },
+			select: { dealId: true },
+		});
+
+		const found = await contacts.findDuplicate({ phone: phone(61) });
+
+		expect(found).toEqual({
+			contactId: row.id,
+			name: "Lola",
+			dealId: deal.dealId,
+		});
+	});
+
+	it("matches an email in any letter case", async () => {
+		const email = `Dup-${suffix}@Gmail.com`;
+		const row = await file({ firstName: "Teo", email });
+
+		const found = await contacts.findDuplicate({ email: email.toLowerCase() });
+
+		expect(found?.contactId).toBe(row.id);
+		expect(found?.dealId).toBeNull();
+	});
+
+	it("returns null when nothing matches or nothing is given", async () => {
+		expect(await contacts.findDuplicate({ phone: phone(63) })).toBeNull();
+		expect(await contacts.findDuplicate({})).toBeNull();
+	});
+
+	it("reports the deal id when a lead is created with an owner", async () => {
+		const created = await contacts.create(
+			{ firstName: "Nico", phone: phone(62) },
+			actorId,
+		);
+		contactIds.push(created.id);
+
+		expect(created.dealId).not.toBeNull();
 	});
 });
 

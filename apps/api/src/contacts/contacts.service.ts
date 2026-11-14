@@ -49,6 +49,7 @@ import type {
 	ContactBulkCompanyInput,
 	ContactBulkOwnerInput,
 	ContactCreateInput,
+	ContactDuplicateInput,
 	ContactListInput,
 	ContactRow,
 	ContactUpdateInput,
@@ -311,6 +312,8 @@ export class ContactsService {
 				ownerId,
 			}));
 
+		let dealId: string | null = null;
+
 		const contact = await this.agent.withCrmEvents(async (tx, emit) => {
 			await this.allowAgain(tx, email);
 
@@ -336,7 +339,7 @@ export class ContactsService {
 				},
 			});
 			if (ownerId) {
-				const dealId = await openLeadDeal(tx, {
+				dealId = await openLeadDeal(tx, {
 					name: nameOf(created),
 					companyId,
 					contactId: created.id,
@@ -387,6 +390,44 @@ export class ContactsService {
 			id: contact.id,
 			firstName: contact.firstName,
 			lastName: contact.lastName,
+			dealId,
+		};
+	}
+
+	async findDuplicate(input: ContactDuplicateInput) {
+		const email = normalizeEmail(input.email ?? "");
+		const phone = normalizePhone(input.phone ?? "");
+
+		const matches: Prisma.ContactWhereInput[] = [];
+		if (email) matches.push({ email: { equals: email, mode: "insensitive" } });
+		if (phone) matches.push({ phone });
+		if (matches.length === 0) return null;
+
+		const existing = await this.db.contact.findFirst({
+			where: { archivedAt: null, OR: matches },
+			select: {
+				id: true,
+				firstName: true,
+				lastName: true,
+				deals: {
+					where: {
+						deal: {
+							archivedAt: null,
+							stage: { notIn: [DealStage.WON, DealStage.LOST] },
+						},
+					},
+					orderBy: { deal: { createdAt: "desc" } },
+					take: 1,
+					select: { dealId: true },
+				},
+			},
+		});
+		if (!existing) return null;
+
+		return {
+			contactId: existing.id,
+			name: nameOf(existing),
+			dealId: existing.deals[0]?.dealId ?? null,
 		};
 	}
 

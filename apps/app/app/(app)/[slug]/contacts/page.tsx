@@ -15,7 +15,7 @@ import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { contactsSearchParams } from "./contacts-search-params";
 import { ContactsTable } from "./contacts-table";
-import { CreateContactSheet } from "./create-contact-sheet";
+import { CreateLeadSheet } from "./create-lead-sheet";
 
 export const metadata: Metadata = {
 	title: "Contactos",
@@ -34,7 +34,7 @@ export default function ContactsPage({
 					</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
-					<CreateContactSheet />
+					<CreateLeadSheet />
 				</PageShellActions>
 			</PageShellHeader>
 

@@ -171,8 +171,15 @@ Pipeline screen:
 - Drag a card to another column to change its stage. The move is optimistic and rolls
   back on error. A drop on Perdido opens the loss reason dialog. The grip button is the
   keyboard handle, and each card also has the stage menu.
-- *Nuevo lead* opens the contact form in lead mode. It creates the contact, the company
-  if missing, and the deal in `NEW`.
+- *Nuevo lead* is the only door that creates a contact, in Contactos and in Funnel
+  (`create-lead-sheet.tsx`). It creates the contact, the company if missing, and the
+  deal in `NEW`. The short form asks for phone, name and source. *Más datos* holds
+  last name, email, title, company, owner and source detail. A lead needs a phone or
+  an email (`contactCreateInput`). The source is optional.
+- The same phone or email twice returns a `CONFLICT`. The form then calls
+  `contacts.findDuplicate` and offers *Abrir lead*, which opens the open deal, else the
+  contact. `contacts.create` returns `dealId`, and the toast has *Ver oportunidad*.
+  *Guardar y agregar otro* keeps the sheet open.
 - A new lead gets a task, *Contactar al lead*, due today. It belongs to the deal owner,
   so it shows in their tasks. `openLeadDeal` creates the deal, the contact link and the
   task in one transaction, for both `contacts.create` and the tracker. The text and the
