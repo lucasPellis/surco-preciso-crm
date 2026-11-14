@@ -13,7 +13,6 @@ import { DropdownMenuItem } from "@crm/ui/components/dropdown-menu";
 import { WorkspaceSwitcher } from "@crm/ui/components/workspace-switcher";
 import { useQuery } from "@tanstack/react-query";
 import {
-	Building2Icon,
 	HandshakeIcon,
 	KanbanIcon,
 	LayoutDashboardIcon,
@@ -51,12 +50,6 @@ type WorkspaceData = {
 
 const PRIMARY: NavItem[] = [
 	{ title: "Resumen", href: "/", icon: LayoutDashboardIcon, match: "exact" },
-	{
-		title: "Empresas",
-		href: "/companies",
-		icon: Building2Icon,
-		match: "prefix",
-	},
 	{ title: "Contactos", href: "/contacts", icon: UsersIcon, match: "prefix" },
 	{ title: "Funnel", href: "/funnel", icon: KanbanIcon, match: "prefix" },
 	{

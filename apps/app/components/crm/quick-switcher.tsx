@@ -9,7 +9,6 @@ import { PersonAvatar } from "@crm/ui/components/person-avatar";
 import { useMountEffect } from "@crm/ui/hooks/use-mount-effect";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-	Building2Icon,
 	HandshakeIcon,
 	KanbanIcon,
 	LayoutDashboardIcon,
@@ -69,13 +68,6 @@ const PAGES: Destination[] = [
 		keywords: ["inicio", "panel", "funnel"],
 	},
 	{
-		id: "companies",
-		label: "Empresas",
-		href: "/companies",
-		icon: Building2Icon,
-		keywords: ["cuentas", "organizaciones", "clientes"],
-	},
-	{
 		id: "contacts",
 		label: "Contactos",
 		href: "/contacts",
@@ -119,13 +111,6 @@ const PAGES: Destination[] = [
 ];
 
 const CREATE: Destination[] = [
-	{
-		id: "new-company",
-		label: "Nueva empresa",
-		href: `/companies?${SEARCH_PARAM.dialog.create}=true`,
-		icon: PlusIcon,
-		keywords: ["agregar", "crear", "cuenta"],
-	},
 	{
 		id: "new-contact",
 		label: "Nuevo contacto",
