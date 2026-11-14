@@ -34,7 +34,7 @@ export function DueDateButton({
 			<PopoverTrigger asChild>
 				<InputGroupButton variant="ghost" size="xs" disabled={disabled}>
 					<Icon icon={CalendarIcon} data-icon="inline-start" />
-					{selected ? formatDay(value) : "Due date"}
+					{selected ? formatDay(value) : "Fecha límite"}
 				</InputGroupButton>
 			</PopoverTrigger>
 			<PopoverContent size="fit" align="start">

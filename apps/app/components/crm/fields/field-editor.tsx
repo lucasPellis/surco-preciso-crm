@@ -87,16 +87,16 @@ type Draft = {
 };
 
 const TYPE_HINTS = {
-	TEXT: "Text: a short line",
-	LONG_TEXT: "Long text: a paragraph",
-	NUMBER: "Number",
-	DATE: "Date",
-	CHECKBOX: "Checkbox: yes or no",
-	SELECT: "Select: one of a fixed list",
+	TEXT: "Texto: una línea corta",
+	LONG_TEXT: "Texto largo: un párrafo",
+	NUMBER: "Número",
+	DATE: "Fecha",
+	CHECKBOX: "Casilla: sí o no",
+	SELECT: "Selección: una opción de una lista fija",
 	URL: "URL",
-	EMAIL: "Email",
-	PHONE: "Phone",
-	USER: "User: someone in the workspace",
+	EMAIL: "Correo",
+	PHONE: "Teléfono",
+	USER: "Usuario: alguien del espacio de trabajo",
 } satisfies Record<(typeof FIELD_TYPES)[number], string>;
 
 function optionId(option: { id?: string }, index: number): string {
@@ -132,7 +132,7 @@ function Coverage({ field }: { field: FieldRecord }) {
 	const backfill = useMutation(
 		trpc.fields.backfill.mutationOptions({
 			onSuccess: async () => {
-				toast.success("Your agents will pick this up.");
+				toast.success("Tus agentes lo tomarán en cuenta.");
 				await cache.fieldCoverage(field.id);
 			},
 			onError: (error) => toast.error(error.message),

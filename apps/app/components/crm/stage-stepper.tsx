@@ -4,6 +4,7 @@ import { IndicatorDot } from "@crm/ui/components/status-indicator";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { daysInStageLabel } from "@/lib/deal-sheet";
 import { type StageCatalog, stepperSteps } from "@/lib/deal-stage";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -12,10 +13,15 @@ import { useStages } from "@/lib/use-stages";
 export function StageStepper({
 	dealId,
 	stage,
+	stageChangedAt,
 }: {
 	dealId: string;
 	stage: string;
+	stageChangedAt?: string;
 }) {
+	const sinceLabel = stageChangedAt
+		? daysInStageLabel(stageChangedAt, new Date())
+		: null;
 	const stages = useStages();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -69,6 +75,11 @@ export function StageStepper({
 									stages.label(option)
 								)}
 							</span>
+							{current && sinceLabel ? (
+								<span className="font-normal text-13 text-muted-foreground">
+									{sinceLabel}
+								</span>
+							) : null}
 						</button>
 					</li>
 				);
@@ -82,6 +93,11 @@ export function StageStepper({
 					>
 						<span aria-hidden className="h-1.5 rounded-full bg-foreground" />
 						<StageOutcome stage={stage} stages={stages} />
+						{sinceLabel ? (
+							<span className="text-13 text-muted-foreground">
+								{sinceLabel}
+							</span>
+						) : null}
 					</div>
 				</li>
 			) : null}

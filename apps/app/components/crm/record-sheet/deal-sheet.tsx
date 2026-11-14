@@ -48,16 +48,23 @@ import {
 	DetailSheetProperty,
 	DetailSheetSection,
 } from "@/components/detail-sheet";
+import { LocalDay } from "@/components/local-date-time";
 import {
-	LocalDateTime,
-	LocalDay,
-	LocalRelativeTime,
-} from "@/components/local-date-time";
+	type SheetTabId,
+	sheetTabs,
+	splitQualification,
+} from "@/lib/deal-sheet";
+import { DEAL_SHEET } from "@/lib/deal-sheet-config";
 import { savingField } from "@/lib/pending-field";
 import { entityLogoTone } from "@/lib/recent-records";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import {
+	DealContactCard,
+	DealNextStep,
+	DealQualification,
+} from "./deal-overview-blocks";
 import { AttachDealContact } from "./quick-add";
 import { RecordActions } from "./record-actions";
 import { AddRow, RecordSheetFrame } from "./record-parts";
@@ -116,12 +123,6 @@ const CONTACT_COLUMNS = [
 	{ id: "remove", srLabel: "Quitar", width: "w-10" },
 ];
 
-const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-};
-
 export function DealSheet({ dealId }: { dealId: string }) {
 	const trpc = useTRPC();
 	const openRecord = useOpenRecord();
@@ -135,13 +136,13 @@ export function DealSheet({ dealId }: { dealId: string }) {
 	const query = useQuery(trpc.deals.byId.queryOptions({ id: dealId }));
 	const deal = query.data;
 
-	const tabs: RecordSheetTab[] = [
-		{
+	const allTabs = {
+		overview: {
 			value: "overview",
 			label: "Resumen",
 			content: deal ? <DealOverview deal={deal} /> : null,
 		},
-		{
+		contacts: {
 			value: "contacts",
 			label: "Contactos",
 			count: deal?.contacts.length,
@@ -155,13 +156,13 @@ export function DealSheet({ dealId }: { dealId: string }) {
 				/>
 			) : null,
 		},
-		{
+		activity: {
 			value: "activity",
 			label: "Actividad",
 			fills: true,
 			content: deal ? <Timeline anchor={{ dealId: deal.id }} /> : null,
 		},
-		{
+		agent: {
 			value: "agent",
 			label: "Agente",
 			fills: true,
@@ -170,7 +171,10 @@ export function DealSheet({ dealId }: { dealId: string }) {
 			) : null,
 			keepMounted: true,
 		},
-	];
+	} satisfies Record<SheetTabId, RecordSheetTab>;
+	const visibleTabs = sheetTabs(deal?.contacts.length ?? 0);
+	const tabs = visibleTabs.map((id) => allTabs[id]);
+	const activeTab = visibleTabs.some((id) => id === tab) ? tab : "overview";
 
 	return (
 		<DetailSheetLoaded
@@ -217,6 +221,10 @@ export function DealSheet({ dealId }: { dealId: string }) {
 							>
 								{deal.company.name}
 							</button>
+							<span className="text-muted-foreground">
+								{DEAL_SHEET.copy.header.opened}{" "}
+								<LocalDay date={deal.createdAt} />
+							</span>
 							{deal.expectedCloseDate ? (
 								<span className="text-muted-foreground">
 									Cierra <LocalDay date={deal.expectedCloseDate} />
@@ -244,7 +252,7 @@ export function DealSheet({ dealId }: { dealId: string }) {
 				}
 				rail={deal ? <DealRail deal={deal} /> : null}
 				tabs={tabs}
-				tab={tab}
+				tab={activeTab}
 				onTabChange={setTab}
 			/>
 		</DetailSheetLoaded>
@@ -279,9 +287,16 @@ function DealValue({ deal }: { deal: Deal }) {
 						</span>
 					)
 				) : null}
-				<span>
-					Etapa cambiada <LocalRelativeTime date={deal.stageChangedAt} />
-				</span>
+				{deal.closedAt ? (
+					<span>
+						{DEAL_SHEET.copy.header.closed} <LocalDay date={deal.closedAt} />
+					</span>
+				) : null}
+				{deal.closedReason ? (
+					<span>
+						{DEAL_SHEET.copy.header.reason}: {deal.closedReason}
+					</span>
+				) : null}
 			</RecordFigure>
 		</RecordSection>
 	);
@@ -300,19 +315,26 @@ function DealOverview({ deal }: { deal: Deal }) {
 
 	const isSaving = savingField(update);
 
+	const saveFields = (fields: Record<string, FieldValueJson>) =>
+		update.mutate({ id: deal.id, data: { fields } });
+
 	return (
 		<>
 			<DealValue deal={deal} />
 
 			<DetailSheetSection title="Etapa">
-				<StageStepper dealId={deal.id} stage={deal.stage} />
+				<StageStepper
+					dealId={deal.id}
+					stage={deal.stage}
+					stageChangedAt={deal.stageChangedAt}
+				/>
 			</DetailSheetSection>
 
 			<DetailSheetSection title="Descripción">
 				<InlineTextArea
 					label="Descripción"
 					value={deal.description}
-					placeholder={`Qué compra ${deal.company.name}, por qué ahora y qué lo frena.`}
+					placeholder={DEAL_SHEET.copy.descriptionPlaceholder}
 					saving={isSaving("description")}
 					onSave={(description) =>
 						update.mutate({ id: deal.id, data: { description } })
@@ -320,7 +342,15 @@ function DealOverview({ deal }: { deal: Deal }) {
 				/>
 			</DetailSheetSection>
 
-			<WhereItStands deal={deal} />
+			<DealNextStep deal={deal} />
+
+			<DealQualification
+				deal={deal}
+				saving={savingValue(update)}
+				onSave={saveFields}
+			/>
+
+			<DealContactCard deal={deal} />
 		</>
 	);
 }
@@ -365,7 +395,7 @@ function DealRail({ deal }: { deal: Deal }) {
 					value={
 						deal.amountCents === null ? null : String(deal.amountCents / 100)
 					}
-					placeholder="24000"
+					placeholder={DEAL_SHEET.copy.amountPlaceholder}
 					saving={isSaving("amountCents")}
 					onSave={(next) => {
 						if (next === "") return save({ amountCents: null });
@@ -425,69 +455,10 @@ function DealRail({ deal }: { deal: Deal }) {
 					}
 				/>
 				<RecordFields
-					fields={deal.fields}
+					fields={splitQualification(deal.fields).rest}
 					saving={isSavingField}
 					onSave={saveFields}
 				/>
-			</DetailSheetProperties>
-		</DetailSheetSection>
-	);
-}
-
-function WhereItStands({ deal }: { deal: Deal }) {
-	const openRecord = useOpenRecord();
-
-	return (
-		<DetailSheetSection title="Cómo va">
-			<DetailSheetProperties>
-				<DetailSheetProperty label="Abierta">
-					<LocalDateTime date={deal.createdAt} options={DATE_OPTIONS} />
-				</DetailSheetProperty>
-
-				<DetailSheetProperty label="En la etapa desde">
-					<LocalDateTime date={deal.stageChangedAt} options={DATE_OPTIONS} />
-				</DetailSheetProperty>
-
-				{deal.closedAt ? (
-					<DetailSheetProperty label="Cerrada">
-						<LocalDateTime date={deal.closedAt} options={DATE_OPTIONS} />
-					</DetailSheetProperty>
-				) : null}
-
-				{deal.closedReason ? (
-					<DetailSheetProperty label="Motivo" wide>
-						{deal.closedReason}
-					</DetailSheetProperty>
-				) : null}
-
-				<DetailSheetProperty label="Contactos" wide>
-					{deal.contacts.length === 0 ? (
-						<span className="text-muted-foreground">
-							Todavía no hay nadie de {deal.company.name} en la oportunidad.
-						</span>
-					) : (
-						<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-							{deal.contacts.map((contact) => {
-								const aside = contact.role ?? contact.title;
-								return (
-									<button
-										key={contact.id}
-										type="button"
-										onClick={() =>
-											openRecord({ kind: "contact", id: contact.id })
-										}
-										className="min-w-0 truncate underline-offset-2 hover:underline"
-									>
-										{contactName(contact)}
-										{aside ? (
-											<span className="text-muted-foreground"> ({aside})</span>
-										) : null}
-									</button>
-								);
-							})}
-						</span>
-					)}
-				</DetailSheetProperty>
 			</DetailSheetProperties>
 		</DetailSheetSection>
 	);

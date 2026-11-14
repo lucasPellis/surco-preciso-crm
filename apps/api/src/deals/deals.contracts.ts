@@ -199,6 +199,7 @@ const dealCompanyOutput = z.object({
 
 const dealCompanyDetailOutput = dealCompanyOutput.extend({
 	industry: z.string().nullable(),
+	primaryContactId: z.string().nullable(),
 });
 
 const dealContactSummaryOutput = z.object({
@@ -212,6 +213,8 @@ const dealContactSummaryOutput = z.object({
 
 const dealContactOutput = dealContactSummaryOutput.extend({
 	role: z.string().nullable(),
+	phone: z.string().nullable(),
+	createdAt: z.string(),
 });
 
 const dealLeadSourceOutput = z.object({
@@ -296,7 +299,13 @@ export const dealListOutput = z.object({
 
 export type DealListResult = z.infer<typeof dealListOutput>;
 
+const dealNextTaskOutput = dealBoardTaskOutput.extend({
+	upcoming: z.boolean(),
+});
+
 export const dealDetailOutput = z.object({
+	nextTask: dealNextTaskOutput.nullable(),
+	idleHours: z.number().nullable(),
 	id: z.string(),
 	name: z.string(),
 	description: z.string().nullable(),

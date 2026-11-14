@@ -18,13 +18,16 @@ export function taskLine(task: {
 	title: string | null;
 	dueAt: string;
 	overdue: boolean;
+	upcoming?: boolean;
 }) {
 	const { copy } = FUNNEL_CARD;
 	return {
 		title: task.title?.trim() || copy.taskFallback,
 		hint: task.overdue
 			? copy.taskOverdue(formatDay(task.dueAt))
-			: copy.taskToday,
+			: task.upcoming
+				? copy.taskUpcoming(formatDay(task.dueAt))
+				: copy.taskToday,
 		overdue: task.overdue,
 	};
 }

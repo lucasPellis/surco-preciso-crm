@@ -42,7 +42,7 @@ export function TaskEditor({
 		<ActivityForm
 			value={draft}
 			onValueChange={setDraft}
-			ariaLabel="Task"
+			ariaLabel="Tarea"
 			onSubmit={submit}
 			onEscape={onClose}
 		>

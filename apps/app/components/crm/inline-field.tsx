@@ -276,7 +276,7 @@ export function InlineTextArea({
 			{shown ? (
 				<span className="min-w-0">{shown}</span>
 			) : (
-				<span className="min-w-0 text-muted-foreground">
+				<span className="min-w-0 text-muted-foreground italic">
 					{placeholder ?? <EmptyCellValue />}
 				</span>
 			)}
@@ -289,7 +289,7 @@ export function InlineDateField({
 	value,
 	onSave,
 	saving = false,
-	placeholder = "Add value",
+	placeholder = "Agregar valor",
 }: {
 	label: string;
 	value: string | null;
@@ -324,7 +324,8 @@ export function InlineSelectField({
 	options,
 	onSave,
 	saving = false,
-	placeholder = "None",
+	placeholder = "Ninguno",
+	action,
 }: {
 	label: string;
 	value: string;
@@ -332,6 +333,7 @@ export function InlineSelectField({
 	onSave: (next: string) => void;
 	saving?: boolean;
 	placeholder?: string;
+	action?: React.ReactNode;
 }) {
 	const id = useId();
 
@@ -354,6 +356,7 @@ export function InlineSelectField({
 					</SelectContent>
 				</Select>
 				{saving ? <Spinner /> : null}
+				{action}
 			</div>
 		</div>
 	);

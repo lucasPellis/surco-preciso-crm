@@ -305,14 +305,11 @@ export class DealsService {
 							contacts,
 							...row
 						}) => {
-							const idleHours =
-								threshold === null
-									? null
-									: Math.floor(
-											(Date.now() -
-												(lastActivityAt ?? stageChangedAt).getTime()) /
-												DEAL_BOARD.hourMs,
-										);
+							const idleHours = this.idleHoursOf(
+								threshold,
+								lastActivityAt,
+								stageChangedAt,
+							);
 							const { primaryContact, ...companyFields } = company;
 							return {
 								...row,
@@ -322,12 +319,7 @@ export class DealsService {
 								amountCents: toCents(amount),
 								stageChangedAt: stageChangedAt.toISOString(),
 								lastActivityAt: lastActivityAt?.toISOString() ?? null,
-								idleHours:
-									idleHours !== null &&
-									threshold !== null &&
-									idleHours >= threshold
-										? idleHours
-										: null,
+								idleHours,
 							};
 						},
 					),
@@ -390,10 +382,28 @@ export class DealsService {
 		};
 	}
 
-	private async dueTasks(dealIds: string[]) {
+	private idleHoursOf(
+		threshold: number | null,
+		lastActivityAt: Date | null,
+		stageChangedAt: Date,
+	): number | null {
+		if (threshold === null) return null;
+		const hours = Math.floor(
+			(Date.now() - (lastActivityAt ?? stageChangedAt).getTime()) /
+				DEAL_BOARD.hourMs,
+		);
+		return hours >= threshold ? hours : null;
+	}
+
+	private async dueTasks(dealIds: string[], includeUpcoming = false) {
 		const result = new Map<
 			string,
-			{ title: string | null; dueAt: string; overdue: boolean }
+			{
+				title: string | null;
+				dueAt: string;
+				overdue: boolean;
+				upcoming: boolean;
+			}
 		>();
 		if (dealIds.length === 0) return result;
 
@@ -403,7 +413,7 @@ export class DealsService {
 				type: ActivityType.TASK,
 				completedAt: null,
 				dealId: { in: dealIds },
-				dueAt: { lt: startOfTomorrow },
+				dueAt: includeUpcoming ? { not: null } : { lt: startOfTomorrow },
 			},
 			orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
 			select: { dealId: true, subject: true, dueAt: true },
@@ -415,6 +425,7 @@ export class DealsService {
 				title: row.subject,
 				dueAt: serializeTaskDueDay(row.dueAt) ?? "",
 				overdue: row.dueAt < startOfToday,
+				upcoming: row.dueAt >= startOfTomorrow,
 			});
 		}
 
@@ -442,11 +453,23 @@ export class DealsService {
 				closedReason: true,
 				createdAt: true,
 				archivedAt: true,
-				company: { select: { ...COMPANY_SELECT, industry: true } },
+				lastActivityAt: true,
+				company: {
+					select: {
+						...COMPANY_SELECT,
+						industry: true,
+						primaryContactId: true,
+					},
+				},
 				owner: { select: OWNER_SELECT },
 				leadSource: { select: LEAD_SOURCE_SELECT },
 				contacts: {
-					select: { role: true, contact: { select: CONTACT_SELECT } },
+					select: {
+						role: true,
+						contact: {
+							select: { ...CONTACT_SELECT, phone: true, createdAt: true },
+						},
+					},
 					orderBy: { contact: { firstName: "asc" } },
 				},
 			},
@@ -464,11 +487,28 @@ export class DealsService {
 			fxRate,
 			fxRateAt,
 			archivedAt,
+			lastActivityAt,
 			...rest
 		} = deal;
 
+		const [stage, tasks] = await Promise.all([
+			this.db.pipelineStage.findUnique({
+				where: { key: deal.stage },
+				select: { kind: true, idleAfterHours: true },
+			}),
+			this.dueTasks([id], true),
+		]);
+		const threshold =
+			stage?.kind === PipelineStageKind.OPEN ? stage.idleAfterHours : null;
+
 		return {
 			...rest,
+			nextTask: tasks.get(id) ?? null,
+			idleHours: this.idleHoursOf(
+				threshold,
+				lastActivityAt,
+				deal.stageChangedAt,
+			),
 			fields: await this.fields.valuesFor("DEAL", id),
 			amountCents: toCents(amount),
 			baseAmountCents:
@@ -487,7 +527,11 @@ export class DealsService {
 			closedAt: deal.closedAt?.toISOString() ?? null,
 			createdAt: deal.createdAt.toISOString(),
 			archivedAt: archivedAt?.toISOString() ?? null,
-			contacts: contacts.map(({ role, contact }) => ({ ...contact, role })),
+			contacts: contacts.map(({ role, contact }) => ({
+				...contact,
+				createdAt: contact.createdAt.toISOString(),
+				role,
+			})),
 		};
 	}
 

@@ -8,7 +8,7 @@ export const QUALIFICATION = {
 		{
 			label: "¿Cómo piensa pagarlo?",
 			type: FieldType.SELECT,
-			options: ["Contado", "Financiado", "No sabe"],
+			options: ["Contado", "Cheque", "Financiado", "No sabe"],
 		},
 		{
 			label: "¿Habla con quien decide?",

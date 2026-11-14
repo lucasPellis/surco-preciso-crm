@@ -16,7 +16,7 @@ export function CopyValue({
 }) {
 	const unavailable = () =>
 		toast.error(
-			`Could not copy the ${label.toLowerCase()}. Select it instead.`,
+			`No se pudo copiar el ${label.toLowerCase()}. Selecciónalo y cópialo a mano.`,
 		);
 
 	return (
@@ -35,14 +35,14 @@ export function CopyValue({
 				clipboard
 					.writeText(value)
 					.then(() => {
-						toast.success(`${label} copied.`);
+						toast.success(`Se copió: ${label.toLowerCase()}.`);
 						onCopied?.();
 					})
 					.catch(unavailable);
 			}}
 		>
 			<Icon icon={CopyIcon} />
-			<span className="sr-only">Copy {label.toLowerCase()}</span>
+			<span className="sr-only">Copiar {label.toLowerCase()}</span>
 		</Button>
 	);
 }

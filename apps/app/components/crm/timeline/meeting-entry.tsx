@@ -48,7 +48,7 @@ export function MeetingEntry({
 				{isAllDay ? (
 					<span className="flex gap-x-3">
 						<LocalDateTime date={startsAt} options={DAY_OPTIONS} />
-						<span>All day</span>
+						<span>Todo el día</span>
 					</span>
 				) : (
 					<LocalDateTimeRange

@@ -19,6 +19,8 @@ import {
 import { useQueryState } from "nuqs";
 import { DetailSheetEmpty, SECTION_TITLE } from "@/components/detail-sheet";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
+import { TIMELINE_COPY } from "@/lib/timeline-config";
+import { groupStageChanges } from "@/lib/timeline-groups";
 import { useTRPC } from "@/lib/trpc/client";
 import { useHydrated } from "@/lib/use-hydrated";
 import { ActivityComposer } from "./activity-composer";
@@ -29,6 +31,7 @@ import {
 	type TimelineTab,
 	timelineTabParser,
 } from "./timeline-search-params";
+import { TimelineStageGroup } from "./timeline-stage-group";
 
 export type TimelineAnchor =
 	| { companyId: string }
@@ -36,43 +39,43 @@ export type TimelineAnchor =
 	| { dealId: string };
 
 const TAB_LABELS = {
-	all: "All",
-	notes: "Notes",
-	email: "Email",
-	meetings: "Meetings",
-	upcoming: "Upcoming",
-	done: "Done",
+	all: "Todo",
+	notes: "Notas",
+	email: "Correo",
+	meetings: "Reuniones",
+	upcoming: "Pendientes",
+	done: "Hechas",
 } satisfies Record<TimelineTab, string>;
 
 const EMPTY_STATES = {
 	all: {
-		title: "Nothing has happened yet",
+		title: "Todavía no pasó nada",
 		description:
-			"Calls, notes, emails and meetings all land here. Log the first one above, or wait for Gmail and Calendar to sync.",
+			"Las llamadas, notas, correos y reuniones llegan aquí. Registra la primera arriba o espera a que se sincronicen Gmail y Calendar.",
 	},
 	notes: {
-		title: "No notes",
+		title: "Sin notas",
 		description:
-			"Notes are what you write down for the next person to read: what they care about, who else is involved, what you promised.",
+			"Las notas son lo que escribes para la siguiente persona: qué le importa al cliente, quién más participa y qué prometiste.",
 	},
 	email: {
-		title: "No email",
+		title: "Sin correos",
 		description:
-			"Threads appear here as they are synced from Gmail. Nothing from before this mailbox was connected is imported.",
+			"Los hilos aparecen aquí al sincronizarse desde Gmail. No se importa nada anterior a la conexión de este buzón.",
 	},
 	meetings: {
-		title: "No meetings",
+		title: "Sin reuniones",
 		description:
-			"Calendar events with someone from this record on them show up here, past and upcoming.",
+			"Aquí aparecen los eventos del calendario con alguien de este registro, pasados y próximos.",
 	},
 	upcoming: {
-		title: "Nothing outstanding",
+		title: "Nada pendiente",
 		description:
-			"Tasks you have not finished appear here, and at the top of the All tab until they are done.",
+			"Las tareas sin terminar aparecen aquí y arriba en Todo hasta que las completes.",
 	},
 	done: {
-		title: "Nothing finished yet",
-		description: "Tasks move here once you tick them off.",
+		title: "Todavía no hay tareas hechas",
+		description: "Las tareas pasan aquí cuando las marcas como hechas.",
 	},
 } satisfies Record<TimelineTab, { title: string; description: string }>;
 
@@ -85,7 +88,7 @@ const EMPTY_ICONS = {
 	done: CheckIcon,
 } satisfies Record<TimelineTab, IconComponent>;
 
-const dayFormat = new Intl.DateTimeFormat("en-US", {
+const dayFormat = new Intl.DateTimeFormat("es", {
 	weekday: "short",
 	month: "short",
 	day: "numeric",
@@ -100,8 +103,8 @@ function dayLabel(day: string, local: boolean): string {
 		: new Date(Date.now() - 86_400_000);
 	const yesterday = dayKey(yesterdayDate.toISOString(), local);
 
-	if (day === today) return "Today";
-	if (day === yesterday) return "Yesterday";
+	if (day === today) return "Hoy";
+	if (day === yesterday) return "Ayer";
 	return dayFormat.format(new Date(`${day}T00:00:00`));
 }
 
@@ -146,13 +149,28 @@ function TimelineDay({
 }) {
 	return (
 		<section>
-			<h3 className={cn("sticky top-0 z-10 bg-popover py-2", SECTION_TITLE)}>
+			<h3
+				className={cn("sticky top-0 z-10 bg-popover pt-5 pb-2", SECTION_TITLE)}
+			>
 				{label}
 			</h3>
 			<ul className="divide-y">
-				{entries.map((entry) => (
-					<TimelineEntry key={entry.id} entry={entry} anchor={anchor} />
-				))}
+				{groupStageChanges(entries).map((row) =>
+					row.kind === "entry" ? (
+						<TimelineEntry
+							key={row.entry.id}
+							entry={row.entry}
+							anchor={anchor}
+						/>
+					) : (
+						<TimelineStageGroup
+							key={row.entries[0]?.id}
+							entries={row.entries}
+							latest={row.latest}
+							anchor={anchor}
+						/>
+					),
+				)}
 			</ul>
 		</section>
 	);
@@ -190,7 +208,7 @@ export function Timeline({ anchor }: { anchor: TimelineAnchor }) {
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex shrink-0 flex-col gap-2 border-b pb-3">
+			<div className="flex shrink-0 flex-col gap-4 border-b pb-4">
 				<ActivityComposer anchor={anchor} />
 
 				<ToggleGroup
@@ -200,7 +218,7 @@ export function Timeline({ anchor }: { anchor: TimelineAnchor }) {
 						if (next) void setTab(next as TimelineTab);
 					}}
 					size="sm"
-					spacing={0}
+					spacing={1}
 				>
 					{TIMELINE_TABS.map((option) => (
 						<ToggleGroupItem key={option} value={option}>
@@ -216,7 +234,7 @@ export function Timeline({ anchor }: { anchor: TimelineAnchor }) {
 			</div>
 
 			{history.isPending ? (
-				<ul aria-busy className="flex flex-col gap-3 pt-1">
+				<ul aria-busy className="flex flex-col gap-4 pt-4">
 					{skeletonRows(SKELETON.rows.feed).map((row) => (
 						<li key={row} className="flex items-center gap-3">
 							<Skeleton className="size-6 shrink-0 rounded-full" />
@@ -232,10 +250,10 @@ export function Timeline({ anchor }: { anchor: TimelineAnchor }) {
 					description={EMPTY_STATES[tab].description}
 				/>
 			) : (
-				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-4">
+				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-6">
 					{pinnedEntries.length > 0 ? (
 						<TimelineDay
-							label="Outstanding"
+							label={TIMELINE_COPY.pinnedDay}
 							entries={pinnedEntries}
 							anchor={anchor}
 						/>
@@ -259,7 +277,7 @@ export function Timeline({ anchor }: { anchor: TimelineAnchor }) {
 							onClick={() => history.fetchNextPage()}
 						>
 							{history.isFetchingNextPage ? <Spinner /> : null}
-							Show older
+							{TIMELINE_COPY.showOlder}
 						</Button>
 					) : null}
 				</div>

@@ -19,7 +19,7 @@ export function DatePicker({
 	id,
 	value,
 	onChange,
-	placeholder = "Select a date",
+	placeholder = "Selecciona una fecha",
 	variant,
 }: {
 	id?: string;

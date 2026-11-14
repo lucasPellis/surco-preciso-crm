@@ -9,10 +9,11 @@ import { useMutation } from "@tanstack/react-query";
 import { PencilIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
+
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { LocalDateTime, LocalDay } from "@/components/local-date-time";
 import { activityLabel } from "@/lib/activity-presentation";
+import { stageMoveLabel } from "@/lib/timeline-groups";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -30,11 +31,6 @@ const TIME_OPTIONS: Intl.DateTimeFormatOptions = {
 	hour: "numeric",
 	minute: "2-digit",
 };
-
-const stageChange = z
-	.object({ from: z.string(), to: z.string() })
-	.nullable()
-	.catch(null);
 
 function anchorId(anchor: TimelineAnchor): string {
 	if ("companyId" in anchor) return anchor.companyId;
@@ -76,9 +72,9 @@ export function TimelineEntry({
 
 	if (editing) {
 		return (
-			<li className="flex gap-2.5 py-2">
+			<li className="flex gap-2.5 py-3">
 				<span className="mt-0.5 shrink-0 text-muted-foreground">
-					<Checkbox checked={done} disabled aria-label="Task status" />
+					<Checkbox checked={done} disabled aria-label="Estado de la tarea" />
 				</span>
 				<div className="min-w-0 flex-1">
 					<TaskEditor task={entry} onClose={closeEditor} />
@@ -88,7 +84,9 @@ export function TimelineEntry({
 	}
 
 	const change =
-		entry.type === "STAGE_CHANGE" ? stageChange.parse(entry.meta) : null;
+		entry.type === "STAGE_CHANGE"
+			? stageMoveLabel(entry.meta, stages.label)
+			: null;
 	const when = entry.occurredAt ?? entry.createdAt;
 
 	const synced = entry.meta?.synced === true;
@@ -98,9 +96,7 @@ export function TimelineEntry({
 			: "via Calendar"
 		: entry.createdBy.name;
 
-	const headline = change
-		? `${stages.label(change.from)} → ${stages.label(change.to)}`
-		: entry.subject;
+	const headline = change ?? entry.subject;
 
 	const here = anchorId(anchor);
 	const deal = entry.deal && entry.deal.id !== here ? entry.deal : null;
@@ -112,13 +108,13 @@ export function TimelineEntry({
 	);
 
 	return (
-		<li className="flex gap-2.5 py-2">
+		<li className="flex gap-2.5 py-3">
 			<span className="mt-0.5 shrink-0 text-muted-foreground">
 				{isTask ? (
 					<Checkbox
 						checked={done}
 						disabled={complete.isPending}
-						aria-label={done ? "Mark as not done" : "Mark as done"}
+						aria-label={done ? "Marcar como pendiente" : "Marcar como hecha"}
 						onCheckedChange={(checked) =>
 							complete.mutate({ id: entry.id, completed: checked === true })
 						}
@@ -179,7 +175,7 @@ export function TimelineEntry({
 							onClick={() => setEditing(true)}
 						>
 							<Icon icon={PencilIcon} />
-							<span className="sr-only">Edit task</span>
+							<span className="sr-only">Editar tarea</span>
 						</Button>
 					) : null}
 				</div>
@@ -209,7 +205,7 @@ export function TimelineEntry({
 								tone={overdue ? "error" : "info"}
 								label={
 									<>
-										{overdue ? "Overdue" : "Due"}{" "}
+										{overdue ? "Vencida" : "Vence"}{" "}
 										<LocalDay date={entry.dueAt} />
 									</>
 								}

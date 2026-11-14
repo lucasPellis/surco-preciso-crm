@@ -38,9 +38,11 @@ const GUTTER = "px-5";
 export const SECTION_TITLE =
 	"font-medium text-muted-foreground text-xs uppercase tracking-wider";
 
-export const PROPERTY_ROW = "grid min-h-9 grid-cols-[7rem_minmax(0,1fr)] gap-3";
+export const PROPERTY_ROW =
+	"grid min-h-9 grid-cols-[var(--property-label,7rem)_minmax(0,1fr)] gap-3";
 
-export const PROPERTY_LABEL = "truncate text-muted-foreground text-sm";
+export const PROPERTY_LABEL =
+	"text-pretty break-words text-muted-foreground text-sm";
 
 const PROPERTY_CELL = "border border-transparent py-1.5";
 
@@ -221,7 +223,7 @@ export function DetailSheetPending({
 					)}
 				/>
 				<span className="font-medium text-13">
-					{running ? "Agent is researching" : "Not known yet"}
+					{running ? "El agente está investigando" : "Aún no se sabe"}
 				</span>
 			</div>
 			<p className="text-pretty text-13 text-muted-foreground">

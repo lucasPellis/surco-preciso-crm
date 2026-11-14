@@ -11,6 +11,7 @@ import {
 } from "@crm/ui/components/tooltip";
 import { useQuery } from "@tanstack/react-query";
 import { SettingsIcon } from "lucide-react";
+import { FieldOptionsDialog } from "@/components/crm/fields/field-options-dialog";
 import {
 	InlineDateField,
 	InlineField,
@@ -38,9 +39,11 @@ export type RecordFieldEntry = {
 
 const NONE = "__none__";
 
-const UNASSIGNED = "Unassigned";
+const UNASSIGNED = "Sin asignar";
 
-const FORMER_MEMBER = "Former member";
+const ADD_VALUE = "Agregar valor";
+
+const FORMER_MEMBER = "Ex miembro";
 
 export function FieldsCog({ kind }: { kind: RecordKind }) {
 	const { open } = useFieldsSheet();
@@ -50,10 +53,10 @@ export function FieldsCog({ kind }: { kind: RecordKind }) {
 			<TooltipTrigger asChild>
 				<Button variant="ghost" size="icon-sm" onClick={() => open(kind)}>
 					<Icon icon={SettingsIcon} />
-					<span className="sr-only">Fields</span>
+					<span className="sr-only">Campos</span>
 				</Button>
 			</TooltipTrigger>
-			<TooltipContent>Fields</TooltipContent>
+			<TooltipContent>Campos</TooltipContent>
 		</Tooltip>
 	);
 }
@@ -137,16 +140,23 @@ export function RecordFields({
 							<InlineSelectField
 								key={field.id}
 								label={field.label}
-								value={field.value === null ? NONE : String(field.value)}
+								value={field.value === null ? "" : String(field.value)}
 								options={[
-									{ value: NONE, label: "None" },
+									{ value: NONE, label: "Ninguno" },
 									...field.options.map((option) => ({
 										value: option.id,
 										label: option.label,
 									})),
 								]}
+								placeholder={ADD_VALUE}
 								saving={busy}
 								onSave={(next) => save(next === NONE ? null : next)}
+								action={
+									<FieldOptionsDialog
+										fieldId={field.id}
+										options={field.options}
+									/>
+								}
 							/>
 						);
 					}
@@ -181,6 +191,7 @@ export function RecordFields({
 											: "text"
 							}
 							value={field.value === null ? null : String(field.value)}
+							placeholder={ADD_VALUE}
 							saving={busy}
 							onSave={save}
 						/>

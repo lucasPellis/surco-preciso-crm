@@ -6,10 +6,23 @@ for (const [position, question] of QUALIFICATION.questions.entries()) {
 	const key = fieldKeyFromLabel(question.label);
 	const existing = await db.fieldDefinition.findUnique({
 		where: { entity_key: { entity: "DEAL", key } },
-		select: { id: true },
+		select: { id: true, options: { select: { label: true, position: true } } },
 	});
 	if (existing) {
 		console.log(`exists  ${question.label}`);
+		let next = existing.options.reduce(
+			(max, option) => Math.max(max, option.position + 1),
+			0,
+		);
+		const known = new Set(existing.options.map((option) => option.label));
+		for (const label of question.options) {
+			if (known.has(label)) continue;
+			await db.fieldOption.create({
+				data: { fieldId: existing.id, label, position: next },
+			});
+			next += 1;
+			console.log(`added option ${label}`);
+		}
 		continue;
 	}
 	await db.fieldDefinition.create({
