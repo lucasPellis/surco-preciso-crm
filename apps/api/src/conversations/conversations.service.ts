@@ -86,7 +86,7 @@ export class ConversationsService {
 				companyId: input.companyId ?? undefined,
 				dealId: input.dealId ?? undefined,
 			},
-			orderBy: { lastMessageAt: "desc" },
+			orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
 			take: 20,
 			select: {
 				id: true,
@@ -118,7 +118,7 @@ export class ConversationsService {
 		await this.assertWorkspaceMember(userId);
 		const rows = await this.db.agentConversation.findMany({
 			where: { userId, kind: "BUILDER" },
-			orderBy: { lastMessageAt: "desc" },
+			orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
 			take: 50,
 			select: {
 				id: true,
