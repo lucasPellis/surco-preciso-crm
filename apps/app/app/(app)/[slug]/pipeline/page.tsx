@@ -22,7 +22,7 @@ import { loadOverviewSearchParams } from "../overview-search-params";
 import { PipelineView } from "./pipeline-view";
 
 export const metadata: Metadata = {
-	title: "Embudo",
+	title: "Funnel",
 };
 
 export default function PipelinePage({
@@ -32,7 +32,7 @@ export default function PipelinePage({
 		<PageShell className="min-h-0">
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Embudo</PageShellTitle>
+					<PageShellTitle>Funnel</PageShellTitle>
 					<PageShellDescription>
 						Las oportunidades abiertas por etapa. Arrastra una tarjeta para
 						cambiarla de etapa.

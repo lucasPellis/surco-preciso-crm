@@ -162,7 +162,7 @@ Lead to deal:
 
 Pipeline screen:
 
-- Route `/pipeline`, nav entry *Embudo*. A board with one column per stage: the five
+- Route `/pipeline`, nav entry *Funnel*. A board with one column per stage: the five
   open stages, then Ganado and Perdido. The closed columns show the last 30 days
   (`DEAL_BOARD` in `apps/api/src/deals/deals-config.ts`). A column shows 50 cards and
   its real count.
@@ -209,7 +209,7 @@ Glossary. Use these words and no others:
 | Owner | Responsable |
 | Stage | Etapa |
 | Lead source | Origen |
-| Pipeline | Embudo |
+| Pipeline | Funnel |
 | Amount | Monto |
 | Archive | Archivar |
 | Settings | Configuración |

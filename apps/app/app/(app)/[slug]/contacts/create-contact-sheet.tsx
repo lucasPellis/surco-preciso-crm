@@ -109,7 +109,7 @@ function CreateContactForm({
 			onSuccess: async (contact) => {
 				await cache.contact(contact.id);
 				toast.success(
-					`${[contact.firstName, contact.lastName].filter(Boolean).join(" ")} ${lead ? "entró al embudo en Nuevo." : "agregado."}`,
+					`${[contact.firstName, contact.lastName].filter(Boolean).join(" ")} ${lead ? "entró al funnel en Nuevo." : "agregado."}`,
 				);
 				await setOpen(null);
 				reset();

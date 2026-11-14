@@ -66,7 +66,7 @@ const PAGES: Destination[] = [
 		label: "Resumen",
 		href: "/",
 		icon: LayoutDashboardIcon,
-		keywords: ["inicio", "panel", "embudo"],
+		keywords: ["inicio", "panel", "funnel"],
 	},
 	{
 		id: "companies",
@@ -84,17 +84,24 @@ const PAGES: Destination[] = [
 	},
 	{
 		id: "pipeline",
-		label: "Embudo",
+		label: "Funnel",
 		href: "/pipeline",
 		icon: KanbanIcon,
-		keywords: ["tablero", "etapas", "leads", "oportunidades", "kanban"],
+		keywords: [
+			"tablero",
+			"etapas",
+			"leads",
+			"oportunidades",
+			"kanban",
+			"embudo",
+		],
 	},
 	{
 		id: "deals",
 		label: "Oportunidades",
 		href: "/deals",
 		icon: HandshakeIcon,
-		keywords: ["negocios", "embudo", "ventas", "ingresos"],
+		keywords: ["negocios", "funnel", "ventas", "ingresos"],
 	},
 	{
 		id: "tasks",

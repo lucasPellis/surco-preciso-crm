@@ -97,7 +97,7 @@ export function PipelineView() {
 	if (board.isError) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				No se pudo cargar el embudo. {board.error.message}
+				No se pudo cargar el funnel. {board.error.message}
 			</p>
 		);
 	}
@@ -124,7 +124,7 @@ export function PipelineView() {
 
 	return (
 		<PipelineBoard
-			label="Embudo de oportunidades"
+			label="Funnel de oportunidades"
 			onMove={onMove}
 			overlay={(cardId) => {
 				const card = cards.get(cardId);
