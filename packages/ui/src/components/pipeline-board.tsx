@@ -150,7 +150,8 @@ export function PipelineColumn({
 		<div
 			ref={setNodeRef}
 			className={cn(
-				"flex min-h-0 w-72 shrink-0 flex-col gap-2 rounded-lg bg-muted p-2 transition-colors",
+				"flex min-h-0 flex-col gap-2 rounded-lg bg-muted p-2 transition-colors",
+				PIPELINE_BOARD.column,
 				isOver && "bg-accent",
 			)}
 		>
