@@ -16,6 +16,7 @@ import {
 	Field,
 	FieldDescription,
 	FieldError,
+	FieldGroup,
 	FieldLabel,
 	FieldLegend,
 	FieldSet,
@@ -313,95 +314,105 @@ function CreateLeadForm() {
 					</FieldSet>
 
 					<Collapsible open={moreOpen} onOpenChange={setMoreOpen}>
-						<CollapsibleTrigger asChild>
-							<Button type="button" variant="ghost" size="sm">
-								Más datos
-								<Icon icon={ChevronDownIcon} data-icon="inline-end" />
-							</Button>
-						</CollapsibleTrigger>
-						<CollapsibleContent>
-							<Field data-invalid={!!validation.errors[lastNameId]}>
-								<FieldLabel htmlFor={lastNameId}>Apellido</FieldLabel>
-								<Input
-									id={lastNameId}
-									value={lastName}
-									onChange={(event) => setLastName(event.target.value)}
-									autoComplete="off"
-								/>
-							</Field>
+						<FieldGroup>
+							<CollapsibleTrigger asChild>
+								<Button type="button" variant="ghost" size="sm">
+									Más datos
+									<Icon icon={ChevronDownIcon} data-icon="inline-end" />
+								</Button>
+							</CollapsibleTrigger>
+							<CollapsibleContent>
+								<FieldGroup>
+									<Field data-invalid={!!validation.errors[lastNameId]}>
+										<FieldLabel htmlFor={lastNameId}>Apellido</FieldLabel>
+										<Input
+											id={lastNameId}
+											value={lastName}
+											onChange={(event) => setLastName(event.target.value)}
+											autoComplete="off"
+										/>
+									</Field>
 
-							<Field data-invalid={!!validation.errors[emailId]}>
-								<FieldLabel htmlFor={emailId}>Email</FieldLabel>
-								<Input
-									id={emailId}
-									aria-invalid={!!validation.errors[emailId]}
-									aria-describedby={
-										validation.errors[emailId] ? `${emailId}-error` : undefined
-									}
-									type="email"
-									value={email}
-									onChange={(event) => {
-										setEmail(event.target.value);
-										setDuplicate(null);
-									}}
-									autoComplete="off"
-								/>
-								<FieldError id={`${emailId}-error`}>
-									{validation.errors[emailId]}
-								</FieldError>
-							</Field>
+									<Field data-invalid={!!validation.errors[emailId]}>
+										<FieldLabel htmlFor={emailId}>Email</FieldLabel>
+										<Input
+											id={emailId}
+											aria-invalid={!!validation.errors[emailId]}
+											aria-describedby={
+												validation.errors[emailId]
+													? `${emailId}-error`
+													: undefined
+											}
+											type="email"
+											value={email}
+											onChange={(event) => {
+												setEmail(event.target.value);
+												setDuplicate(null);
+											}}
+											autoComplete="off"
+										/>
+										<FieldError id={`${emailId}-error`}>
+											{validation.errors[emailId]}
+										</FieldError>
+									</Field>
 
-							<Field>
-								<FieldLabel htmlFor={titleId}>Cargo</FieldLabel>
-								<Input
-									id={titleId}
-									value={title}
-									onChange={(event) => setTitle(event.target.value)}
-									placeholder="Gerente de campo"
-									autoComplete="off"
-								/>
-							</Field>
+									<Field>
+										<FieldLabel htmlFor={titleId}>Cargo</FieldLabel>
+										<Input
+											id={titleId}
+											value={title}
+											onChange={(event) => setTitle(event.target.value)}
+											placeholder="Gerente de campo"
+											autoComplete="off"
+										/>
+									</Field>
 
-							<Field>
-								<FieldLabel htmlFor="create-lead-company">Empresa</FieldLabel>
-								<CompanyPicker
-									id="create-lead-company"
-									value={company}
-									onValueChange={setCompany}
-									none={{ value: NONE, label: "Sin empresa" }}
-								/>
-							</Field>
+									<Field>
+										<FieldLabel htmlFor="create-lead-company">
+											Empresa
+										</FieldLabel>
+										<CompanyPicker
+											id="create-lead-company"
+											value={company}
+											onValueChange={setCompany}
+											none={{ value: NONE, label: "Sin empresa" }}
+										/>
+									</Field>
 
-							<Field>
-								<FieldLabel htmlFor="create-lead-owner">Responsable</FieldLabel>
-								<Select value={ownerId} onValueChange={setOwnerId}>
-									<SelectTrigger id="create-lead-owner">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value={NONE}>Yo (quien lo crea)</SelectItem>
-										{(users.data ?? []).map((user) => (
-											<SelectItem key={user.id} value={user.id}>
-												{user.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</Field>
+									<Field>
+										<FieldLabel htmlFor="create-lead-owner">
+											Responsable
+										</FieldLabel>
+										<Select value={ownerId} onValueChange={setOwnerId}>
+											<SelectTrigger id="create-lead-owner">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value={NONE}>Yo (quien lo crea)</SelectItem>
+												{(users.data ?? []).map((user) => (
+													<SelectItem key={user.id} value={user.id}>
+														{user.name}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</Field>
 
-							<Field>
-								<FieldLabel htmlFor={originDetailId}>
-									Detalle del origen
-								</FieldLabel>
-								<Input
-									id={originDetailId}
-									value={originDetail}
-									onChange={(event) => setOriginDetail(event.target.value)}
-									placeholder="Campaña, feria o quién lo refirió"
-									autoComplete="off"
-								/>
-							</Field>
-						</CollapsibleContent>
+									<Field>
+										<FieldLabel htmlFor={originDetailId}>
+											Detalle del origen
+										</FieldLabel>
+										<Input
+											id={originDetailId}
+											value={originDetail}
+											onChange={(event) => setOriginDetail(event.target.value)}
+											placeholder="Campaña, feria o quién lo refirió"
+											autoComplete="off"
+										/>
+									</Field>
+								</FieldGroup>
+							</CollapsibleContent>
+						</FieldGroup>
 					</Collapsible>
 				</FormSheetForm>
 
