@@ -11,6 +11,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../companies/company-directory.service";
 import { isMachineDomain } from "../companies/domain";
+import { claimPrimaryContact } from "../companies/primary-contact";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { normalizeEmail } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
@@ -147,6 +148,7 @@ export class TrackingFilingService {
 						source: RecordSource.TRACKING,
 					},
 				});
+				await claimPrimaryContact(tx, companyId, created.id);
 				if (ownerId) {
 					const opened = await openLeadDeal(tx, {
 						name: fullName,

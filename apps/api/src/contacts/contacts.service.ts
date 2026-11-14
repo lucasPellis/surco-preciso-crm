@@ -21,6 +21,7 @@ import { AgentQueueService } from "../agent/agent-queue.service";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { ARCHIVE } from "../archive/archive-config";
 import { CompanyDirectoryService } from "../companies/company-directory.service";
+import { claimPrimaryContact } from "../companies/primary-contact";
 import {
 	ActivityStampService,
 	type StampTargets,
@@ -338,6 +339,7 @@ export class ContactsService {
 					createdAt: true,
 				},
 			});
+			await claimPrimaryContact(tx, companyId, created.id);
 			if (ownerId) {
 				const opened = await openLeadDeal(tx, {
 					name: nameOf(created),

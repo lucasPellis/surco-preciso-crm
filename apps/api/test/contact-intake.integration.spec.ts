@@ -4,6 +4,7 @@ import { BadRequestException, ConflictException } from "@nestjs/common";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../src/companies/company-directory.service";
+import { claimPrimaryContact } from "../src/companies/primary-contact";
 import {
 	type ContactCreateInput,
 	contactCreateInput,
@@ -439,5 +440,69 @@ describe("a contact has a lead source", () => {
 				leadSourceId: source.id,
 			}),
 		).rejects.toBeInstanceOf(BadRequestException);
+	});
+});
+
+describe("the primary contact of a company", () => {
+	const primaryBase = 7_000_000_000 + Math.floor(Math.random() * 900_000_000);
+	const primaryPhone = (offset: number) => `+${primaryBase + offset}`;
+
+	async function primaryOf(companyId: string | null) {
+		const company = await db.company.findUniqueOrThrow({
+			where: { id: companyId ?? "" },
+			select: { primaryContactId: true },
+		});
+		return company.primaryContactId;
+	}
+
+	it("is the first contact filed under a new company", async () => {
+		const row = await file({ firstName: "Primera", phone: primaryPhone(40) });
+
+		expect(await primaryOf(row.companyId)).toBe(row.id);
+	});
+
+	it("is set when a company with no primary gets a contact", async () => {
+		const company = await db.company.create({
+			data: { name: `Sin principal ${suffix}` },
+			select: { id: true },
+		});
+		companyIds.push(company.id);
+
+		const row = await file({
+			firstName: "Segunda",
+			phone: primaryPhone(41),
+			companyId: company.id,
+		});
+
+		expect(await primaryOf(company.id)).toBe(row.id);
+	});
+
+	it("never replaces the primary a company already has", async () => {
+		const first = await file({ firstName: "Titular", phone: primaryPhone(42) });
+		const second = await file({
+			firstName: "Otra",
+			phone: primaryPhone(43),
+			companyId: first.companyId ?? undefined,
+		});
+
+		expect(second.companyId).toBe(first.companyId);
+		expect(await primaryOf(first.companyId)).toBe(first.id);
+	});
+
+	it("skips a contact that is already primary elsewhere without failing", async () => {
+		const holder = await file({
+			firstName: "Ocupada",
+			phone: primaryPhone(44),
+		});
+		const other = await db.company.create({
+			data: { name: `Otra empresa ${suffix}` },
+			select: { id: true },
+		});
+		companyIds.push(other.id);
+
+		await db.$transaction((tx) => claimPrimaryContact(tx, other.id, holder.id));
+
+		expect(await primaryOf(other.id)).toBeNull();
+		expect(await primaryOf(holder.companyId)).toBe(holder.id);
 	});
 });

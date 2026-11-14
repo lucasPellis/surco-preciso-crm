@@ -4,6 +4,7 @@ import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../companies/company-directory.service";
+import { claimPrimaryContact } from "../companies/primary-contact";
 import { EnrichmentLogService } from "../crm/enrichment-log.service";
 import { InjectDatabase } from "../database/database.constants";
 import {
@@ -247,6 +248,7 @@ export class MailboxMatchService {
 					createdAt: true,
 				},
 			});
+			await claimPrimaryContact(tx, companyId, contact.id);
 			await emit({
 				type: "contact.created",
 				record: { kind: "contact", id: contact.id },
