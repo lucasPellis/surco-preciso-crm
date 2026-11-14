@@ -338,6 +338,20 @@ export class DealsService {
 		if (input.ownerId !== undefined) {
 			data.owner = { connect: { id: input.ownerId } };
 		}
+		if (input.leadSourceId !== undefined) {
+			if (input.leadSourceId) {
+				const source = await this.db.leadSource.findFirst({
+					where: { id: input.leadSourceId, archivedAt: null },
+					select: { id: true },
+				});
+				if (!source) {
+					throw new BadRequestException("That lead source is not available.");
+				}
+			}
+			data.leadSource = input.leadSourceId
+				? { connect: { id: input.leadSourceId } }
+				: { disconnect: true };
+		}
 		if (input.amountCents !== undefined) {
 			data.amount = fromCents(input.amountCents);
 		}

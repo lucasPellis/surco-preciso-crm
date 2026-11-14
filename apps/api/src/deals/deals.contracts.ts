@@ -59,6 +59,7 @@ const dealUpdateInput = z.object({
 	description: z.string().nullable().optional(),
 	companyId: z.string().optional(),
 	ownerId: z.string().optional(),
+	leadSourceId: z.string().nullable().optional(),
 	amountCents,
 	currency: currencyCode.optional(),
 	expectedCloseDate: z.string().nullable().optional(),

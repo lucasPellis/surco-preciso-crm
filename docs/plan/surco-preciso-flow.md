@@ -163,7 +163,8 @@ Lead to deal:
 Open in step 3:
 
 - `deals.list` and `deals.byId` return the source. The deals table has an *Origen*
-  column and facet, and the deal sheet shows it.
+  column and facet. A rep edits the source in the deal sheet. An archived source cannot
+  be chosen.
 - The stage labels are Spanish. The rest of the deals UI is still English.
 
 ## Language

@@ -9,7 +9,6 @@ import {
 	type EntityLogoTone,
 } from "@crm/ui/components/entity-logo";
 import { Icon } from "@crm/ui/components/icon";
-import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
 import {
 	RecordFigure,
@@ -65,6 +64,8 @@ import { AddRow, RecordSheetFrame } from "./record-parts";
 import { useOpenRecord, useRecordSheetView } from "./record-stack";
 
 type Deal = RouterOutputs["deals"]["byId"];
+
+const NONE = "none";
 
 const CURRENCY_OPTIONS = CURRENCIES.map((entry) => ({
 	value: entry.code,
@@ -327,6 +328,7 @@ function DealRail({ deal }: { deal: Deal }) {
 	const cache = useCrmCache();
 
 	const users = useQuery(trpc.users.list.queryOptions());
+	const leadSources = useQuery(trpc.leadSources.list.queryOptions());
 
 	const update = useMutation(
 		trpc.deals.update.mutationOptions({
@@ -404,16 +406,22 @@ function DealRail({ deal }: { deal: Deal }) {
 					}))}
 					onSave={(ownerId) => save({ ownerId })}
 				/>
-				<DetailSheetProperty label="Origen">
-					{deal.leadSource ? (
-						<span className="flex min-w-0 items-center gap-2">
-							<LeadSourceMark icon={deal.leadSource.icon} />
-							<span className="truncate">{deal.leadSource.name}</span>
-						</span>
-					) : (
-						<EmptyCellValue />
-					)}
-				</DetailSheetProperty>
+				<InlineSelectField
+					label="Origen"
+					value={deal.leadSource?.id ?? NONE}
+					options={[
+						{ value: NONE, label: "Desconocido" },
+						...(leadSources.data?.sources ?? [])
+							.filter(
+								(source) =>
+									!source.archived || source.id === deal.leadSource?.id,
+							)
+							.map((source) => ({ value: source.id, label: source.name })),
+					]}
+					onSave={(leadSourceId) =>
+						save({ leadSourceId: leadSourceId === NONE ? null : leadSourceId })
+					}
+				/>
 				<RecordFields
 					fields={deal.fields}
 					saving={isSavingField}
