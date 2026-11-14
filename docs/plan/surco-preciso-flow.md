@@ -221,5 +221,9 @@ Glossary. Use these words and no others:
 | Currencies | Monedas |
 | API Keys | Claves de API |
 | Tracking & Analytics | Seguimiento y analítica |
+| Phone | Teléfono |
+| Last activity | Última actividad |
+| Persona | Perfil |
+| Seniority | Jerarquía |
 
 Add a row here when a screen needs a new term.

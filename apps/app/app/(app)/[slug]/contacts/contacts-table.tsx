@@ -106,7 +106,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 		id: "leadSource",
 		header: "Origen",
 		sortable: true,
-		width: "40",
+		width: "44",
 		hideBelow: "md",
 		cell: (row) =>
 			row.leadSource ? (
@@ -145,7 +145,7 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 		header: "Última actividad",
 		sortable: true,
 		align: "right",
-		width: "32",
+		width: "40",
 		hideBelow: "sm",
 		cell: (row) => (
 			<span className="text-muted-foreground">
