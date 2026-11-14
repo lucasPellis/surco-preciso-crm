@@ -456,11 +456,11 @@ function CommandSearch({
 						<Kbd size="sm">
 							<CornerDownLeftIcon />
 						</Kbd>
-						Open
+						Abrir
 					</span>
 					<span className="ml-auto flex items-center gap-1.5">
 						<Kbd size="sm">Esc</Kbd>
-						Close
+						Cerrar
 					</span>
 				</div>
 			</Command>

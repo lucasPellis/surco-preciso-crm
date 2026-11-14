@@ -144,8 +144,8 @@ const COLUMNS: DataTableColumn<CompanyRow>[] = [
 	},
 	{
 		id: "enrichment",
-		header: "Enrichment",
-		label: "Enrichment status",
+		header: "Enriquecimiento",
+		label: "Estado de enriquecimiento",
 		defaultHidden: true,
 		width: "36",
 		cell: (row) => (
@@ -220,7 +220,7 @@ export function CompaniesTable() {
 		},
 		{
 			id: "enrichment",
-			label: "Enrichment",
+			label: "Enriquecimiento",
 			options: ENRICHMENT_FACET_OPTIONS.filter(
 				(option) => (facetCounts?.enrichment?.[option.value] ?? 0) > 0,
 			),

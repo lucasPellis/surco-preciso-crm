@@ -264,7 +264,7 @@ if (process.env.CRM_SETTINGS_FORM_TEST_CHILD !== "1") {
 		);
 	}
 
-	for (const close of ["Done", "Close", "Escape"]) {
+	for (const close of ["Done", "Cerrar", "Escape"]) {
 		test(`uncopied ${close} asks; Go back and confirmation Escape retain the fixture key`, async () => {
 			await render(<RevealFixture />);
 			if (close === "Escape") await pressEscape();
@@ -305,7 +305,7 @@ if (process.env.CRM_SETTINGS_FORM_TEST_CHILD !== "1") {
 		expect(confirmationOpen()).toBe(false);
 	});
 
-	for (const close of ["Done", "Close", "Escape"]) {
+	for (const close of ["Done", "Cerrar", "Escape"]) {
 		test(`successful clipboard copying releases the ${close} guard`, async () => {
 			const copied: string[] = [];
 			clipboard(async (value) => {

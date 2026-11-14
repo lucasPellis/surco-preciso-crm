@@ -68,7 +68,7 @@ export function AgentChatNav() {
 			<AppSidebarGroup>
 				<AppSidebarItem
 					icon={PlusIcon}
-					label="New chat"
+					label="Nuevo chat"
 					active={pathname === newChatHref}
 				>
 					<Link href={newChatHref} />
@@ -82,7 +82,7 @@ export function AgentChatNav() {
 					{group.items.map((conversation) => {
 						const href = workspaceUrl(`/chat/${conversation.id}`);
 						const active = pathname === href;
-						const title = conversation.title ?? "Untitled chat";
+						const title = conversation.title ?? "Chat sin título";
 						return (
 							<AppSidebarItem
 								key={conversation.id}
@@ -113,14 +113,14 @@ export function AgentChatNav() {
 
 			{!loading && groups.length === 0 ? (
 				<p className="px-4.5 py-2 text-13 text-muted-foreground">
-					No chats in the last 7 days.
+					No hay chats en los últimos 7 días.
 				</p>
 			) : null}
 
-			<AppSidebarGroup label="Team agents">
+			<AppSidebarGroup label="Agentes de equipo">
 				<AppSidebarItem
 					icon={BotIcon}
-					label="All agents"
+					label="Todos los agentes"
 					active={pathname === agentsHref}
 					indicator={loading ? null : <span>{teamAgents.length}</span>}
 				>
@@ -146,21 +146,21 @@ export function AgentChatNav() {
 
 function ConversationState({ state }: { state: Conversation["state"] }) {
 	if (state === "working") {
-		return <LoaderCircleIcon aria-label="Working" className="animate-spin" />;
+		return <LoaderCircleIcon aria-label="En curso" className="animate-spin" />;
 	}
 
 	if (state === "unread") {
 		return (
 			<span
 				role="img"
-				aria-label="Unread"
+				aria-label="Sin leer"
 				className="mx-1 size-1.5 rounded-full bg-brand"
 			/>
 		);
 	}
 
 	if (state === "deployed") {
-		return <CircleCheckIcon aria-label="Deployed" className="text-brand" />;
+		return <CircleCheckIcon aria-label="Desplegado" className="text-brand" />;
 	}
 
 	return null;
@@ -169,7 +169,7 @@ function ConversationState({ state }: { state: Conversation["state"] }) {
 function groupConversations(conversations: Conversation[], now: number) {
 	if (!now) return [];
 
-	const labels: ChatDateGroup[] = ["Today", "Yesterday", "Last 7 days"];
+	const labels: ChatDateGroup[] = ["Hoy", "Ayer", "Últimos 7 días"];
 	const items = new Map<ChatDateGroup, Conversation[]>(
 		labels.map((label) => [label, []]),
 	);

@@ -858,7 +858,7 @@ export function DataTable<TRow, TSub = unknown>({
 								)}
 								{anyExpandable && (
 									<TableHead className="h-10 w-10 px-3">
-										<span className="sr-only">Detail</span>
+										<span className="sr-only">Detalle</span>
 									</TableHead>
 								)}
 								{visibleColumns.map((column) => {

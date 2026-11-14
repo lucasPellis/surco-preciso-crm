@@ -129,10 +129,10 @@ export function DetailSheetHeader({
 						<TooltipTrigger asChild>
 							<Button variant="ghost" size="icon-sm" onClick={onBack}>
 								<Icon icon={ArrowLeftIcon} />
-								<span className="sr-only">Back</span>
+								<span className="sr-only">Volver</span>
 							</Button>
 						</TooltipTrigger>
-						<TooltipContent>Back</TooltipContent>
+						<TooltipContent>Volver</TooltipContent>
 					</Tooltip>
 				) : null}
 
@@ -161,7 +161,7 @@ export function DetailSheetHeader({
 					) : null}
 					<Button variant="ghost" size="icon-sm" onClick={onClose}>
 						<Icon icon={XIcon} />
-						<span className="sr-only">Close</span>
+						<span className="sr-only">Cerrar</span>
 					</Button>
 				</div>
 			</div>

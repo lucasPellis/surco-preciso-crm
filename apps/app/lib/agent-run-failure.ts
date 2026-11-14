@@ -2,28 +2,29 @@ type RunFailureReasons = Record<string, string>;
 
 const REASONS: RunFailureReasons = {
 	ACTION_NOT_PERFORMED:
-		"The agent finished without doing what it was built to do. Open the run to see which step it skipped.",
+		"El agente terminó sin hacer lo que debía. Abre la ejecución para ver qué paso omitió.",
 	NO_EXECUTOR:
-		"This agent asks for something the CRM cannot do yet. It needs rebuilding.",
+		"Este agente pide algo que el CRM aún no puede hacer. Hay que reconstruirlo.",
 	DEPENDENCY_UNAVAILABLE:
-		"A connection this agent needs is missing. Reconnect it, then run again.",
+		"Falta una conexión que este agente necesita. Vuelve a conectarla y ejecuta de nuevo.",
 	NOT_AUTHORISED:
-		"The connection refused this. Its access may have been revoked or narrowed.",
+		"La conexión lo rechazó. Es posible que su acceso se haya revocado o reducido.",
 	PROVIDER_ERROR:
-		"The outside service rejected this. It is usually worth trying again.",
+		"El servicio externo lo rechazó. Suele valer la pena intentarlo de nuevo.",
 	NEVER_SETTLED:
-		"The agent stopped without reporting a result. Nothing was left half-done.",
-	TURN_FAILED: "The model failed part-way through this run.",
-	DELIVERY_FAILED: "The run never reached the agent.",
+		"El agente se detuvo sin informar un resultado. Nada quedó a medias.",
+	TURN_FAILED: "El modelo falló a mitad de esta ejecución.",
+	DELIVERY_FAILED: "La ejecución nunca llegó al agente.",
 	DELIVERY_EXHAUSTED:
-		"This never reached the agent after three attempts. Nothing ran.",
+		"Esto nunca llegó al agente tras tres intentos. No se ejecutó nada.",
 	ACTION_REJECTED:
-		"The agent tried the action and the CRM refused it. Nothing was written.",
-	AGENT_UNAVAILABLE: "The agent was paused or archived when this run started.",
-	AGENT_DELETED: "The agent was deleted before this run finished.",
-	CANCELLED_BY_USER: "Someone stopped this run.",
+		"El agente intentó la acción y el CRM la rechazó. No se escribió nada.",
+	AGENT_UNAVAILABLE:
+		"El agente estaba pausado o archivado cuando empezó esta ejecución.",
+	AGENT_DELETED: "El agente se eliminó antes de que terminara esta ejecución.",
+	CANCELLED_BY_USER: "Alguien detuvo esta ejecución.",
 	RUN_TIMED_OUT:
-		"This run took too long and was stopped so later runs could start.",
+		"Esta ejecución tardó demasiado y se detuvo para que pudieran empezar las siguientes.",
 };
 
 export function runFailureReason(
@@ -33,5 +34,5 @@ export function runFailureReason(
 	const known = code ? REASONS[code] : undefined;
 	if (known) return known;
 	if (message?.trim()) return message.trim();
-	return "This run failed without saying why.";
+	return "Esta ejecución falló sin indicar el motivo.";
 }

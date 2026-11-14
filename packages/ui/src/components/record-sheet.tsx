@@ -123,7 +123,7 @@ export function RecordSheetBar({
 			</div>
 			<Button variant="ghost" size="icon-sm" onClick={onClose}>
 				<XIcon />
-				<span className="sr-only">Close</span>
+				<span className="sr-only">Cerrar</span>
 			</Button>
 		</div>
 	);

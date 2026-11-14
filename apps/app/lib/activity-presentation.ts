@@ -16,13 +16,13 @@ type ActivityPresentation = Record<
 >;
 
 const PRESENTATION: ActivityPresentation = {
-	NOTE: { icon: MessageSquareIcon, label: "Note" },
-	CALL: { icon: PhoneIcon, label: "Call" },
-	EMAIL: { icon: MailIcon, label: "Email" },
-	MEETING: { icon: CalendarDaysIcon, label: "Meeting" },
-	TASK: { icon: SquareCheckIcon, label: "Task" },
-	STAGE_CHANGE: { icon: ArrowRightIcon, label: "Stage change" },
-	ENRICHMENT: { icon: WandSparklesIcon, label: "Enrichment" },
+	NOTE: { icon: MessageSquareIcon, label: "Nota" },
+	CALL: { icon: PhoneIcon, label: "Llamada" },
+	EMAIL: { icon: MailIcon, label: "Correo" },
+	MEETING: { icon: CalendarDaysIcon, label: "Reunión" },
+	TASK: { icon: SquareCheckIcon, label: "Tarea" },
+	STAGE_CHANGE: { icon: ArrowRightIcon, label: "Cambio de etapa" },
+	ENRICHMENT: { icon: WandSparklesIcon, label: "Enriquecimiento" },
 };
 
 export function activityLabel(type: ActivityType): string {

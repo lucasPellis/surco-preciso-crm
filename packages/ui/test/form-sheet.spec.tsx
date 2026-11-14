@@ -154,7 +154,7 @@ if (process.env.CRM_FORM_SHEET_TEST_CHILD !== "1") {
 		await render(<Fixture />);
 		await click("New item");
 		await click("Fill draft");
-		await click("Close");
+		await click("Cerrar");
 		expect(questionOpen()).toBe(true);
 		expect(document.activeElement?.textContent).toBe("Seguir editando");
 		await click("Seguir editando");
@@ -245,7 +245,7 @@ if (process.env.CRM_FORM_SHEET_TEST_CHILD !== "1") {
 				</FormSheetContent>
 			</FormSheet>,
 		);
-		await click("Close");
+		await click("Cerrar");
 		await pressEscape();
 		await click("Cancelar");
 		await click("Save");
