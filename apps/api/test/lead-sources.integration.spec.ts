@@ -107,6 +107,21 @@ describe("lead sources", () => {
 		expect(created?.key).toBe(`ls-${suffix}-feria`);
 	});
 
+	it("lets an admin set the default owner and a member cannot", async () => {
+		const set = await service.setDefaultOwner(adminId, memberId);
+		expect(set.defaultOwnerId).toBe(memberId);
+
+		await expect(
+			service.setDefaultOwner(memberId, adminId),
+		).rejects.toBeInstanceOf(ForbiddenException);
+		await expect(
+			service.setDefaultOwner(adminId, "no-such-user"),
+		).rejects.toBeInstanceOf(BadRequestException);
+
+		const cleared = await service.setDefaultOwner(adminId, null);
+		expect(cleared.defaultOwnerId).toBeNull();
+	});
+
 	it("shows a member the list and refuses their changes", async () => {
 		const { canManage } = await service.list(memberId);
 

@@ -52,6 +52,8 @@ import { useTRPC } from "@/lib/trpc/client";
 
 const CELL = "px-3 py-2.5 align-middle";
 
+const NO_OWNER = "none";
+
 const COLUMNS: SimpleTableColumn[] = [
 	{ id: "name", header: "Origen" },
 	{ id: "contacts", header: "Contactos", width: "w-28", align: "right" },
@@ -77,6 +79,7 @@ export function LeadSourcesSettings() {
 	const [editing, setEditing] = useState<EditTarget | null>(null);
 
 	const list = useQuery(trpc.leadSources.list.queryOptions());
+	const users = useQuery(trpc.users.list.queryOptions());
 
 	const create = useMutation(
 		trpc.leadSources.create.mutationOptions({
@@ -122,6 +125,16 @@ export function LeadSourcesSettings() {
 		}),
 	);
 
+	const setOwner = useMutation(
+		trpc.leadSources.setDefaultOwner.mutationOptions({
+			onSuccess: async () => {
+				await cache.leadSources();
+				toast.success("Dueño por defecto actualizado.");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
 	const reorder = useMutation(
 		trpc.leadSources.reorder.mutationOptions({
 			onSuccess: () => cache.leadSources(),
@@ -154,7 +167,7 @@ export function LeadSourcesSettings() {
 
 	if (!list.data) return null;
 
-	const { sources, canManage } = list.data;
+	const { sources, canManage, defaultOwnerId } = list.data;
 
 	const busy =
 		!canManage ||
@@ -162,7 +175,8 @@ export function LeadSourcesSettings() {
 		update.isPending ||
 		archive.isPending ||
 		restore.isPending ||
-		reorder.isPending;
+		reorder.isPending ||
+		setOwner.isPending;
 
 	const move = (index: number, delta: -1 | 1) => {
 		const ids = sources.map((source) => source.id);
@@ -172,6 +186,36 @@ export function LeadSourcesSettings() {
 
 	return (
 		<SettingsColumn>
+			<SettingsCard
+				title="Dueño de los leads automáticos"
+				description="Los leads que llegan sin una persona que los cree, como los formularios del sitio web, se asignan a este usuario y abren un deal en Nuevo. Sin dueño, el lead se guarda pero no abre deal."
+				hint={
+					canManage
+						? "El cambio se guarda al instante."
+						: "Solo un propietario o un administrador puede cambiarlo."
+				}
+			>
+				<Select
+					value={defaultOwnerId ?? NO_OWNER}
+					onValueChange={(next) =>
+						setOwner.mutate({ ownerId: next === NO_OWNER ? null : next })
+					}
+					disabled={busy}
+				>
+					<SelectTrigger aria-label="Dueño de los leads automáticos">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value={NO_OWNER}>Sin dueño</SelectItem>
+						{(users.data ?? []).map((user) => (
+							<SelectItem key={user.id} value={user.id}>
+								{user.name}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</SettingsCard>
+
 			<SettingsCard
 				title="Lista de orígenes"
 				description="Un origen archivado no se puede elegir en contactos nuevos. Los contactos que ya lo tienen lo conservan, así los reportes no cambian."

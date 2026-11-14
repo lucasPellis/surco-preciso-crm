@@ -46,7 +46,14 @@ export const leadSourceOutput = z.object({
 export const leadSourceListOutput = z.object({
 	sources: z.array(leadSourceOutput),
 	canManage: z.boolean(),
+	defaultOwnerId: z.string().nullable(),
 });
+
+export const defaultLeadOwnerInput = z.object({
+	ownerId: z.string().nullable(),
+});
+
+export type DefaultLeadOwnerInput = z.infer<typeof defaultLeadOwnerInput>;
 
 export type LeadSourceRow = z.infer<typeof leadSourceOutput>;
 export type LeadSourceList = z.infer<typeof leadSourceListOutput>;

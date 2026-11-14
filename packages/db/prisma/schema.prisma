@@ -26,6 +26,7 @@ model User {
   ownedCompanies Company[]           @relation("CompanyOwner")
   ownedContacts  Contact[]           @relation("ContactOwner")
   ownedDeals     Deal[]              @relation("DealOwner")
+  defaultLeadOwnerOf AppSetting[]    @relation("DefaultLeadOwner")
   activities     Activity[]          @relation("ActivityAuthor")
   mailboxSyncs   MailboxSync[]
   factDecisions  ContactFact[]       @relation("FactDecider")
@@ -1469,6 +1470,9 @@ model AppSetting {
   reportingCurrency String?
 
   ratesRefreshedAt DateTime?
+
+  defaultLeadOwnerId String?
+  defaultLeadOwner   User?   @relation("DefaultLeadOwner", fields: [defaultLeadOwnerId], references: [id], onDelete: SetNull)
 
   archiveRetentionDays Int @default(180)
 

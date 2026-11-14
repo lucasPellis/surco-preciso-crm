@@ -101,6 +101,26 @@ export async function writeReportingCurrency(
 	return reportingCurrency;
 }
 
+export async function readDefaultLeadOwner(db: Db): Promise<string | null> {
+	const row = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: { defaultLeadOwnerId: true },
+	});
+
+	return row?.defaultLeadOwnerId ?? null;
+}
+
+export async function writeDefaultLeadOwner(
+	db: Db,
+	defaultLeadOwnerId: string | null,
+): Promise<void> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID, defaultLeadOwnerId },
+		update: { defaultLeadOwnerId },
+	});
+}
+
 export async function readRatesRefreshedAt(db: Db): Promise<Date | null> {
 	const row = await db.appSetting.findUnique({
 		where: { id: SETTINGS_ID },

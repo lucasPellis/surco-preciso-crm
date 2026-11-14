@@ -153,8 +153,12 @@ Lead to deal:
   named after the person, joins the contact, and copies `leadSourceId` into
   `Deal.leadSourceId`. A later edit of the contact does not rewrite it.
 - The owner of the contact and of the deal is the user who picks one, else the user who
-  created the contact. With neither, no deal opens. The tracker's form filing has no user, so web leads open no
-  deal yet.
+  created the contact. With neither, no deal opens.
+- A lead with no human creator, such as a tracker form submission, goes to the default
+  lead owner. An owner or admin sets it in Settings → Orígenes
+  (`AppSetting.defaultLeadOwnerId`, `leadSources.setDefaultOwner`). The lead gets the
+  `web` source and a deal in `NEW`. With no default owner, the contact is filed and no
+  deal opens.
 
 Open in step 3:
 

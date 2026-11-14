@@ -1,7 +1,12 @@
-import { canManageLeadSources, workspaceRoleOf } from "@crm/auth/organization";
+import {
+	canManageLeadSources,
+	WORKSPACE_ID,
+	workspaceRoleOf,
+} from "@crm/auth/organization";
 import type { Db } from "@crm/db";
 import { Prisma } from "@crm/db";
 import { type LeadSourceIcon, leadSourceKey } from "@crm/db/lead-source";
+import { readDefaultLeadOwner, writeDefaultLeadOwner } from "@crm/db/settings";
 import {
 	BadRequestException,
 	ConflictException,
@@ -48,7 +53,29 @@ export class LeadSourcesService {
 				contacts: counts.get(row.id) ?? 0,
 			})),
 			canManage: canManageLeadSources(await workspaceRoleOf(actingUserId)),
+			defaultOwnerId: await readDefaultLeadOwner(this.db),
 		};
+	}
+
+	async setDefaultOwner(
+		actingUserId: string,
+		ownerId: string | null,
+	): Promise<LeadSourceList> {
+		await this.requireManager(actingUserId);
+
+		if (ownerId) {
+			const member = await this.db.member.findFirst({
+				where: { userId: ownerId, organizationId: WORKSPACE_ID },
+				select: { id: true },
+			});
+			if (!member) {
+				throw new BadRequestException("That user is not in the workspace.");
+			}
+		}
+
+		await writeDefaultLeadOwner(this.db, ownerId);
+
+		return this.list(actingUserId);
 	}
 
 	async create(

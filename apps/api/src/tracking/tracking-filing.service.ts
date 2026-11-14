@@ -1,6 +1,7 @@
 import { workspaceDomains } from "@crm/auth/workspace";
 import { ActivityType, type Db, Prisma, RecordSource } from "@crm/db";
 import type { Touch } from "@crm/db/attribution";
+import { readDefaultLeadOwner } from "@crm/db/settings";
 import {
 	CONTACT_CAP_REASON,
 	CONTACTS_PER_HOUR,
@@ -103,9 +104,15 @@ export class TrackingFilingService {
 		}
 
 		const { firstName, lastName } = splitName(submission.name, email);
+		const ownerId = await readDefaultLeadOwner(this.db);
+		const webSource = await this.db.leadSource.findFirst({
+			where: { key: "web", archivedAt: null },
+			select: { id: true },
+		});
 		const companyId = await this.companies.resolveForContact({
 			email,
 			name: [firstName, lastName].filter(Boolean).join(" "),
+			ownerId,
 		});
 
 		let contact: { id: string };
@@ -116,8 +123,26 @@ export class TrackingFilingService {
 					lastName,
 					email,
 					companyId,
+					ownerId,
+					leadSourceId: webSource?.id ?? null,
 					source: RecordSource.TRACKING,
 					lastActivityAt: new Date(),
+					...(ownerId
+						? {
+								deals: {
+									create: {
+										deal: {
+											create: {
+												name: [firstName, lastName].filter(Boolean).join(" "),
+												companyId,
+												ownerId,
+												leadSourceId: webSource?.id ?? null,
+											},
+										},
+									},
+								},
+							}
+						: {}),
 				},
 				select: { id: true },
 			});

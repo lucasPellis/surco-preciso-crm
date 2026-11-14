@@ -7,6 +7,7 @@ import {
 	it,
 } from "bun:test";
 import { db } from "@crm/db";
+import { writeDefaultLeadOwner } from "@crm/db/settings";
 import {
 	CONTACT_CAP_REASON,
 	CONTACTS_PER_HOUR,
@@ -199,6 +200,51 @@ describe("filing a form submission", () => {
 
 		expect(contact?.companyId).toBeTruthy();
 		expect(contact?.firstName).toBe("Dana");
+	});
+
+	it("gives a web lead to the default owner and opens a deal", async () => {
+		await writeDefaultLeadOwner(db, userId);
+		try {
+			const email = `owned@${domain}`;
+			await submit(email);
+
+			const contact = await db.contact.findUniqueOrThrow({
+				where: { email },
+				select: {
+					ownerId: true,
+					leadSource: { select: { key: true } },
+					deals: {
+						select: {
+							deal: {
+								select: { stage: true, ownerId: true, leadSourceId: true },
+							},
+						},
+					},
+				},
+			});
+
+			expect(contact.ownerId).toBe(userId);
+			expect(contact.leadSource?.key).toBe("web");
+			expect(contact.deals).toHaveLength(1);
+			expect(contact.deals[0]?.deal.stage).toBe("NEW");
+			expect(contact.deals[0]?.deal.ownerId).toBe(userId);
+		} finally {
+			await writeDefaultLeadOwner(db, null);
+		}
+	});
+
+	it("opens no deal for a web lead when there is no default owner", async () => {
+		await writeDefaultLeadOwner(db, null);
+		const email = `unowned@${domain}`;
+		await submit(email);
+
+		const contact = await db.contact.findUniqueOrThrow({
+			where: { email },
+			select: { ownerId: true, deals: { select: { dealId: true } } },
+		});
+
+		expect(contact.ownerId).toBeNull();
+		expect(contact.deals).toHaveLength(0);
 	});
 
 	it("writes one note when the same submission is filed twice at once", async () => {

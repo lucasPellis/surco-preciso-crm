@@ -195,6 +195,7 @@ export function useCrmCache(): CrmCache {
 					trpc.companies.byId.queryKey(),
 					trpc.deals.byId.queryKey(),
 					trpc.deals.contactOptions.queryKey(),
+					trpc.dashboard.summary.queryKey(),
 				],
 				options,
 			),
@@ -297,7 +298,15 @@ export function useCrmCache(): CrmCache {
 			),
 
 		leadSources: (options) =>
-			run([trpc.leadSources.list.queryKey()], [], options),
+			run(
+				[trpc.leadSources.list.queryKey()],
+				[
+					trpc.contacts.list.queryKey(),
+					trpc.contacts.byId.queryKey(),
+					trpc.deals.list.queryKey(),
+				],
+				options,
+			),
 
 		workspace: (options) =>
 			run(

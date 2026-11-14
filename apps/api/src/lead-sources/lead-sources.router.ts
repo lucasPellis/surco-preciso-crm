@@ -13,6 +13,8 @@ import { restMeta } from "../trpc/openapi";
 import {
 	type CreateLeadSourceInput,
 	createLeadSourceInput,
+	type DefaultLeadOwnerInput,
+	defaultLeadOwnerInput,
 	type LeadSourceIdInput,
 	leadSourceIdInput,
 	leadSourceListOutput,
@@ -38,6 +40,18 @@ export class LeadSourcesRouter {
 	})
 	async list(@Ctx() ctx: AuthedTrpcContext) {
 		return this.sources.list(ctx.user.id);
+	}
+
+	@Mutation({
+		input: defaultLeadOwnerInput,
+		output: leadSourceListOutput,
+		meta: restMeta("PUT", "/lead-sources/default-owner", TAGS),
+	})
+	async setDefaultOwner(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: DefaultLeadOwnerInput,
+	) {
+		return this.sources.setDefaultOwner(ctx.user.id, input.ownerId);
 	}
 
 	@Mutation({

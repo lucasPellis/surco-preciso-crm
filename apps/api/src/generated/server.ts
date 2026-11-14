@@ -26,7 +26,7 @@ import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
-import { leadSourceListOutput, createLeadSourceInput, updateLeadSourceInput, leadSourceIdInput, reorderLeadSourcesInput } from "../lead-sources/lead-sources.contracts";
+import { leadSourceListOutput, defaultLeadOwnerInput, createLeadSourceInput, updateLeadSourceInput, leadSourceIdInput, reorderLeadSourcesInput } from "../lead-sources/lead-sources.contracts";
 import { mcpListOutput, mcpGetInput, mcpGetOutput, mcpToolsInput, mcpToolsOutput, mcpStartInput, mcpStartOutput, mcpReconnectInput, mcpReconnectOutput, mcpDisconnectInput, mcpDisconnectOutput, mcpReviewToolsInput, mcpReviewToolsOutput } from "../mcp/mcp.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
@@ -588,6 +588,10 @@ const appRouter = t.router({
     list: publicProcedure
       .output(leadSourceListOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    setDefaultOwner: publicProcedure
+      .input(defaultLeadOwnerInput)
+      .output(leadSourceListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     create: publicProcedure
       .input(createLeadSourceInput)
       .output(leadSourceListOutput)
