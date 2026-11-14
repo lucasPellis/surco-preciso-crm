@@ -65,12 +65,18 @@ export function primaryWorkspaceDomain(): string | undefined {
 	return allowList().domains[0];
 }
 
+const CONSUMER_GOOGLE_HOSTS = new Set(["gmail.com", "googlemail.com"]);
+
 export function googleHostedDomainHint(): string | undefined {
 	const { domains, addresses } = allowList();
-	if (domains[0]) return domains[0];
+	const domain = domains.find((host) => !CONSUMER_GOOGLE_HOSTS.has(host));
+	if (domain) return domain;
 
 	const hosts = new Set(
-		addresses.map((address) => parseAddress(address)?.host).filter(Boolean),
+		addresses
+			.map((address) => parseAddress(address)?.host)
+			.filter((host): host is string => !!host)
+			.filter((host) => !CONSUMER_GOOGLE_HOSTS.has(host)),
 	);
 	return hosts.size === 1 ? [...hosts][0] : undefined;
 }
