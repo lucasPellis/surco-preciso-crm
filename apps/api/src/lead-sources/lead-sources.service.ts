@@ -197,7 +197,7 @@ export class LeadSourcesService {
 		const existing = await this.db.leadSource.findFirst({
 			where: {
 				name: { equals: name, mode: "insensitive" },
-				...(exceptId ? { id: { not: exceptId } } : {}),
+				id: exceptId ? { not: exceptId } : undefined,
 			},
 			select: { id: true },
 		});

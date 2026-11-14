@@ -980,7 +980,7 @@ export class ContactsService {
 			where: {
 				phone,
 				archivedAt: null,
-				...(exceptId ? { id: { not: exceptId } } : {}),
+				id: exceptId ? { not: exceptId } : undefined,
 			},
 			select: { firstName: true, lastName: true },
 		});

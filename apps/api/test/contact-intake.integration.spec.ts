@@ -25,8 +25,10 @@ const agent = {
 	},
 	companyRequested: async () => true,
 	withCrmEvents: withDiscardedCrmEvents,
-	fieldBackfillRecords: async (_: unknown, __: unknown, ids: string[]) => ({
-		queued: ids.length,
+	fieldBackfillRecords: async (
+		...args: Parameters<AgentTriggerService["fieldBackfillRecords"]>
+	) => ({
+		queued: args[2].length,
 		merged: 0,
 	}),
 } as unknown as AgentTriggerService;
