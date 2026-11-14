@@ -44,7 +44,7 @@ function CardBody({ card }: { card: BoardCard }) {
 			)}
 			{card.task ? <CardTask task={card.task} /> : null}
 			<span className="flex items-center justify-between gap-2 text-13">
-				<span className="tabular-nums">
+				<span className="shrink-0 whitespace-nowrap tabular-nums">
 					{card.amountCents === null
 						? "Sin monto"
 						: formatMoney(card.amountCents, card.currency)}

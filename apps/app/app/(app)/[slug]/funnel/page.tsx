@@ -29,7 +29,7 @@ export default function FunnelPage({
 	searchParams,
 }: PageProps<"/[slug]/funnel">) {
 	return (
-		<PageShell className="min-h-0">
+		<PageShell className="min-h-0" contained>
 			<PageShellHeader>
 				<PageShellHeading>
 					<PageShellTitle>Funnel</PageShellTitle>

@@ -1,5 +1,5 @@
 export const PIPELINE_BOARD = {
-	column: "min-w-44 max-w-72 flex-1 basis-44",
+	column: "min-w-64 max-w-96 flex-1 basis-64",
 	drag: {
 		mouseDistancePx: 6,
 		touchDelayMs: 200,
