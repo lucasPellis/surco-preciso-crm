@@ -2,6 +2,7 @@
 
 import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
 import { ToggleGroup, ToggleGroupItem } from "@crm/ui/components/toggle-group";
+import { CheckIcon } from "lucide-react";
 
 export type LeadSourceOption = {
 	id: string;
@@ -32,9 +33,14 @@ export function LeadSourcePicker({
 			className="w-full flex-wrap"
 		>
 			{sources.map((source) => (
-				<ToggleGroupItem key={source.id} value={source.id}>
+				<ToggleGroupItem
+					key={source.id}
+					value={source.id}
+					className="data-[state=on]:border-brand/60 data-[state=on]:bg-brand/5 dark:data-[state=on]:bg-brand/10"
+				>
 					<LeadSourceMark icon={source.icon} />
 					{source.name}
+					{value === source.id ? <CheckIcon className="text-brand" /> : null}
 				</ToggleGroupItem>
 			))}
 		</ToggleGroup>
