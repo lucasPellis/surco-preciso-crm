@@ -232,6 +232,27 @@ describe("a contact has a lead source", () => {
 		expect(unknown.rows.every((row) => row.leadSource === null)).toBe(true);
 	});
 
+	it("finds a contact by the digits of its phone and returns the phone", async () => {
+		const number = phone(50);
+		const digits = number.slice(1);
+		const row = await file({ firstName: "Pablo", phone: number });
+
+		const spaced = await contacts.list(
+			contactListInput.parse({
+				q: `+${digits.slice(0, 3)} ${digits.slice(3)}`,
+			}),
+		);
+		const tail = await contacts.list(
+			contactListInput.parse({ q: digits.slice(-6) }),
+		);
+
+		expect(spaced.rows.map((entry) => entry.id)).toContain(row.id);
+		expect(tail.rows.map((entry) => entry.id)).toContain(row.id);
+		expect(spaced.rows.find((entry) => entry.id === row.id)?.phone).toBe(
+			number,
+		);
+	});
+
 	it("opens a deal in Nuevo with the same source", async () => {
 		const source = await db.leadSource.create({
 			data: { key: `intake-${suffix}-deal`, name: `Deal ${suffix}` },

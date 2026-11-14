@@ -54,6 +54,7 @@ import type {
 	ContactUpdateInput,
 	FactDecisionInput,
 } from "./contacts.contracts";
+import { CONTACT_SEARCH } from "./contacts-config";
 
 const OWNER_SELECT = {
 	id: true,
@@ -838,14 +839,19 @@ export class ContactsService {
 		const term = q.trim();
 		if (!term) return {};
 
-		return {
-			OR: [
-				{ firstName: { contains: term, mode: "insensitive" } },
-				{ lastName: { contains: term, mode: "insensitive" } },
-				{ email: { contains: term, mode: "insensitive" } },
-				{ company: { name: { contains: term, mode: "insensitive" } } },
-			],
-		};
+		const clauses: Prisma.ContactWhereInput[] = [
+			{ firstName: { contains: term, mode: "insensitive" } },
+			{ lastName: { contains: term, mode: "insensitive" } },
+			{ email: { contains: term, mode: "insensitive" } },
+			{ company: { name: { contains: term, mode: "insensitive" } } },
+		];
+
+		const digits = term.replace(/\D/g, "");
+		if (digits.length >= CONTACT_SEARCH.phoneMinDigits) {
+			clauses.push({ phone: { contains: digits } });
+		}
+
+		return { OR: clauses };
 	}
 
 	private companyFilter(
