@@ -7,9 +7,9 @@ import {
 import {
 	applyOrder,
 	archiveTargets,
-	idleHoursOf,
 	type StageSettingsRow,
 	splitStages,
+	wholeNumberOf,
 } from "../lib/stage-settings";
 
 function row(
@@ -26,6 +26,7 @@ function row(
 		position,
 		isEntry: false,
 		idleAfterHours: null,
+		autoLoseAfterDays: null,
 		archived: false,
 		dealCount: 0,
 		...extra,
@@ -86,10 +87,10 @@ describe("archive targets", () => {
 
 describe("idle hours input", () => {
 	it("reads empty as none and refuses anything that is not a positive integer", () => {
-		expect(idleHoursOf("  ")).toBeNull();
-		expect(idleHoursOf("48")).toBe(48);
+		expect(wholeNumberOf("  ")).toBeNull();
+		expect(wholeNumberOf("48")).toBe(48);
 		for (const bad of ["0", "-3", "1.5", "abc", "1e3"]) {
-			expect(idleHoursOf(bad)).toBeUndefined();
+			expect(wholeNumberOf(bad)).toBeUndefined();
 		}
 	});
 });

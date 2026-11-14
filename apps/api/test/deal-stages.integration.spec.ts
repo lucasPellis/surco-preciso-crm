@@ -9,10 +9,11 @@ import type { FaviconService } from "../src/companies/favicon.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { DashboardService } from "../src/dashboard/dashboard.service";
-import { dealListInput } from "../src/deals/deals.contracts";
+import { dealListInput, dealStagesOutput } from "../src/deals/deals.contracts";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
+import { expectOutput } from "./expect-output";
 
 const suffix = process.env.TEST_RUN_ID ?? "deal-stages-spec";
 const ownerId = `ds-owner-${suffix}`;
@@ -99,7 +100,7 @@ afterAll(async () => {
 
 describe("the stage list", () => {
 	it("keeps the seven stages the enum had and adds the paused one", async () => {
-		const stages = await deals.stages(false);
+		const stages = expectOutput(dealStagesOutput, await deals.stages(false));
 
 		expect(stages.map((stage) => [stage.key, stage.kind])).toEqual([
 			["NEW", "OPEN"],
@@ -117,12 +118,16 @@ describe("the stage list", () => {
 	});
 
 	it("hides an archived stage unless asked", async () => {
-		expect((await deals.stages(false)).some((s) => s.key === retiredKey)).toBe(
-			false,
-		);
-		expect((await deals.stages(true)).some((s) => s.key === retiredKey)).toBe(
-			true,
-		);
+		expect(
+			expectOutput(dealStagesOutput, await deals.stages(false)).some(
+				(s) => s.key === retiredKey,
+			),
+		).toBe(false);
+		expect(
+			expectOutput(dealStagesOutput, await deals.stages(true)).some(
+				(s) => s.key === retiredKey,
+			),
+		).toBe(true);
 	});
 
 	it("allows one entry stage only", async () => {

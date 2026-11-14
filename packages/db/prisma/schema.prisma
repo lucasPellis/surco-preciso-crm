@@ -23,16 +23,16 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  ownedCompanies Company[]           @relation("CompanyOwner")
-  ownedContacts  Contact[]           @relation("ContactOwner")
-  ownedDeals     Deal[]              @relation("DealOwner")
-  defaultLeadOwnerOf AppSetting[]    @relation("DefaultLeadOwner")
-  activities     Activity[]          @relation("ActivityAuthor")
-  mailboxSyncs   MailboxSync[]
-  factDecisions  ContactFact[]       @relation("FactDecider")
-  conversations  AgentConversation[] @relation("ConversationOwner")
-  fieldValues    FieldValue[]        @relation("FieldValueUser")
-  savedViews     SavedView[]         @relation("SavedViewOwner")
+  ownedCompanies     Company[]           @relation("CompanyOwner")
+  ownedContacts      Contact[]           @relation("ContactOwner")
+  ownedDeals         Deal[]              @relation("DealOwner")
+  defaultLeadOwnerOf AppSetting[]        @relation("DefaultLeadOwner")
+  activities         Activity[]          @relation("ActivityAuthor")
+  mailboxSyncs       MailboxSync[]
+  factDecisions      ContactFact[]       @relation("FactDecider")
+  conversations      AgentConversation[] @relation("ConversationOwner")
+  fieldValues        FieldValue[]        @relation("FieldValueUser")
+  savedViews         SavedView[]         @relation("SavedViewOwner")
 
   createdAgentDefinitions AgentDefinition[]             @relation("AgentDefinitionCreator")
   createdAgentVersions    AgentVersion[]                @relation("AgentVersionCreator")
@@ -561,15 +561,16 @@ model LeadSource {
 }
 
 model PipelineStage {
-  id             String            @id @default(cuid())
-  key            String            @unique
-  name           String
-  kind           PipelineStageKind
-  tone           PipelineStageTone @default(NEUTRAL)
-  position       Int               @default(0)
-  isEntry        Boolean           @default(false)
-  idleAfterHours Int?
-  archivedAt     DateTime?
+  id                String            @id @default(cuid())
+  key               String            @unique
+  name              String
+  kind              PipelineStageKind
+  tone              PipelineStageTone @default(NEUTRAL)
+  position          Int               @default(0)
+  isEntry           Boolean           @default(false)
+  idleAfterHours    Int?
+  autoLoseAfterDays Int?
+  archivedAt        DateTime?
 
   deals     Deal[]
   createdAt DateTime @default(now())
@@ -687,8 +688,8 @@ model AgentEvent {
 
   emittedAt DateTime
 
-  @@index([sessionId, emittedAt])
   @@unique([sessionId, streamIndex])
+  @@index([sessionId, emittedAt])
   @@index([contactId, emittedAt])
   @@index([conversationId, emittedAt])
   @@map("agentEvent")
@@ -712,9 +713,9 @@ model AgentConversation {
   agentId String?
   agent   AgentDefinition? @relation(fields: [agentId], references: [id], onDelete: SetNull)
 
-  sessionId           String? @unique
-  continuationToken   String?
-  streamIndex         Int     @default(0)
+  sessionId            String? @unique
+  continuationToken    String?
+  streamIndex          Int     @default(0)
   pendingInputRequests Json?
 
   permissionMode AgentConversationPermissionMode @default(MANUAL)

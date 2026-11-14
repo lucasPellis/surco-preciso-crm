@@ -176,9 +176,9 @@ export function DealsBulkActions({
 							{stages.options.map((option) => (
 								<DropdownMenuItem
 									key={option.value}
-									disabled={!stages.ready}
+									disabled={stages.loading}
 									onSelect={() => {
-										if (!stages.ready) return;
+										if (!stages.guard()) return;
 										if (stages.isLosing(option.value)) {
 											setClosing(option.value);
 											return;

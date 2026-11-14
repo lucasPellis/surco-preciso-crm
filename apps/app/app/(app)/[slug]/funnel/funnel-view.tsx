@@ -20,6 +20,11 @@ import { idleLabel } from "@/lib/deal-stage";
 import { showCompanyLine, taskLine } from "@/lib/funnel-card";
 import { FUNNEL_CARD } from "@/lib/funnel-card-config";
 import { moveCard, type PipelineBoardData } from "@/lib/pipeline-board";
+import {
+	QUALIFICATION_COPY,
+	qualificationBadge,
+	qualificationGate,
+} from "@/lib/qualification";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -43,6 +48,14 @@ function CardBody({ card }: { card: BoardCard }) {
 				</span>
 			)}
 			{card.task ? <CardTask task={card.task} /> : null}
+			{qualificationBadge(card.qualification) ? (
+				<span
+					className="text-13 text-muted-foreground tabular-nums"
+					title={QUALIFICATION_COPY.counterLabel}
+				>
+					{qualificationBadge(card.qualification)}
+				</span>
+			) : null}
 			<span className="flex items-center justify-between gap-2 text-13">
 				<span className="shrink-0 whitespace-nowrap tabular-nums">
 					{card.amountCents === null
@@ -143,12 +156,15 @@ export function FunnelView() {
 	const onMove = (cardId: string, columnId: string) => {
 		const card = cards.get(cardId);
 		const target = columnId;
-		if (!stages.ready || !card || card.stage === target) return;
+		if (!stages.guard() || !card || card.stage === target) return;
 
 		if (stages.isLosing(target)) {
 			requestClose(cardId, target);
 			return;
 		}
+
+		const gate = qualificationGate(target, card.qualification);
+		if (gate.warn) toast.warning(QUALIFICATION_COPY.warning(gate.missing));
 
 		startTransition(async () => {
 			applyMove({ id: cardId, stage: target });
@@ -201,7 +217,11 @@ export function FunnelView() {
 								</button>
 								{card.phone ? <CardPhone phone={card.phone} linked /> : null}
 								<div className="mt-1.5 flex items-center justify-between gap-2">
-									<DealStageMenu dealId={card.id} stage={card.stage} />
+									<DealStageMenu
+										dealId={card.id}
+										stage={card.stage}
+										qualification={card.qualification}
+									/>
 									<OwnerCell owner={card.owner} compact />
 								</div>
 							</PipelineCard>

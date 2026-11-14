@@ -14,14 +14,18 @@ import type {
 } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
+import { dealStagesOutput } from "../src/deals/deals.contracts";
 import { DealsService } from "../src/deals/deals.service";
 import {
 	archiveStageInput,
 	createStageInput,
+	type StageSettings,
+	stageSettingsOutput,
 	updateStageInput,
 } from "../src/deals/pipeline-stages.contracts";
 import { PipelineStagesService } from "../src/deals/pipeline-stages.service";
 import { FieldsService } from "../src/fields/fields.service";
+import { expectOutput } from "./expect-output";
 
 const suffix = crypto.randomUUID().slice(0, 8);
 const token = suffix.toUpperCase();
@@ -53,7 +57,33 @@ const deals = new DealsService(
 	new ConversionService(db),
 	new FieldsService(db, { fieldBackfill: async () => undefined } as never),
 );
-const stages = new PipelineStagesService(db, agent, deals);
+const service = new PipelineStagesService(db, agent, deals);
+const contract =
+	<Args extends unknown[]>(call: (...args: Args) => Promise<StageSettings>) =>
+	async (...args: Args) =>
+		expectOutput(stageSettingsOutput, await call(...args));
+const stages = {
+	settings: contract((userId: string) => service.settings(userId)),
+	create: contract(
+		(userId: string, input: Parameters<typeof service.create>[1]) =>
+			service.create(userId, input),
+	),
+	update: contract(
+		(userId: string, input: Parameters<typeof service.update>[1]) =>
+			service.update(userId, input),
+	),
+	reorder: contract(
+		(userId: string, input: Parameters<typeof service.reorder>[1]) =>
+			service.reorder(userId, input),
+	),
+	archive: contract(
+		(userId: string, input: Parameters<typeof service.archive>[1]) =>
+			service.archive(userId, input),
+	),
+	restore: contract((userId: string, key: string) =>
+		service.restore(userId, key),
+	),
+};
 
 let companyId: string;
 const createdKeys: string[] = [];
@@ -155,7 +185,7 @@ afterAll(async () => {
 
 describe("the stage catalog", () => {
 	it("returns the tone of every stage", async () => {
-		const catalog = await deals.stages(true);
+		const catalog = expectOutput(dealStagesOutput, await deals.stages(true));
 
 		expect(catalog.length).toBeGreaterThan(0);
 		expect(catalog.every((stage) => stage.tone !== undefined)).toBe(true);

@@ -9,6 +9,7 @@ import {
 	FieldType,
 	RateSource,
 } from "../src/generated/prisma/enums";
+import { QUALIFICATION } from "../src/qualification";
 import { readReportingCurrency, SETTINGS_ID } from "../src/settings";
 
 function makeRandom(seed: number): () => number {
@@ -449,6 +450,7 @@ async function upsertField(
 	type: FieldType,
 	position: number,
 	options: readonly string[] = [],
+	agentFilled: boolean = type !== "USER" && type !== "NUMBER",
 ): Promise<SeededField> {
 	const key = fieldKeyFromLabel(label);
 	const definition = await db.fieldDefinition.upsert({
@@ -460,7 +462,7 @@ async function upsertField(
 			type,
 			showOnTable: false,
 			showOnFilter: false,
-			agentFilled: type !== "USER" && type !== "NUMBER",
+			agentFilled,
 			position,
 			options: {
 				create: options.map((optionLabel, index) => ({
@@ -478,6 +480,19 @@ async function upsertField(
 		key: definition.key,
 		options: definition.options,
 	};
+}
+
+async function seedQualificationFields() {
+	for (const [index, question] of QUALIFICATION.questions.entries()) {
+		await upsertField(
+			"DEAL",
+			question.label,
+			question.type,
+			index,
+			question.options,
+			false,
+		);
+	}
 }
 
 async function seedCompanyFields(): Promise<SeededFieldSet> {
@@ -988,6 +1003,7 @@ async function main() {
 	const deals = await seedDeals(companies, contacts, ownerIds);
 	const activities = await seedActivities(companies, contacts, deals, ownerIds);
 	const companyFields = await seedCompanyFields();
+	await seedQualificationFields();
 	await seedCompanyFieldValues(companyFields, companies, ownerIds);
 
 	console.log(

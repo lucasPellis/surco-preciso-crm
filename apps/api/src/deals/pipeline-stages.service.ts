@@ -56,6 +56,7 @@ export class PipelineStagesService {
 				position: row.position,
 				isEntry: row.isEntry,
 				idleAfterHours: row.idleAfterHours,
+				autoLoseAfterDays: row.autoLoseAfterDays,
 				archived: row.archivedAt !== null,
 				dealCount: perStage.get(row.key) ?? 0,
 			})),
@@ -69,6 +70,10 @@ export class PipelineStagesService {
 	): Promise<StageSettings> {
 		await this.requireManager(actingUserId);
 		const idle = this.idleFor(input.kind, input.idleAfterHours ?? null);
+		const autoLose = this.autoLoseFor(
+			input.kind,
+			input.autoLoseAfterDays ?? null,
+		);
 
 		await this.db.$transaction(async (tx) => {
 			await this.assertNameFree(tx, input.name);
@@ -91,6 +96,7 @@ export class PipelineStagesService {
 					kind: input.kind,
 					tone: input.tone ?? PIPELINE_STAGE.defaultTone,
 					idleAfterHours: idle,
+					autoLoseAfterDays: autoLose,
 					position: this.nextIntermediatePosition(all),
 				},
 			});
@@ -124,6 +130,12 @@ export class PipelineStagesService {
 			}
 			if (input.idleAfterHours !== undefined) {
 				data.idleAfterHours = this.idleFor(stage.kind, input.idleAfterHours);
+			}
+			if (input.autoLoseAfterDays !== undefined) {
+				data.autoLoseAfterDays = this.autoLoseFor(
+					stage.kind,
+					input.autoLoseAfterDays,
+				);
 			}
 
 			await tx.pipelineStage.update({ where: { key: stage.key }, data });
@@ -281,6 +293,19 @@ export class PipelineStagesService {
 			);
 		}
 		return hours;
+	}
+
+	private autoLoseFor(
+		kind: PipelineStageKind,
+		days: number | null,
+	): number | null {
+		if (days === null) return null;
+		if (kind !== PipelineStageKind.PAUSED) {
+			throw new BadRequestException(
+				"Only a paused stage can lose its deals on its own.",
+			);
+		}
+		return days;
 	}
 
 	private async lock(

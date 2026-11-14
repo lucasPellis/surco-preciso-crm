@@ -14,3 +14,9 @@ export const NEW_LEAD = {
 	followUpSubject: "Contactar al lead",
 	followUpDueInDays: 0,
 } as const;
+
+export const PAUSED_SWEEP = {
+	lostReason: "Sin respuesta",
+	maxBatch: 500,
+	schedule: "30 5 * * *",
+} as const;

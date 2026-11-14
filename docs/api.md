@@ -257,6 +257,14 @@ row is still there, just filtered out of every list.
 the ordinary `runBulk`. Settings → General has the day count
 (`settings.archiveRetention` / `setArchiveRetention`).
 
+**Pause timeout**: `PausedDealsController` (`internal/deals/lose-paused`, same
+`CRON_SECRET` gate, `apps/api/vercel.json`) calls `DealsService.losePaused`. A deal in a
+`PAUSED` stage whose `stageChangedAt` is older than the stage's `autoLoseAfterDays` moves
+to the `LOST` stage through `moveInTx`, with the reason `PAUSED_SWEEP.lostReason`
+(`deals/deals-config.ts`) and the deal owner as the actor. `null` means never. Each deal
+is its own transaction and re-checks the rule under `FOR UPDATE`, so a second run moves
+nothing.
+
 Below is `purge`'s contract — everything that used to be `delete`'s:
 
 - **A purged contact is suppressed by address**, or the sync recreates them from the

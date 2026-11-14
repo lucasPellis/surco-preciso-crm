@@ -54,9 +54,9 @@ import { STAGE_TONE_LABELS, STAGE_TONE_STATUS } from "@/lib/deal-stage-config";
 import {
 	applyOrder,
 	archiveTargets,
-	idleHoursOf,
 	type StageSettingsRow,
 	splitStages,
+	wholeNumberOf,
 } from "@/lib/stage-settings";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -75,6 +75,7 @@ type FormValues = {
 	kind: (typeof INTERMEDIATE_KINDS)[number];
 	tone: PipelineStageTone;
 	idle: string;
+	autoLose: string;
 };
 
 function ToneSelect({
@@ -126,6 +127,7 @@ function StageDialog({
 		kind: FormValues["kind"];
 		tone: PipelineStageTone;
 		idleAfterHours: number | null;
+		autoLoseAfterDays: number | null;
 	}) => void;
 }) {
 	const validation = useFormSheetValidation();
@@ -133,6 +135,7 @@ function StageDialog({
 	const kindId = useId();
 	const toneId = useId();
 	const idleId = useId();
+	const autoLoseId = useId();
 	const creating = target === "new";
 	const closed =
 		!creating &&
@@ -149,10 +152,16 @@ function StageDialog({
 			creating || target.idleAfterHours === null
 				? ""
 				: String(target.idleAfterHours),
+		autoLose:
+			creating || target.autoLoseAfterDays === null
+				? ""
+				: String(target.autoLoseAfterDays),
 	});
 	const kind = creating ? values.kind : target.kind;
 	const showIdle = kind === PipelineStageKind.OPEN;
-	const idleHours = idleHoursOf(values.idle);
+	const showAutoLose = kind === PipelineStageKind.PAUSED;
+	const idleHours = wholeNumberOf(values.idle);
+	const autoLoseDays = wholeNumberOf(values.autoLose);
 
 	return (
 		<Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
@@ -186,12 +195,24 @@ function StageDialog({
 							errors[idleId] =
 								`El máximo es ${PIPELINE_STAGE.idleMaxHours} horas.`;
 						}
+						if (showAutoLose && autoLoseDays === undefined) {
+							errors[autoLoseId] =
+								`Escribe un número entero entre 1 y ${PIPELINE_STAGE.autoLoseMaxDays}, o déjalo vacío.`;
+						}
+						if (
+							showAutoLose &&
+							(autoLoseDays ?? 0) > PIPELINE_STAGE.autoLoseMaxDays
+						) {
+							errors[autoLoseId] =
+								`El máximo es ${PIPELINE_STAGE.autoLoseMaxDays} días.`;
+						}
 						if (!validation.validate(event.currentTarget, errors)) return;
 						onSubmit({
 							name: values.name.trim(),
 							kind: values.kind,
 							tone: values.tone,
 							idleAfterHours: showIdle ? (idleHours ?? null) : null,
+							autoLoseAfterDays: showAutoLose ? (autoLoseDays ?? null) : null,
 						});
 					}}
 				>
@@ -280,6 +301,36 @@ function StageDialog({
 								</FieldDescription>
 								<FieldError id={`${idleId}-error`}>
 									{validation.errors[idleId]}
+								</FieldError>
+							</Field>
+						) : null}
+						{showAutoLose ? (
+							<Field data-invalid={!!validation.errors[autoLoseId]}>
+								<FieldLabel htmlFor={autoLoseId}>
+									Días hasta pasar a Perdido
+								</FieldLabel>
+								<Input
+									id={autoLoseId}
+									inputMode="numeric"
+									aria-invalid={!!validation.errors[autoLoseId]}
+									aria-describedby={
+										validation.errors[autoLoseId]
+											? `${autoLoseId}-error`
+											: undefined
+									}
+									value={values.autoLose}
+									placeholder="Nunca"
+									onChange={(event) =>
+										setValues({ ...values, autoLose: event.target.value })
+									}
+								/>
+								<FieldDescription>
+									{autoLoseDays
+										? `Tras ${autoLoseDays} ${autoLoseDays === 1 ? "día" : "días"} sin moverse, la oportunidad pasa a Perdido con el motivo Sin respuesta.`
+										: "Vacío significa que nunca pasa a Perdido."}
+								</FieldDescription>
+								<FieldError id={`${autoLoseId}-error`}>
+									{validation.errors[autoLoseId]}
 								</FieldError>
 							</Field>
 						) : null}
@@ -383,6 +434,9 @@ function StageSummary({ stage }: { stage: StageSettingsRow }) {
 				</span>
 				{stage.idleAfterHours === null ? null : (
 					<span>Alerta tras {hoursLabel(stage.idleAfterHours)}</span>
+				)}
+				{stage.autoLoseAfterDays === null ? null : (
+					<span>Pasa a Perdido tras {stage.autoLoseAfterDays} días</span>
 				)}
 			</span>
 		</span>
@@ -613,6 +667,7 @@ export function StagesSettings() {
 									kind: values.kind,
 									tone: values.tone,
 									idleAfterHours: values.idleAfterHours,
+									autoLoseAfterDays: values.autoLoseAfterDays,
 								})
 							: update.mutate({
 									key: editing.key,
@@ -625,6 +680,10 @@ export function StagesSettings() {
 									idleAfterHours:
 										editing.kind === PipelineStageKind.OPEN
 											? values.idleAfterHours
+											: undefined,
+									autoLoseAfterDays:
+										editing.kind === PipelineStageKind.PAUSED
+											? values.autoLoseAfterDays
 											: undefined,
 								})
 					}

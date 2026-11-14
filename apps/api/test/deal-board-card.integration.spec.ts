@@ -4,9 +4,11 @@ import { taskDayBoundaries } from "../src/activities/task-due-date";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
+import { dealBoardOutput } from "../src/deals/deals.contracts";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
+import { expectOutput } from "./expect-output";
 
 const suffix = process.env.TEST_RUN_ID ?? "deal-board-card-spec";
 const ownerId = `dbc-owner-${suffix}`;
@@ -35,7 +37,10 @@ const companyIds: string[] = [];
 const dealIds = new Map<string, string>();
 
 async function board(scope: "me" | "everyone" = "me", user = ownerId) {
-	const result = await deals.board({ scope }, user);
+	const result = expectOutput(
+		dealBoardOutput,
+		await deals.board({ scope }, user),
+	);
 	const cards = result.columns.flatMap((column) => column.cards);
 	return (name: string) => cards.find((card) => card.name === name);
 }

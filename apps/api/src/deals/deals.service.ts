@@ -13,8 +13,9 @@ import {
 	isLosingKind,
 	OPEN_STAGE_FILTER,
 } from "@crm/db/deal-stage";
-import { PipelineStageKind } from "@crm/db/enums";
+import { FieldEntity, PipelineStageKind } from "@crm/db/enums";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
+import { QUALIFICATION_KEYS } from "@crm/db/qualification";
 import {
 	BadRequestException,
 	Injectable,
@@ -67,7 +68,7 @@ import type {
 	SetStageInput,
 } from "./deals.contracts";
 import { CLOSING_WINDOWS } from "./deals.contracts";
-import { DEAL_BOARD } from "./deals-config";
+import { DEAL_BOARD, PAUSED_SWEEP } from "./deals-config";
 
 const OWNER_SELECT = {
 	id: true,
@@ -220,6 +221,7 @@ export class DealsService {
 			position: row.position,
 			isEntry: row.isEntry,
 			idleAfterHours: row.idleAfterHours,
+			autoLoseAfterDays: row.autoLoseAfterDays,
 			archived: row.archivedAt !== null,
 		}));
 	}
@@ -333,9 +335,13 @@ export class DealsService {
 			}),
 		);
 
-		const tasks = await this.dueTasks(
-			columns.flatMap((column) => column.cards.map((card) => card.id)),
+		const cardIds = columns.flatMap((column) =>
+			column.cards.map((card) => card.id),
 		);
+		const [tasks, qualification] = await Promise.all([
+			this.dueTasks(cardIds),
+			this.qualificationCounts(cardIds),
+		]);
 
 		return {
 			columns: columns.map((column) => ({
@@ -343,10 +349,44 @@ export class DealsService {
 				cards: column.cards.map((card) => ({
 					...card,
 					task: tasks.get(card.id) ?? null,
+					qualification:
+						qualification.total === 0
+							? null
+							: {
+									answered: qualification.answered.get(card.id) ?? 0,
+									total: qualification.total,
+								},
 				})),
 			})),
 			reportingCurrency: base,
 			closedWindowDays: DEAL_BOARD.closedWindowDays,
+		};
+	}
+
+	private async qualificationCounts(dealIds: string[]) {
+		const field = {
+			entity: FieldEntity.DEAL,
+			key: { in: [...QUALIFICATION_KEYS] },
+			archivedAt: null,
+		};
+		const [total, rows] = await Promise.all([
+			this.db.fieldDefinition.count({ where: field }),
+			dealIds.length === 0
+				? []
+				: this.db.fieldValue.groupBy({
+						by: ["dealId"],
+						where: { dealId: { in: dealIds }, field },
+						_count: { _all: true },
+					}),
+		]);
+
+		return {
+			total,
+			answered: new Map(
+				rows.flatMap((row) =>
+					row.dealId ? [[row.dealId, row._count._all] as const] : [],
+				),
+			),
 		};
 	}
 
@@ -724,6 +764,91 @@ export class DealsService {
 		});
 
 		return { ...updated, changed: true };
+	}
+
+	async losePaused(now: Date): Promise<BulkResult> {
+		const lost = await this.db.pipelineStage.findFirst({
+			where: { kind: PipelineStageKind.LOST, archivedAt: null },
+			select: { key: true },
+		});
+		const paused = await this.db.pipelineStage.findMany({
+			where: {
+				kind: PipelineStageKind.PAUSED,
+				autoLoseAfterDays: { not: null },
+			},
+			select: { key: true, autoLoseAfterDays: true },
+		});
+		if (!lost) return runBulk([], async () => null);
+
+		const overdue = (
+			await Promise.all(
+				paused.map((stage) =>
+					this.db.deal.findMany({
+						where: {
+							stage: stage.key,
+							archivedAt: null,
+							stageChangedAt: {
+								lt: new Date(
+									now.getTime() -
+										(stage.autoLoseAfterDays ?? 0) * DEAL_BOARD.dayMs,
+								),
+							},
+						},
+						select: { id: true },
+						take: PAUSED_SWEEP.maxBatch,
+					}),
+				),
+			)
+		).flat();
+
+		return runBulk(
+			overdue.map((deal) => deal.id),
+			(id) => this.losePausedDeal(id, lost.key, now),
+		);
+	}
+
+	private async losePausedDeal(id: string, lostKey: string, now: Date) {
+		const transition = await this.agent.withCrmEvents(async (tx, emit) => {
+			const [deal] = await tx.$queryRaw<
+				Array<{ ownerId: string; days: number | null }>
+			>`
+				SELECT d."ownerId", s."autoLoseAfterDays" AS days
+				FROM deal d
+				JOIN pipeline_stage s ON s."key" = d.stage
+				WHERE d.id = ${id}
+					AND s.kind = 'PAUSED'
+					AND d."archivedAt" IS NULL
+					AND s."autoLoseAfterDays" IS NOT NULL
+					AND d."stageChangedAt" < ${now}::timestamp
+						- make_interval(days => s."autoLoseAfterDays")
+				FOR UPDATE OF d
+			`;
+			if (!deal) return null;
+
+			return this.moveInTx(
+				tx,
+				emit,
+				{ id, stage: lostKey, closedReason: PAUSED_SWEEP.lostReason },
+				deal.ownerId,
+			);
+		});
+
+		if (!transition?.changed) return null;
+
+		await this.touchMoved([
+			{
+				companyId: transition.deal.companyId,
+				dealId: transition.deal.id,
+				now: transition.now,
+			},
+		]);
+		this.logger.log({
+			message: "Paused deal lost",
+			dealId: id,
+			from: transition.deal.stage,
+		});
+
+		return transition.updated;
 	}
 
 	async moveInTx(

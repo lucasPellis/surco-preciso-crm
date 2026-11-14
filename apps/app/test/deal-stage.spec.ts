@@ -20,6 +20,7 @@ function row(
 		position,
 		isEntry: false,
 		idleAfterHours: null,
+		autoLoseAfterDays: null,
 		archived: false,
 		...extra,
 	};

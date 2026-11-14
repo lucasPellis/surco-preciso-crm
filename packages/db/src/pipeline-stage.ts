@@ -3,6 +3,7 @@ import { PipelineStageKind, PipelineStageTone } from "./generated/prisma/enums";
 export const PIPELINE_STAGE = {
 	nameMaxLength: 40,
 	idleMaxHours: 24 * 90,
+	autoLoseMaxDays: 365,
 	hoursPerDay: 24,
 	firstIntermediatePosition: 1,
 	fixedEndPosition: 1000,

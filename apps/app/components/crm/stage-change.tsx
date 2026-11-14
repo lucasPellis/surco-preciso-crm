@@ -25,6 +25,11 @@ import { ChevronDownIcon } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useId, useState } from "react";
 import { toast } from "sonner";
+import {
+	QUALIFICATION_COPY,
+	type QualificationCount,
+	qualificationGate,
+} from "@/lib/qualification";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -65,9 +70,11 @@ export function DealStageMenu({
 	dealId,
 	stage,
 	variant = "inline",
+	qualification = null,
 }: {
 	dealId: string;
 	stage: string;
+	qualification?: QualificationCount;
 	variant?: "inline" | "control";
 }) {
 	const [, setCloseParams] = useQueryStates(closeReasonParams);
@@ -81,8 +88,11 @@ export function DealStageMenu({
 					<Button
 						variant="outline"
 						size="sm"
-						disabled={setStage.isPending || !stages.ready}
-						onClick={(event) => event.stopPropagation()}
+						disabled={setStage.isPending || stages.loading}
+						onClick={(event) => {
+							event.stopPropagation();
+							stages.guard();
+						}}
 					>
 						<DealStageIndicator stage={stage} className="text-foreground" />
 						<Icon icon={ChevronDownIcon} className="text-muted-foreground" />
@@ -90,8 +100,11 @@ export function DealStageMenu({
 				) : (
 					<button
 						type="button"
-						onClick={(event) => event.stopPropagation()}
-						disabled={setStage.isPending || !stages.ready}
+						onClick={(event) => {
+							event.stopPropagation();
+							stages.guard();
+						}}
+						disabled={setStage.isPending || stages.loading}
 						className="flex max-w-full min-w-0 items-center text-left hover:text-foreground disabled:opacity-50"
 					>
 						<DealStageIndicator stage={stage} />
@@ -107,7 +120,7 @@ export function DealStageMenu({
 					value={stage}
 					onValueChange={(next) => {
 						const chosen = next;
-						if (!stages.ready || chosen === stage) return;
+						if (!stages.guard() || chosen === stage) return;
 						if (stages.isLosing(chosen)) {
 							void setCloseParams({
 								[SEARCH_PARAM.dialog.closeDeal]: dealId,
@@ -115,6 +128,9 @@ export function DealStageMenu({
 							});
 							return;
 						}
+						const gate = qualificationGate(chosen, qualification);
+						if (gate.warn)
+							toast.warning(QUALIFICATION_COPY.warning(gate.missing));
 						setStage.mutate({ id: dealId, stage: chosen });
 					}}
 				>

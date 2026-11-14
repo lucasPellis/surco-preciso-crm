@@ -21,6 +21,15 @@ const idleHours = z
 		`Idle hours cannot be more than ${PIPELINE_STAGE.idleMaxHours}.`,
 	);
 
+const autoLoseDays = z
+	.number()
+	.int("Days must be a whole number.")
+	.min(1, "Days must be at least 1.")
+	.max(
+		PIPELINE_STAGE.autoLoseMaxDays,
+		`Days cannot be more than ${PIPELINE_STAGE.autoLoseMaxDays}.`,
+	);
+
 const stageKeyInput = z.string().trim().min(1);
 
 export const createStageInput = z.object({
@@ -28,6 +37,7 @@ export const createStageInput = z.object({
 	kind: z.enum(INTERMEDIATE_KINDS),
 	tone: z.enum(PipelineStageTone).optional(),
 	idleAfterHours: idleHours.nullable().optional(),
+	autoLoseAfterDays: autoLoseDays.nullable().optional(),
 });
 
 export const updateStageInput = z.object({
@@ -35,6 +45,7 @@ export const updateStageInput = z.object({
 	name: stageName,
 	tone: z.enum(PipelineStageTone).optional(),
 	idleAfterHours: idleHours.nullable().optional(),
+	autoLoseAfterDays: autoLoseDays.nullable().optional(),
 });
 
 export const reorderStagesInput = z.object({

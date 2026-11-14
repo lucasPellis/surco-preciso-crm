@@ -52,7 +52,7 @@ export function archiveTargets(
 		);
 }
 
-export function idleHoursOf(value: string): number | null | undefined {
+export function wholeNumberOf(value: string): number | null | undefined {
 	const trimmed = value.trim();
 	if (trimmed === "") return null;
 	if (!/^\d+$/.test(trimmed)) return undefined;

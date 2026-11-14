@@ -49,6 +49,7 @@ export const dealStageOutput = z.object({
 	position: z.number(),
 	isEntry: z.boolean(),
 	idleAfterHours: z.number().nullable(),
+	autoLoseAfterDays: z.number().nullable(),
 	archived: z.boolean(),
 });
 
@@ -263,6 +264,9 @@ const dealBoardCardOutput = z.object({
 	idleHours: z.number().nullable(),
 	phone: z.string().nullable(),
 	task: dealBoardTaskOutput.nullable(),
+	qualification: z
+		.object({ answered: z.number(), total: z.number() })
+		.nullable(),
 });
 
 const dealBoardColumnOutput = z.object({
