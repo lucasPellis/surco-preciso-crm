@@ -17,6 +17,7 @@ import {
 	LayoutDashboardIcon,
 	ListChecksIcon,
 	type LucideIcon,
+	PackageIcon,
 	SettingsIcon,
 	UserPlusIcon,
 	UsersIcon,
@@ -51,6 +52,7 @@ const PRIMARY: NavItem[] = [
 	{ title: "Resumen", href: "/", icon: LayoutDashboardIcon, match: "exact" },
 	{ title: "Contactos", href: "/contacts", icon: UsersIcon, match: "prefix" },
 	{ title: "Funnel", href: "/funnel", icon: KanbanIcon, match: "prefix" },
+	{ title: "Productos", href: "/products", icon: PackageIcon, match: "prefix" },
 	{ title: "Tareas", href: "/tasks", icon: ListChecksIcon, match: "prefix" },
 ];
 

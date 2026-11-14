@@ -14,6 +14,7 @@ import {
 	LayoutDashboardIcon,
 	ListChecksIcon,
 	type LucideIcon,
+	PackageIcon,
 	PlusIcon,
 	SearchIcon,
 	SettingsIcon,
@@ -87,6 +88,13 @@ const PAGES: Destination[] = [
 			"kanban",
 			"embudo",
 		],
+	},
+	{
+		id: "products",
+		label: "Productos",
+		href: "/products",
+		icon: PackageIcon,
+		keywords: ["catálogo", "equipos", "sku"],
 	},
 	{
 		id: "deals",
