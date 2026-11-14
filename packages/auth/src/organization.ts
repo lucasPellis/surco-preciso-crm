@@ -33,6 +33,10 @@ export function canManageLeadSources(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
 
+export function canManageStages(role: WorkspaceRole | null): boolean {
+	return isWorkspaceAdmin(role);
+}
+
 export function canManageConnections(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }

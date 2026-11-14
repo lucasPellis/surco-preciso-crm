@@ -16,6 +16,7 @@ function row(
 		key,
 		name: key.toLowerCase(),
 		kind,
+		tone: "NEUTRAL",
 		position,
 		isEntry: false,
 		idleAfterHours: null,
@@ -25,12 +26,12 @@ function row(
 }
 
 const rows: StageRow[] = [
-	row("LOST", "LOST", 7),
+	row("LOST", "LOST", 7, { tone: "ERROR" }),
 	row("NEW", "OPEN", 0, { isEntry: true }),
 	row("CONTACTED", "OPEN", 1),
-	row("QUALIFIED", "OPEN", 2),
+	row("QUALIFIED", "OPEN", 2, { tone: "INFO" }),
 	row("NO_RESPONSE", "PAUSED", 5),
-	row("WON", "WON", 6),
+	row("WON", "WON", 6, { tone: "SUCCESS" }),
 	row("OLD", "OPEN", 3, { archived: true }),
 ];
 
@@ -82,11 +83,15 @@ describe("the stage catalog", () => {
 		expect(catalog.label("UNKNOWN")).toBe("UNKNOWN");
 	});
 
-	it("keeps the tones the enum stages had", () => {
+	it("reads the tone from the stored tone, not the position", () => {
 		expect(catalog.tone("NEW")).toBe("neutral");
 		expect(catalog.tone("QUALIFIED")).toBe("info");
 		expect(catalog.tone("WON")).toBe("success");
 		expect(catalog.tone("LOST")).toBe("error");
+		expect(catalog.tone("GHOST")).toBe("neutral");
+		expect(
+			buildStageCatalog([row("X", "OPEN", 0, { tone: "WARNING" })]).tone("X"),
+		).toBe("warning");
 	});
 });
 

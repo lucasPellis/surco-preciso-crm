@@ -2,7 +2,7 @@ import { PipelineStageKind } from "@crm/db/enums";
 import type { StatusTone } from "@crm/ui/components/status-indicator";
 import { type ChartColor, stageChartColor } from "@crm/ui/lib/chart-config";
 import type { RouterOutputs } from "@/lib/trpc/types";
-import { STAGE_IDLE, STAGE_TONES } from "./deal-stage-config";
+import { STAGE_IDLE, STAGE_TONE_STATUS } from "./deal-stage-config";
 
 export type StageRow = RouterOutputs["deals"]["stages"][number];
 
@@ -24,13 +24,7 @@ export function buildStageCatalog(rows: readonly StageRow[]) {
 
 	function tone(key: string): StatusTone {
 		const row = byKey.get(key);
-		if (!row) return "neutral";
-		if (row.kind === PipelineStageKind.WON) return STAGE_TONES.won;
-		if (row.kind === PipelineStageKind.LOST) return STAGE_TONES.lost;
-		if (row.kind === PipelineStageKind.PAUSED) return STAGE_TONES.paused;
-		const index = open.findIndex((entry) => entry.key === key);
-		if (index < 0) return STAGE_TONES.paused;
-		return STAGE_TONES.open[index] ?? STAGE_TONES.openOverflow;
+		return row ? STAGE_TONE_STATUS[row.tone] : "neutral";
 	}
 
 	return {

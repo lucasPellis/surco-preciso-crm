@@ -37,6 +37,7 @@ export type CrmCache = {
 	settings(options?: Options): Promise<void>;
 	currency(options?: Options): Promise<void>;
 	leadSources(options?: Options): Promise<void>;
+	stages(options?: Options): Promise<void>;
 	workspace(options?: Options): Promise<void>;
 	slack(options?: Options): Promise<void>;
 	sso(options?: Options): Promise<void>;
@@ -305,6 +306,18 @@ export function useCrmCache(): CrmCache {
 					trpc.contacts.list.queryKey(),
 					trpc.contacts.byId.queryKey(),
 					trpc.deals.list.queryKey(),
+				],
+				options,
+			),
+
+		stages: (options) =>
+			run(
+				[trpc.deals.stageList.queryKey(), trpc.deals.stages.queryKey()],
+				[
+					...listKeys(),
+					trpc.deals.byId.queryKey(),
+					trpc.activities.timeline.pathKey(),
+					trpc.dashboard.summary.queryKey(),
 				],
 				options,
 			),

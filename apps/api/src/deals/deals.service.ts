@@ -216,6 +216,7 @@ export class DealsService {
 			key: row.key,
 			name: row.name,
 			kind: row.kind,
+			tone: row.tone,
 			position: row.position,
 			isEntry: row.isEntry,
 			idleAfterHours: row.idleAfterHours,
@@ -473,6 +474,16 @@ export class DealsService {
 
 		try {
 			const deal = await this.agent.withCrmEvents(async (tx, emit) => {
+				await tx.$queryRaw`
+					SELECT 1 FROM pipeline_stage WHERE "key" = ${stage} FOR SHARE
+				`;
+				const current = await tx.pipelineStage.findUnique({
+					where: { key: stage },
+					select: { archivedAt: true },
+				});
+				if (!current || current.archivedAt) {
+					throw new BadRequestException("That stage is not available.");
+				}
 				const created = await tx.deal.create({
 					data: {
 						name: input.name.trim(),
@@ -693,110 +704,9 @@ export class DealsService {
 	}
 
 	async setStage(input: SetStageInput, actingUserId: string) {
-		const closedReason = input.closedReason?.trim();
-		const transition = await this.agent.withCrmEvents(async (tx, emit) => {
-			const [deal] = await tx.$queryRaw<
-				Array<{
-					id: string;
-					stage: string;
-					companyId: string;
-					firstContactedAt: Date | null;
-				}>
-			>`
-				SELECT id, stage, "companyId", "firstContactedAt"
-				FROM deal
-				WHERE id = ${input.id}
-				FOR UPDATE
-			`;
-
-			if (!deal) {
-				throw new NotFoundException(`No deal with id ${input.id}.`);
-			}
-
-			if (deal.stage === input.stage) {
-				return {
-					changed: false as const,
-					deal,
-					updated: { id: deal.id, stage: deal.stage },
-					now: null,
-				};
-			}
-			const [from, to] = await Promise.all([
-				tx.pipelineStage.findUniqueOrThrow({ where: { key: deal.stage } }),
-				tx.pipelineStage.findUnique({ where: { key: input.stage } }),
-			]);
-			if (!to || to.archivedAt) {
-				throw new BadRequestException("That stage is not available.");
-			}
-			const closed = isClosedKind(to.kind);
-			if (isLosingKind(to.kind) && !closedReason) {
-				throw new BadRequestException(
-					"Say why it was lost. A closed-lost deal with no reason teaches nobody anything.",
-				);
-			}
-
-			const now = new Date();
-			const updated = await tx.deal.update({
-				where: { id: input.id },
-				data: {
-					stage: input.stage,
-					stageChangedAt: now,
-					firstContactedAt: firstContactStamp(
-						from,
-						to,
-						deal.firstContactedAt,
-						now,
-					),
-					closedAt: closed ? now : null,
-					closedReason: closed ? (closedReason ?? null) : null,
-				},
-				select: { id: true, stage: true },
-			});
-			await tx.activity.create({
-				data: {
-					type: ActivityType.STAGE_CHANGE,
-					subject: "Stage changed",
-					body: closedReason ?? null,
-					occurredAt: now,
-					companyId: deal.companyId,
-					dealId: deal.id,
-					createdById: actingUserId,
-					meta: { from: deal.stage, to: input.stage },
-				},
-			});
-			await emit({
-				type: "deal.stage.changed",
-				record: { kind: "deal", id: deal.id },
-				occurredAt: now,
-				data: { companyId: deal.companyId, from: deal.stage, to: input.stage },
-			});
-			if (!isClosedKind(from.kind) && closed) {
-				await emit({
-					type: "deal.closed",
-					record: { kind: "deal", id: deal.id },
-					occurredAt: now,
-					data: {
-						companyId: deal.companyId,
-						from: deal.stage,
-						to: input.stage,
-					},
-				});
-			}
-			if (isClosedKind(from.kind) && !closed) {
-				await emit({
-					type: "deal.opened",
-					record: { kind: "deal", id: deal.id },
-					occurredAt: now,
-					data: {
-						companyId: deal.companyId,
-						from: deal.stage,
-						to: input.stage,
-					},
-				});
-			}
-
-			return { changed: true as const, deal, updated, now };
-		});
+		const transition = await this.agent.withCrmEvents(async (tx, emit) =>
+			this.moveInTx(tx, emit, input, actingUserId),
+		);
 
 		if (!transition.changed) {
 			return { ...transition.updated, changed: false };
@@ -814,6 +724,130 @@ export class DealsService {
 		});
 
 		return { ...updated, changed: true };
+	}
+
+	async moveInTx(
+		tx: Prisma.TransactionClient,
+		emit: Parameters<Parameters<AgentTriggerService["withCrmEvents"]>[0]>[1],
+		input: SetStageInput,
+		actingUserId: string,
+	) {
+		const closedReason = input.closedReason?.trim();
+		const [deal] = await tx.$queryRaw<
+			Array<{
+				id: string;
+				stage: string;
+				companyId: string;
+				firstContactedAt: Date | null;
+			}>
+		>`
+			SELECT id, stage, "companyId", "firstContactedAt"
+			FROM deal
+			WHERE id = ${input.id}
+			FOR UPDATE
+		`;
+
+		if (!deal) {
+			throw new NotFoundException(`No deal with id ${input.id}.`);
+		}
+
+		if (deal.stage === input.stage) {
+			return {
+				changed: false as const,
+				deal,
+				updated: { id: deal.id, stage: deal.stage },
+				now: null,
+			};
+		}
+		await tx.$queryRaw`
+			SELECT 1 FROM pipeline_stage WHERE "key" = ${input.stage} FOR SHARE
+		`;
+		const [from, to] = await Promise.all([
+			tx.pipelineStage.findUniqueOrThrow({ where: { key: deal.stage } }),
+			tx.pipelineStage.findUnique({ where: { key: input.stage } }),
+		]);
+		if (!to || to.archivedAt) {
+			throw new BadRequestException("That stage is not available.");
+		}
+		const closed = isClosedKind(to.kind);
+		if (isLosingKind(to.kind) && !closedReason) {
+			throw new BadRequestException(
+				"Say why it was lost. A closed-lost deal with no reason teaches nobody anything.",
+			);
+		}
+
+		const now = new Date();
+		const updated = await tx.deal.update({
+			where: { id: input.id },
+			data: {
+				stage: input.stage,
+				stageChangedAt: now,
+				firstContactedAt: firstContactStamp(
+					from,
+					to,
+					deal.firstContactedAt,
+					now,
+				),
+				closedAt: closed ? now : null,
+				closedReason: closed ? (closedReason ?? null) : null,
+			},
+			select: { id: true, stage: true },
+		});
+		await tx.activity.create({
+			data: {
+				type: ActivityType.STAGE_CHANGE,
+				subject: "Stage changed",
+				body: closedReason ?? null,
+				occurredAt: now,
+				companyId: deal.companyId,
+				dealId: deal.id,
+				createdById: actingUserId,
+				meta: { from: deal.stage, to: input.stage },
+			},
+		});
+		await emit({
+			type: "deal.stage.changed",
+			record: { kind: "deal", id: deal.id },
+			occurredAt: now,
+			data: { companyId: deal.companyId, from: deal.stage, to: input.stage },
+		});
+		if (!isClosedKind(from.kind) && closed) {
+			await emit({
+				type: "deal.closed",
+				record: { kind: "deal", id: deal.id },
+				occurredAt: now,
+				data: {
+					companyId: deal.companyId,
+					from: deal.stage,
+					to: input.stage,
+				},
+			});
+		}
+		if (isClosedKind(from.kind) && !closed) {
+			await emit({
+				type: "deal.opened",
+				record: { kind: "deal", id: deal.id },
+				occurredAt: now,
+				data: {
+					companyId: deal.companyId,
+					from: deal.stage,
+					to: input.stage,
+				},
+			});
+		}
+
+		return { changed: true as const, deal, updated, now };
+	}
+
+	async touchMoved(
+		moved: Array<{ companyId: string; dealId: string; now: Date }>,
+	) {
+		for (const entry of moved) {
+			await this.stamp.touch(
+				{ companyId: entry.companyId, dealId: entry.dealId },
+				entry.now,
+			);
+		}
 	}
 
 	async contactOptions(dealId: string) {

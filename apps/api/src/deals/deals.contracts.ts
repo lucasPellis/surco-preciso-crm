@@ -1,4 +1,4 @@
-import { PipelineStageKind } from "@crm/db/enums";
+import { PipelineStageKind, PipelineStageTone } from "@crm/db/enums";
 import { FIELD_ENTITIES, FIELD_TYPES } from "@crm/db/fields";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
@@ -45,6 +45,7 @@ export const dealStageOutput = z.object({
 	key: z.string(),
 	name: z.string(),
 	kind: z.enum(PipelineStageKind),
+	tone: z.enum(PipelineStageTone),
 	position: z.number(),
 	isEntry: z.boolean(),
 	idleAfterHours: z.number().nullable(),

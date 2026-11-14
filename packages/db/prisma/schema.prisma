@@ -291,6 +291,14 @@ model RateLimit {
   @@map("rateLimit")
 }
 
+enum PipelineStageTone {
+  NEUTRAL
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
+
 enum PipelineStageKind {
   OPEN
   WON
@@ -557,6 +565,7 @@ model PipelineStage {
   key            String            @unique
   name           String
   kind           PipelineStageKind
+  tone           PipelineStageTone @default(NEUTRAL)
   position       Int               @default(0)
   isEntry        Boolean           @default(false)
   idleAfterHours Int?

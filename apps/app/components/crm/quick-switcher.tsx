@@ -159,6 +159,12 @@ const SETTINGS: Destination[] = [
 		keywords: ["origen del lead", "canal", "campaña", "utm"],
 	},
 	{
+		id: "settings-stages",
+		label: "Etapas",
+		href: "/settings/stages",
+		keywords: ["funnel", "embudo", "pipeline", "estados", "oportunidades"],
+	},
+	{
 		id: "settings-members",
 		label: "Miembros",
 		href: "/settings/members",

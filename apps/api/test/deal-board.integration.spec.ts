@@ -57,7 +57,7 @@ beforeAll(async () => {
 			key: customKey,
 			name: "Visita técnica",
 			kind: "OPEN",
-			position: 900,
+			position: 2000,
 			idleAfterHours: 48,
 		},
 	});

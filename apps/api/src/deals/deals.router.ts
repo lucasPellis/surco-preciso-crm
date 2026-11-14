@@ -39,11 +39,28 @@ import {
 	setStageInput,
 } from "./deals.contracts";
 import { DealsService } from "./deals.service";
+import {
+	type ArchiveStageInput,
+	archiveStageInput,
+	type CreateStageInput,
+	createStageInput,
+	type ReorderStagesInput,
+	reorderStagesInput,
+	restoreStageInput,
+	stageSettingsOutput,
+	type UpdateStageInput,
+	updateStageInput,
+} from "./pipeline-stages.contracts";
+import { PipelineStagesService } from "./pipeline-stages.service";
 
 @Router({ alias: "deals" })
 @UseMiddlewares(AuthMiddleware)
 export class DealsRouter {
-	constructor(@Inject(DealsService) private readonly deals: DealsService) {}
+	constructor(
+		@Inject(DealsService) private readonly deals: DealsService,
+		@Inject(PipelineStagesService)
+		private readonly stageSettings: PipelineStagesService,
+	) {}
 
 	@Query({
 		input: dealListInput,
@@ -61,6 +78,74 @@ export class DealsRouter {
 	})
 	async stages(@Input() input: z.infer<typeof dealStagesInput>) {
 		return this.deals.stages(input.includeArchived);
+	}
+
+	@Query({
+		output: stageSettingsOutput,
+		meta: restMeta("GET", "/deals/stage-settings", ["Deals"]),
+	})
+	async stageList(@Ctx() ctx: AuthedTrpcContext) {
+		return this.stageSettings.settings(ctx.user.id);
+	}
+
+	@Mutation({
+		input: createStageInput,
+		output: stageSettingsOutput,
+		meta: restMeta("POST", "/deals/stage-settings", ["Deals"]),
+	})
+	async createStage(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: CreateStageInput,
+	) {
+		return this.stageSettings.create(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: updateStageInput,
+		output: stageSettingsOutput,
+		meta: restMeta("PATCH", "/deals/stage-settings/{key}", ["Deals"]),
+	})
+	async updateStage(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: UpdateStageInput,
+	) {
+		return this.stageSettings.update(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: reorderStagesInput,
+		output: stageSettingsOutput,
+		meta: restMeta("PUT", "/deals/stage-settings/order", ["Deals"]),
+	})
+	async reorderStages(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: ReorderStagesInput,
+	) {
+		return this.stageSettings.reorder(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: archiveStageInput,
+		output: stageSettingsOutput,
+		meta: restMeta("POST", "/deals/stage-settings/{key}/archive", ["Deals"]),
+	})
+	async archiveStage(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: ArchiveStageInput,
+	) {
+		return this.stageSettings.archive(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: restoreStageInput,
+		output: stageSettingsOutput,
+		meta: restMeta("POST", "/deals/stage-settings/{key}/restore", ["Deals"]),
+	})
+	async restoreStage(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof restoreStageInput>,
+	) {
+		return this.stageSettings.restore(ctx.user.id, input.key);
 	}
 
 	@Query({

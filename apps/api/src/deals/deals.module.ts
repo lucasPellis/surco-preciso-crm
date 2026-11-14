@@ -5,10 +5,11 @@ import { FieldsModule } from "../fields/fields.module";
 import { TrpcModule } from "../trpc/trpc.module";
 import { DealsRouter } from "./deals.router";
 import { DealsService } from "./deals.service";
+import { PipelineStagesService } from "./pipeline-stages.service";
 
 @Module({
 	imports: [AgentModule, FieldsModule, TrpcModule, CurrencyModule],
-	providers: [DealsService, DealsRouter],
+	providers: [DealsService, PipelineStagesService, DealsRouter],
 	exports: [DealsService],
 })
 export class DealsModule {}
