@@ -29,14 +29,13 @@ describe("Google hosted-domain hint", () => {
 		expect(googleHostedDomainHint()).toBeUndefined();
 	});
 
-	it.each([
-		"gmail.com",
-		"owner@gmail.com",
-		"owner@googlemail.com",
-	])("withholds the hint for the consumer Google host %s", (entry) => {
-		process.env.ALLOWED_SIGN_IN = entry;
-		expect(googleHostedDomainHint()).toBeUndefined();
-	});
+	it.each(["gmail.com", "owner@gmail.com", "owner@googlemail.com"])(
+		"withholds the hint for the consumer Google host %s",
+		(entry) => {
+			process.env.ALLOWED_SIGN_IN = entry;
+			expect(googleHostedDomainHint()).toBeUndefined();
+		},
+	);
 
 	it("does not widen access for an address-only allow-list", () => {
 		process.env.ALLOWED_SIGN_IN = "owner@acme.com";
