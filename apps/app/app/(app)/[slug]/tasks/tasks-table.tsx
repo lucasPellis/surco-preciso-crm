@@ -27,11 +27,11 @@ import { normalizeTasksInput, tasksSearchParams } from "./tasks-search-params";
 type TaskRow = RouterOutputs["activities"]["tasks"]["rows"][number];
 
 const DUE_OPTIONS = [
-	{ value: "overdue", label: "Overdue" },
-	{ value: "today", label: "Today" },
-	{ value: "week", label: "This week" },
-	{ value: "later", label: "Later" },
-	{ value: "none", label: "No due date" },
+	{ value: "overdue", label: "Vencidas" },
+	{ value: "today", label: "Hoy" },
+	{ value: "week", label: "Esta semana" },
+	{ value: "later", label: "Más adelante" },
+	{ value: "none", label: "Sin fecha" },
 ];
 
 export function TasksTable() {
@@ -67,7 +67,7 @@ export function TasksTable() {
 			{ id: row.id, completed },
 			{
 				onSuccess: async () => {
-					setAnnouncement(completed ? "Task completed." : "Task reopened.");
+					setAnnouncement(completed ? "Tarea completada." : "Tarea reabierta.");
 					await cache.activity();
 					requestAnimationFrame(() => {
 						const target = focusId ? completionRefs.current.get(focusId) : null;
@@ -82,8 +82,8 @@ export function TasksTable() {
 	const columns: DataTableColumn<TaskRow>[] = [
 		{
 			id: "status",
-			header: <span className="sr-only">Status</span>,
-			label: "Status",
+			header: <span className="sr-only">Estado</span>,
+			label: "Estado",
 			sortable: true,
 			hideable: false,
 			width: "12",
@@ -96,13 +96,13 @@ export function TasksTable() {
 					checked={row.completedAt !== null}
 					disabled={complete.isPending && complete.variables?.id === row.id}
 					onCheckedChange={(checked) => setCompleted(row, checked === true)}
-					aria-label={`${row.completedAt ? "Reopen" : "Complete"} ${row.subject ?? "task"}`}
+					aria-label={`${row.completedAt ? "Reabrir" : "Completar"} ${row.subject ?? "tarea"}`}
 				/>
 			),
 		},
 		{
 			id: "subject",
-			header: "Task",
+			header: "Tarea",
 			sortable: true,
 			hideable: false,
 			cell: (row) =>
@@ -121,7 +121,7 @@ export function TasksTable() {
 		},
 		{
 			id: "company",
-			header: "Related to",
+			header: "Relacionada con",
 			sortable: true,
 			width: { sm: "56" },
 			cell: (row) => {
@@ -151,7 +151,7 @@ export function TasksTable() {
 		},
 		{
 			id: "dueAt",
-			header: "Due",
+			header: "Vence",
 			sortable: true,
 			align: "right",
 			width: { sm: "32" },
@@ -171,7 +171,7 @@ export function TasksTable() {
 		},
 		{
 			id: "createdBy",
-			header: "Created by",
+			header: "Creada por",
 			sortable: true,
 			width: "44",
 			hideBelow: "md",
@@ -191,7 +191,7 @@ export function TasksTable() {
 		},
 		{
 			id: "createdAt",
-			header: "Created",
+			header: "Creada",
 			sortable: true,
 			align: "right",
 			width: "28",
@@ -208,14 +208,14 @@ export function TasksTable() {
 	const facets: DataTableFacet[] = [
 		{
 			id: "due",
-			label: "Due",
+			label: "Vencimiento",
 			options: DUE_OPTIONS.filter(
 				(option) => (facetCounts?.due?.[option.value] ?? 0) > 0,
 			),
 		},
 		{
 			id: "createdBy",
-			label: "Created by",
+			label: "Creada por",
 			options: (users.data ?? [])
 				.map((user) => ({ value: user.id, label: user.name }))
 				.filter((option) => (facetCounts?.createdBy?.[option.value] ?? 0) > 0),
@@ -228,9 +228,11 @@ export function TasksTable() {
 				{announcement}
 			</span>
 			<DataTable
-				label="Tasks"
+				label="Tareas"
 				query={query}
-				search={<ListSearch inputRef={searchRef} placeholder="Search tasks…" />}
+				search={
+					<ListSearch inputRef={searchRef} placeholder="Buscar tareas…" />
+				}
 				columns={columns}
 				rows={rows}
 				total={tasks.data?.total ?? 0}
@@ -238,11 +240,11 @@ export function TasksTable() {
 				facets={facets}
 				tabs={{
 					id: "status",
-					label: "Status",
-					allLabel: "All tasks",
+					label: "Estado",
+					allLabel: "Todas",
 					options: [
-						{ value: "open", label: "Open" },
-						{ value: "done", label: "Done" },
+						{ value: "open", label: "Abiertas" },
+						{ value: "done", label: "Completadas" },
 					],
 				}}
 				getRowId={(row) => row.id}
@@ -250,11 +252,11 @@ export function TasksTable() {
 				empty={
 					<ListEmpty
 						query={query}
-						noun="tasks"
+						noun="tareas"
 						blank={{
-							title: "No tasks yet",
+							title: "Todavía no hay tareas",
 							description:
-								"Tasks you add to a company, contact or deal show here.",
+								"Las tareas que agregues a una empresa, un contacto o una oportunidad aparecen aquí.",
 						}}
 					/>
 				}
