@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+export const modelCapabilitySchema = z.enum([
+	"configured",
+	"unavailable",
+	"unknown",
+]);
+export type ModelCapability = z.infer<typeof modelCapabilitySchema>;
+
+export const agentCapabilitiesSchema = z.object({
+	model: modelCapabilitySchema,
+});
+
 export const ENRICHMENT_PAGE = 20;
 
 export const ENRICHMENT_PAGE_MAX = 200;

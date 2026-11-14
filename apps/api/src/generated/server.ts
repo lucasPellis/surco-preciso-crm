@@ -23,7 +23,7 @@ import { currencySettingsOutput, setReportingCurrencyInput, setManualRateInput, 
 import { dashboardSummaryInput, dashboardSummaryOutput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealListOutput, dealStagesInput, dealStagesOutput, dealBoardInput, dealBoardOutput, dealIdInput, dealDetailOutput, dealCreateInput, dealCreateOutput, dealUpdateArgs, dealMutateOutput, setStageInput, dealSetStageOutput, dealContactsInput, dealContactOptionsOutput, dealAttachContactInput, dealContactLinkOutput, dealDetachContactInput, dealContactRoleInput, dealContactRoleOutput, dealBulkOwnerInput, dealBulkResultOutput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
 import { stageSettingsOutput, createStageInput, updateStageInput, reorderStagesInput, archiveStageInput, restoreStageInput } from "../deals/pipeline-stages.contracts";
-import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
+import { enrichmentQueueInput, modelCapabilitySchema } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
@@ -496,9 +496,10 @@ const appRouter = t.router({
     queue: publicProcedure
       .input(enrichmentQueueInput)
       .output(z.object({
+	model: modelCapabilitySchema,
 	rows: z.array(z.object({
 	id: z.string(),
-	state: z.enum(["running", "queued", "failed"]),
+	state: z.enum(["running", "queued", "failed", "paused"]),
 	line: z.string(),
 	startedAt: z.string().nullable(),
 	subject: z.discriminatedUnion("kind", [

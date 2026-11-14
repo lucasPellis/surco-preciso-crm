@@ -3,6 +3,7 @@ import { DIRECT_KINDS } from "@crm/db/agent-tasks";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
 import { APP_AUTH, type AppAuth } from "./app-auth";
 import { brandOutcome, runBrand } from "./brand";
+import { modelCapability } from "./capabilities";
 import { queueEventAgentRuns } from "./custom-agent-dispatch";
 import { settledWithin } from "./deadline";
 import { DISPATCH } from "./dispatch-config";
@@ -137,6 +138,7 @@ export async function runResearchLane(
 	signal?: AbortSignal,
 ): Promise<number> {
 	if (signal?.aborted) return 0;
+	if (modelCapability() === "unavailable") return 0;
 
 	const tasks = await claimDue(
 		RESEARCH_BATCH,

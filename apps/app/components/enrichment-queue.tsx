@@ -30,7 +30,11 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
-import { elapsedLabel, queueFooter } from "@/lib/enrichment-queue";
+import {
+	elapsedLabel,
+	queueFooter,
+	showEnrichmentQueue,
+} from "@/lib/enrichment-queue";
 import {
 	ENRICHMENT_IDLE_POLL_MS,
 	ENRICHMENT_POLL_MS,
@@ -49,6 +53,7 @@ const STATE_TONE = {
 	running: "primary",
 	queued: "neutral",
 	failed: "error",
+	paused: "warning",
 } satisfies Record<QueueRow["state"], StatusTone>;
 
 export function EnrichmentQueue() {
@@ -72,7 +77,8 @@ export function EnrichmentQueue() {
 	const scheduled = queue.data?.scheduled ?? [];
 	const scheduledTotal = queue.data?.scheduledTotal ?? 0;
 	const visible = expanded ? rows : rows.slice(0, VISIBLE_ROWS);
-	const triggerLabel = total > 0 ? `Enriqueciendo ${total}` : "Enriquecimiento";
+	const triggerLabel =
+		total > 0 ? `Tareas de investigación ${total}` : "Investigación";
 	const footer = queueFooter({
 		total,
 		fetched: rows.length,
@@ -91,6 +97,8 @@ export function EnrichmentQueue() {
 		openRecord({ kind: subject.kind, id: subject.id });
 	};
 
+	if (!showEnrichmentQueue(queue.data?.model)) return null;
+
 	return (
 		<Popover
 			open={open}
@@ -99,8 +107,7 @@ export function EnrichmentQueue() {
 			<PopoverTrigger asChild>
 				<Button variant="outline" size="sm" aria-label={triggerLabel}>
 					<StatusIndicator
-						tone={total > 0 ? "primary" : "neutral"}
-						busy={total > 0}
+						tone="neutral"
 						label={triggerLabel}
 						iconOnlyBelowSm
 					/>
@@ -110,7 +117,7 @@ export function EnrichmentQueue() {
 			<PopoverContent align="end" size="panel">
 				<div className="flex items-center justify-between border-b px-4 py-3">
 					<span className="font-semibold text-popover-foreground text-sm">
-						Enriqueciendo ahora
+						Tareas de investigación
 					</span>
 					<span className="font-mono text-muted-foreground text-xs">
 						{total}

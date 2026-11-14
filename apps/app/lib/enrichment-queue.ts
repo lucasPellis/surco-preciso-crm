@@ -1,4 +1,13 @@
-import { ENRICHMENT_PAGE_MAX } from "@crm/validation/enrichment-queue";
+import {
+	ENRICHMENT_PAGE_MAX,
+	type ModelCapability,
+} from "@crm/validation/enrichment-queue";
+
+export function showEnrichmentQueue(
+	model: ModelCapability | undefined,
+): boolean {
+	return model === "configured";
+}
 
 const SECOND_MS = 1_000;
 const MINUTE_S = 60;
@@ -39,11 +48,12 @@ export function formatElapsed(seconds: number): string {
 }
 
 export function elapsedLabel(
-	state: "running" | "queued" | "failed",
+	state: "running" | "queued" | "failed" | "paused",
 	startedAt: string | null,
 	now: number,
 ): string {
-	if (state === "queued" || startedAt === null) return NO_ELAPSED;
+	if (state === "queued" || state === "paused" || startedAt === null)
+		return NO_ELAPSED;
 
 	const started = Date.parse(startedAt);
 	if (Number.isNaN(started)) return NO_ELAPSED;

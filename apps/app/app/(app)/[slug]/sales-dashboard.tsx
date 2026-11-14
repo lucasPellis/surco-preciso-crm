@@ -35,8 +35,8 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 type Summary = RouterOutputs["dashboard"]["summary"];
 
 const TREND_CONFIG: SeriesConfig = {
-	won: { label: "Closed won", color: CHART_CONFIG.trend.won },
-	created: { label: "New pipeline", color: CHART_CONFIG.trend.created },
+	won: { label: "Cerradas ganadas", color: CHART_CONFIG.trend.won },
+	created: { label: "Nuevas oportunidades", color: CHART_CONFIG.trend.created },
 };
 
 function changeDelta(
@@ -92,80 +92,91 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 		<div className="flex flex-col gap-6">
 			<StatGroup>
 				<StatCard
-					label="Closed won this month"
+					label="Oportunidades ganadas este mes"
 					value={money(wonThisMonth.valueCents)}
 					delta={changeDelta(
 						wonThisMonth.valueCents,
 						wonPrevMonth.valueCents,
-						"vs. last month",
+						"frente al mes anterior",
 					)}
 					description={
 						<MetaRow>
-							<span>{formatCount(wonThisMonth.count, "deal")}</span>
-							<span>{money(wonPrevMonth.valueCents)} last month</span>
+							<span>
+								{formatCount(
+									wonThisMonth.count,
+									"oportunidad",
+									"oportunidades",
+								)}
+							</span>
+							<span>{money(wonPrevMonth.valueCents)} el mes anterior</span>
 						</MetaRow>
 					}
 				/>
 				<StatCard
-					label="Open pipeline"
+					label="Oportunidades abiertas"
 					value={money(pipeline.totalCents)}
 					description={
 						<MetaRow>
 							<span>
-								{formatCount(pipeline.totalDeals, "deal")} in progress
+								{formatCount(
+									pipeline.totalDeals,
+									"oportunidad",
+									"oportunidades",
+								)}{" "}
+								en progreso
 							</span>
 							<span>
-								{money(closingThisMonthTotal.valueCents)} due this month
+								{money(closingThisMonthTotal.valueCents)} con cierre previsto
+								este mes
 							</span>
 						</MetaRow>
 					}
 				/>
 				<StatCard
-					label={`Win rate (${performance.windowDays}d)`}
+					label={`Tasa de cierre (${performance.windowDays} días)`}
 					value={
 						performance.winRate === null
-							? "None yet"
+							? "Sin datos"
 							: formatPercent(performance.winRate)
 					}
 					description={
 						performance.wins + performance.losses === 0 ? (
-							"Nothing has closed yet"
+							"Aún no hay oportunidades cerradas"
 						) : (
 							<MetaRow>
-								<span>{performance.wins} won</span>
-								<span>{performance.losses} lost</span>
+								<span>{performance.wins} ganadas</span>
+								<span>{performance.losses} perdidas</span>
 							</MetaRow>
 						)
 					}
 				/>
 				<StatCard
-					label={`Average deal (${performance.windowDays}d)`}
+					label={`Valor promedio por oportunidad (${performance.windowDays} días)`}
 					value={
 						performance.avgDealCents === null
-							? "None yet"
+							? "Sin datos"
 							: money(performance.avgDealCents)
 					}
 					description={
 						performance.avgCycleDays === null
-							? "No wins to measure"
-							: `${performance.avgCycleDays}-day average cycle`
+							? "No hay oportunidades ganadas para medir"
+							: `Ciclo promedio de ${performance.avgCycleDays} días`
 					}
 				/>
 			</StatGroup>
 
 			{unconverted.count > 0 ? (
 				<p className="text-muted-foreground text-xs">
-					Every figure above is in {reportingCurrency}.{" "}
-					{formatCount(unconverted.count, "deal")} in{" "}
+					Todas las cifras anteriores están en {reportingCurrency}.{" "}
+					{formatCount(unconverted.count, "oportunidad", "oportunidades")} en{" "}
 					{unconverted.currencies.join(", ")}{" "}
-					{unconverted.count === 1 ? "is" : "are"} not included. There is no
-					rate to convert {unconverted.currencies.length === 1 ? "it" : "them"}{" "}
-					with.{" "}
+					{unconverted.count === 1 ? "no está incluida" : "no están incluidas"}.
+					No hay una tasa de cambio disponible para la conversión.{" "}
 					<Link
 						href={workspaceUrl("/settings/currencies")}
 						className="underline hover:no-underline"
 					>
-						Set one
+						Configurar tasa
 					</Link>
 					.
 				</p>
@@ -173,8 +184,8 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 
 			<DashboardRow split="hero">
 				<ChartPanel
-					title="Closed won vs. new pipeline"
-					description="Last six months, by the month a deal closed or was created"
+					title="Oportunidades ganadas frente a nuevas oportunidades"
+					description="Últimos seis meses, según el mes de cierre o creación"
 				>
 					{hasTrend ? (
 						<div className="flex flex-1 flex-col justify-center py-4">
@@ -185,17 +196,17 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 								height={CHART_CONFIG.height.dashboardTrend}
 								showLegend
 								formatValue={exact}
-								label="Closed won and new pipeline by month"
+								label="Oportunidades ganadas y nuevas por mes"
 							/>
 						</div>
 					) : (
-						<EmptyChart label="No deals closed or created yet" />
+						<EmptyChart label="Aún no hay oportunidades cerradas ni creadas" />
 					)}
 				</ChartPanel>
 
 				<ChartPanel
-					title="Open pipeline by stage"
-					description="Where the value sits right now"
+					title="Oportunidades abiertas por etapa"
+					description="Distribución del valor actual"
 				>
 					{stageSlices.length > 0 ? (
 						<div className="flex flex-1 flex-col justify-between gap-1 pt-4">
@@ -203,9 +214,9 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 								data={stageSlices}
 								height={CHART_CONFIG.height.dashboardDonut}
 								centerValue={money(pipeline.totalCents)}
-								centerLabel="open"
+								centerLabel="abiertas"
 								formatValue={exact}
-								label="Open pipeline value by stage"
+								label="Valor de oportunidades abiertas por etapa"
 							/>
 							<ul className="flex flex-col px-5 pb-1 md:px-6">
 								{stageSlices.map((slice) => (
@@ -230,7 +241,7 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 							</ul>
 						</div>
 					) : (
-						<EmptyChart label="Nothing open" />
+						<EmptyChart label="No hay oportunidades abiertas" />
 					)}
 				</ChartPanel>
 			</DashboardRow>

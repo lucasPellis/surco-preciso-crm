@@ -51,47 +51,47 @@ const COMPANY_CELL = "hidden @md/simple-table:table-cell";
 const ACTIVITY_DEAL_CELL = "hidden @2xl/simple-table:table-cell";
 const WHO_CELL = "hidden @lg/simple-table:table-cell";
 const OPEN_COLUMNS: SimpleTableColumn[] = [
-	{ id: "deal", header: "Deal" },
+	{ id: "deal", header: "Oportunidad" },
 	{
 		id: "stage",
-		header: "Stage",
+		header: "Etapa",
 		width: "w-44",
 		className: STAGE_CELL,
 	},
 	{
 		id: "share",
-		srLabel: "Share of the largest",
+		srLabel: "Proporción respecto a la mayor oportunidad",
 		width: "w-24",
 		className: SHARE_CELL,
 	},
-	{ id: "value", header: "Value", width: "w-20", align: "right" },
+	{ id: "value", header: "Valor", width: "w-20", align: "right" },
 ];
 const TASK_COLUMNS: SimpleTableColumn[] = [
-	{ id: "done", srLabel: "Done", width: "w-8" },
-	{ id: "task", header: "Task" },
-	{ id: "overdue", header: "Overdue", width: "w-24", align: "right" },
+	{ id: "done", srLabel: "Completada", width: "w-8" },
+	{ id: "task", header: "Tarea" },
+	{ id: "overdue", header: "Vencimiento", width: "w-24", align: "right" },
 ];
 const ACTIVITY_COLUMNS: SimpleTableColumn[] = [
-	{ id: "activity", header: "Activity" },
+	{ id: "activity", header: "Actividad" },
 	{
 		id: "company",
-		header: "Company",
+		header: "Empresa",
 		width: "w-44",
 		className: COMPANY_CELL,
 	},
 	{
 		id: "deal",
-		header: "Deal",
+		header: "Oportunidad",
 		width: "w-48",
 		className: ACTIVITY_DEAL_CELL,
 	},
 	{
 		id: "who",
-		header: "Who",
+		header: "Quién",
 		width: "w-32",
 		className: WHO_CELL,
 	},
-	{ id: "when", header: "When", width: "w-20", align: "right" },
+	{ id: "when", header: "Cuándo", width: "w-20", align: "right" },
 ];
 
 export function DashboardSummary() {
@@ -136,20 +136,22 @@ export function DashboardSummary() {
 			<div className="grid gap-6 @3xl/page-content:grid-cols-2">
 				<Card className="min-w-0">
 					<CardHeader>
-						<CardTitle>Deals in progress</CardTitle>
+						<CardTitle>Oportunidades en progreso</CardTitle>
 						<CardDescription>
-							The largest open deals, and how long each has sat in its stage
+							Las oportunidades abiertas de mayor valor y el tiempo que llevan
+							en su etapa
 						</CardDescription>
 						<CardAction>
 							<Button asChild variant="outline" size="sm">
-								<Link href={workspaceUrl("/deals")}>Open deals</Link>
+								<Link href={workspaceUrl("/deals")}>Ver oportunidades</Link>
 							</Button>
 						</CardAction>
 					</CardHeader>
 					<DashboardPanel>
 						{biggestOpen.length === 0 ? (
 							<CardPanelEmpty>
-								Nothing open. Time to fill the pipeline.
+								No hay oportunidades abiertas. Agrega una oportunidad para
+								comenzar.
 							</CardPanelEmpty>
 						) : (
 							<SimpleTable
@@ -208,21 +210,21 @@ export function DashboardSummary() {
 
 				<Card className="min-w-0">
 					<CardHeader>
-						<CardTitle>Overdue tasks</CardTitle>
+						<CardTitle>Tareas vencidas</CardTitle>
 						<CardDescription>
 							{overdueTasks.length === 0
-								? "Every task you have logged is either done or still to come"
-								: `${formatCount(overdueTasks.length, "task")} past due`}
+								? "Todas las tareas registradas están completadas o pendientes de vencer"
+								: `${formatCount(overdueTasks.length, "tarea")} ${overdueTasks.length === 1 ? "vencida" : "vencidas"}`}
 						</CardDescription>
 						<CardAction>
 							<Button asChild variant="outline" size="sm">
-								<Link href={workspaceUrl("/tasks")}>Open tasks</Link>
+								<Link href={workspaceUrl("/tasks")}>Ver tareas</Link>
 							</Button>
 						</CardAction>
 					</CardHeader>
 					<DashboardPanel>
 						{overdueTasks.length === 0 ? (
-							<CardPanelEmpty>Nothing overdue. Good.</CardPanelEmpty>
+							<CardPanelEmpty>No hay tareas vencidas.</CardPanelEmpty>
 						) : (
 							<SimpleTable
 								variant="panel"
@@ -235,7 +237,7 @@ export function DashboardSummary() {
 											<Checkbox
 												checked={false}
 												disabled={complete.isPending}
-												aria-label="Mark as done"
+												aria-label="Marcar como completada"
 												onCheckedChange={() =>
 													complete.mutate({ id: task.id, completed: true })
 												}
@@ -264,7 +266,7 @@ export function DashboardSummary() {
 													task.dueAt ? (
 														<LocalRelativeTime date={task.dueAt} />
 													) : (
-														"No due date"
+														"Sin fecha de vencimiento"
 													)
 												}
 											/>
@@ -280,22 +282,22 @@ export function DashboardSummary() {
 			<Card className="min-w-0">
 				<CardHeader>
 					<CardTitle>
-						{mine ? "Your recent activity" : "Recent activity"}
+						{mine ? "Tu actividad reciente" : "Actividad reciente"}
 					</CardTitle>
 					<CardDescription>
 						{mine
-							? "Every note, task and stage change you have logged"
-							: "Every note, task and stage change across the workspace"}
+							? "Las notas, tareas y cambios de etapa que has registrado"
+							: "Las notas, tareas y cambios de etapa del espacio de trabajo"}
 					</CardDescription>
 					<CardAction>
 						<Button asChild variant="outline" size="sm">
-							<Link href={workspaceUrl("/companies")}>All companies</Link>
+							<Link href={workspaceUrl("/companies")}>Ver empresas</Link>
 						</Button>
 					</CardAction>
 				</CardHeader>
 				<DashboardPanel>
 					{recentActivity.length === 0 ? (
-						<CardPanelEmpty>Nothing has happened yet.</CardPanelEmpty>
+						<CardPanelEmpty>Todavía no hay actividad.</CardPanelEmpty>
 					) : (
 						<SimpleTable
 							variant="panel"

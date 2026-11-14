@@ -6,6 +6,7 @@ import { eveTurnFailure } from "@crm/validation/eve-stream";
 import { type ChannelFrom, defineChannel, GET, POST } from "eve/channels";
 import { z } from "zod";
 import { persistBuilderInputRequest } from "../lib/builder-input";
+import { modelCapability } from "../lib/capabilities";
 import { verifyKey } from "../lib/context-dev";
 import {
 	type AgentInputResponseDelivery,
@@ -135,6 +136,12 @@ function sender(from: ChannelFrom): SendFn {
 
 export default defineChannel({
 	routes: [
+		GET("/internal/crm/capabilities", async (request) => {
+			if (!authorised(request)) {
+				return new Response("Unauthorized", { status: 401 });
+			}
+			return Response.json({ model: modelCapability() });
+		}),
 		GET("/internal/crm/dispatch-health", async (request) => {
 			if (!authorised(request)) {
 				return new Response("Unauthorized", { status: 401 });
