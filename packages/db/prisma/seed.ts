@@ -835,10 +835,7 @@ async function seedDeals(
 							: -closedDaysAgo + integer(-4, 9),
 					),
 					closedAt: closed ? stageChangedAt : null,
-					closedReason:
-						stage === DealStage.LOST
-							? pick(LOST_REASONS)
-							: null,
+					closedReason: stage === DealStage.LOST ? pick(LOST_REASONS) : null,
 					createdAt,
 				},
 				update: {},

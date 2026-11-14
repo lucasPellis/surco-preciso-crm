@@ -59,7 +59,12 @@ const PRIMARY: NavItem[] = [
 	},
 	{ title: "Contactos", href: "/contacts", icon: UsersIcon, match: "prefix" },
 	{ title: "Funnel", href: "/funnel", icon: KanbanIcon, match: "prefix" },
-	{ title: "Oportunidades", href: "/deals", icon: HandshakeIcon, match: "prefix" },
+	{
+		title: "Oportunidades",
+		href: "/deals",
+		icon: HandshakeIcon,
+		match: "prefix",
+	},
 	{ title: "Tareas", href: "/tasks", icon: ListChecksIcon, match: "prefix" },
 ];
 
@@ -114,7 +119,10 @@ function WorkspaceHeader({
 
 	if (!workspace.data) {
 		return (
-			<AppSidebarWorkspace name="Espacio de trabajo" loading={workspace.isPending} />
+			<AppSidebarWorkspace
+				name="Espacio de trabajo"
+				loading={workspace.isPending}
+			/>
 		);
 	}
 
@@ -122,7 +130,9 @@ function WorkspaceHeader({
 
 	return (
 		<WorkspaceSwitcher
-			workspaces={[{ id, slug, name: name.trim() || "Espacio de trabajo", logo: null }]}
+			workspaces={[
+				{ id, slug, name: name.trim() || "Espacio de trabajo", logo: null },
+			]}
 			activeSlug={slug}
 			onSwitch={() => {
 				nav.close();

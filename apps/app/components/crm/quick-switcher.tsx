@@ -189,7 +189,12 @@ const SETTINGS: Destination[] = [
 		id: "settings-sso",
 		label: "SSO",
 		href: "/settings/sso",
-		keywords: ["inicio de sesión único", "saml", "okta", "proveedor de identidad"],
+		keywords: [
+			"inicio de sesión único",
+			"saml",
+			"okta",
+			"proveedor de identidad",
+		],
 	},
 ];
 
@@ -289,9 +294,7 @@ export function QuickSwitcher() {
 			);
 			if (exists) choose(record);
 			else
-				toast.error(
-					"Este registro ya no existe. Se quitó de los recientes.",
-				);
+				toast.error("Este registro ya no existe. Se quitó de los recientes.");
 		} catch {
 			toast.error("No se puede abrir este registro. Inténtalo de nuevo.");
 		}
@@ -365,7 +368,9 @@ export function QuickSwitcher() {
 				)),
 		...PAGES.map(destination("Páginas")),
 		...CREATE.map(destination("Crear")),
-		...SETTINGS.map(destination("Configuración", ["Configuración", "Espacio de trabajo"])),
+		...SETTINGS.map(
+			destination("Configuración", ["Configuración", "Espacio de trabajo"]),
+		),
 	];
 
 	return (
