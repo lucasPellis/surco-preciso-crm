@@ -42,8 +42,9 @@ export class CompanyDirectoryService {
 					select: { id: true },
 					take: 2,
 				});
-				if (matches.length === 1) {
-					return { id: matches[0].id, created: false as const };
+				const [match] = matches;
+				if (matches.length === 1 && match) {
+					return { id: match.id, created: false as const };
 				}
 			}
 
