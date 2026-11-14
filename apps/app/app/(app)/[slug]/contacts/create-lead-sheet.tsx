@@ -204,7 +204,7 @@ function CreateLeadForm() {
 			<SheetTrigger asChild>
 				<AddButton />
 			</SheetTrigger>
-			<FormSheetContent side="right">
+			<FormSheetContent side="right" size="md">
 				<SheetHeader>
 					<SheetTitle>Nuevo lead</SheetTitle>
 					<SheetDescription>
