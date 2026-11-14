@@ -1,6 +1,5 @@
 "use client";
 
-import { AgentPresence } from "@crm/ui/components/agent-presence";
 import {
 	AppShell,
 	AppShellHome,
@@ -14,7 +13,6 @@ import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 const SEARCH_PLACEHOLDER = "Search companies, contacts and deals…";
-const CHAT_LABEL = "Ask Comp AI";
 
 function WorkspaceHome() {
 	const workspaceUrl = useWorkspaceUrl();
@@ -27,16 +25,6 @@ function WorkspaceHome() {
 				transitionTypes={["nav-lateral"]}
 			/>
 		</AppShellHome>
-	);
-}
-
-function WorkspaceChatLink() {
-	const workspaceUrl = useWorkspaceUrl();
-
-	return (
-		<AgentPresence label={CHAT_LABEL} asChild>
-			<Link href={workspaceUrl("/chat")} transitionTypes={["nav-lateral"]} />
-		</AgentPresence>
 	);
 }
 
@@ -88,11 +76,6 @@ export function WorkspaceShell({
 					}
 				>
 					<WorkspaceSearch />
-				</Suspense>
-			}
-			agent={
-				<Suspense fallback={<AgentPresence label={CHAT_LABEL} disabled />}>
-					<WorkspaceChatLink />
 				</Suspense>
 			}
 			sidebar={sidebar}

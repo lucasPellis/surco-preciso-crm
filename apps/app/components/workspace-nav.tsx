@@ -19,7 +19,6 @@ import {
 	LayoutDashboardIcon,
 	ListChecksIcon,
 	type LucideIcon,
-	MessagesSquareIcon,
 	SettingsIcon,
 	UserPlusIcon,
 	UsersIcon,
@@ -52,13 +51,6 @@ type WorkspaceData = {
 
 const PRIMARY: NavItem[] = [
 	{ title: "Overview", href: "/", icon: LayoutDashboardIcon, match: "exact" },
-	{
-		title: "Chat",
-		href: "/chat",
-		icon: MessagesSquareIcon,
-		match: "prefix",
-		related: ["/agents"],
-	},
 	{
 		title: "Companies",
 		href: "/companies",

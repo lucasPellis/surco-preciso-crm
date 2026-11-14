@@ -15,7 +15,6 @@ import {
 	LayoutDashboardIcon,
 	ListChecksIcon,
 	type LucideIcon,
-	MessagesSquareIcon,
 	PlusIcon,
 	SearchIcon,
 	SettingsIcon,
@@ -68,13 +67,6 @@ const PAGES: Destination[] = [
 		href: "/",
 		icon: LayoutDashboardIcon,
 		keywords: ["home", "dashboard", "pipeline"],
-	},
-	{
-		id: "chat",
-		label: "Chat",
-		href: "/chat",
-		icon: MessagesSquareIcon,
-		keywords: ["agent", "ask", "agents"],
 	},
 	{
 		id: "companies",
