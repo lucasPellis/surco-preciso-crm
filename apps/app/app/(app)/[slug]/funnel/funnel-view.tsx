@@ -1,6 +1,7 @@
 "use client";
 
 import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
+import { Link } from "@crm/ui/components/link";
 import {
 	PipelineBoard,
 	PipelineCard,
@@ -16,6 +17,8 @@ import { OwnerCell } from "@/components/crm/owner-cell";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { DealStageMenu, useRequestClose } from "@/components/crm/stage-change";
 import { idleLabel } from "@/lib/deal-stage";
+import { showCompanyLine, taskLine } from "@/lib/funnel-card";
+import { FUNNEL_CARD } from "@/lib/funnel-card-config";
 import { moveCard, type PipelineBoardData } from "@/lib/pipeline-board";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -29,14 +32,17 @@ function CardBody({ card }: { card: BoardCard }) {
 	return (
 		<div className="flex min-w-0 flex-col gap-1.5">
 			<span className="truncate font-medium">{card.name}</span>
-			<span className="truncate text-13 text-muted-foreground">
-				{card.company.name}
-			</span>
+			{showCompanyLine(card.name, card.company.name) ? (
+				<span className="truncate text-13 text-muted-foreground">
+					{card.company.name}
+				</span>
+			) : null}
 			{card.idleHours === null ? null : (
 				<span className="text-13 text-status-warning-text">
 					{idleLabel(card.idleHours)}
 				</span>
 			)}
+			{card.task ? <CardTask task={card.task} /> : null}
 			<span className="flex items-center justify-between gap-2 text-13">
 				<span className="tabular-nums">
 					{card.amountCents === null
@@ -51,6 +57,41 @@ function CardBody({ card }: { card: BoardCard }) {
 				) : null}
 			</span>
 		</div>
+	);
+}
+
+function CardTask({ task }: { task: NonNullable<BoardCard["task"]> }) {
+	const line = taskLine(task);
+	return (
+		<span className="flex min-w-0 items-baseline gap-1.5 text-13">
+			<span
+				className={
+					line.overdue
+						? "shrink-0 text-destructive"
+						: "shrink-0 text-muted-foreground"
+				}
+			>
+				{line.hint}
+			</span>
+			<span className="truncate">{line.title}</span>
+		</span>
+	);
+}
+
+function CardPhone({ phone, linked }: { phone: string; linked: boolean }) {
+	return linked ? (
+		<Link
+			variant="quiet"
+			href={`tel:${phone}`}
+			aria-label={FUNNEL_CARD.copy.phoneLabel(phone)}
+			className="mt-1.5 block truncate text-13 text-muted-foreground tabular-nums"
+		>
+			{phone}
+		</Link>
+	) : (
+		<span className="mt-1.5 block truncate text-13 text-muted-foreground tabular-nums">
+			{phone}
+		</span>
 	);
 }
 
@@ -126,6 +167,9 @@ export function FunnelView() {
 				return card ? (
 					<PipelineCardPreview>
 						<CardBody card={card} />
+						{card.phone ? (
+							<CardPhone phone={card.phone} linked={false} />
+						) : null}
 					</PipelineCardPreview>
 				) : null;
 			}}
@@ -155,6 +199,7 @@ export function FunnelView() {
 								>
 									<CardBody card={card} />
 								</button>
+								{card.phone ? <CardPhone phone={card.phone} linked /> : null}
 								<div className="mt-1.5 flex items-center justify-between gap-2">
 									<DealStageMenu dealId={card.id} stage={card.stage} />
 									<OwnerCell owner={card.owner} compact />

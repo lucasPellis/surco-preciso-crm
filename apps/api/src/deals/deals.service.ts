@@ -21,6 +21,10 @@ import {
 	Logger,
 	NotFoundException,
 } from "@nestjs/common";
+import {
+	serializeTaskDueDay,
+	taskDayBoundaries,
+} from "../activities/task-due-date";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { ARCHIVE } from "../archive/archive-config";
 import {
@@ -254,9 +258,23 @@ export class DealsService {
 							stage: true,
 							amount: true,
 							currency: true,
-							company: { select: COMPANY_SELECT },
+							company: {
+								select: {
+									...COMPANY_SELECT,
+									primaryContact: { select: { phone: true } },
+								},
+							},
 							owner: { select: OWNER_SELECT },
 							leadSource: { select: LEAD_SOURCE_SELECT },
+							contacts: {
+								where: { contact: { phone: { not: null } } },
+								orderBy: [
+									{ contact: { createdAt: "asc" } },
+									{ contactId: "asc" },
+								],
+								take: 1,
+								select: { contact: { select: { phone: true } } },
+							},
 							stageChangedAt: true,
 							lastActivityAt: true,
 						},
@@ -276,7 +294,14 @@ export class DealsService {
 					total,
 					valueCents: toCents(value._sum.baseAmount),
 					cards: rows.map(
-						({ amount, stageChangedAt, lastActivityAt, ...row }) => {
+						({
+							amount,
+							stageChangedAt,
+							lastActivityAt,
+							company,
+							contacts,
+							...row
+						}) => {
 							const idleHours =
 								threshold === null
 									? null
@@ -285,8 +310,12 @@ export class DealsService {
 												(lastActivityAt ?? stageChangedAt).getTime()) /
 												DEAL_BOARD.hourMs,
 										);
+							const { primaryContact, ...companyFields } = company;
 							return {
 								...row,
+								company: companyFields,
+								phone:
+									primaryContact?.phone ?? contacts[0]?.contact.phone ?? null,
 								amountCents: toCents(amount),
 								stageChangedAt: stageChangedAt.toISOString(),
 								lastActivityAt: lastActivityAt?.toISOString() ?? null,
@@ -303,11 +332,52 @@ export class DealsService {
 			}),
 		);
 
+		const tasks = await this.dueTasks(
+			columns.flatMap((column) => column.cards.map((card) => card.id)),
+		);
+
 		return {
-			columns,
+			columns: columns.map((column) => ({
+				...column,
+				cards: column.cards.map((card) => ({
+					...card,
+					task: tasks.get(card.id) ?? null,
+				})),
+			})),
 			reportingCurrency: base,
 			closedWindowDays: DEAL_BOARD.closedWindowDays,
 		};
+	}
+
+	private async dueTasks(dealIds: string[]) {
+		const result = new Map<
+			string,
+			{ title: string | null; dueAt: string; overdue: boolean }
+		>();
+		if (dealIds.length === 0) return result;
+
+		const { startOfToday, startOfTomorrow } = taskDayBoundaries(new Date());
+		const rows = await this.db.activity.findMany({
+			where: {
+				type: ActivityType.TASK,
+				completedAt: null,
+				dealId: { in: dealIds },
+				dueAt: { lt: startOfTomorrow },
+			},
+			orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+			select: { dealId: true, subject: true, dueAt: true },
+		});
+
+		for (const row of rows) {
+			if (!row.dealId || !row.dueAt || result.has(row.dealId)) continue;
+			result.set(row.dealId, {
+				title: row.subject,
+				dueAt: serializeTaskDueDay(row.dueAt) ?? "",
+				overdue: row.dueAt < startOfToday,
+			});
+		}
+
+		return result;
 	}
 
 	async byId(id: string) {

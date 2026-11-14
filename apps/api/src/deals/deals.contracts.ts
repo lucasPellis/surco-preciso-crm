@@ -242,6 +242,12 @@ export const dealBoardInput = z.object({
 
 export type DealBoardInput = z.infer<typeof dealBoardInput>;
 
+const dealBoardTaskOutput = z.object({
+	title: z.string().nullable(),
+	dueAt: z.string(),
+	overdue: z.boolean(),
+});
+
 const dealBoardCardOutput = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -254,6 +260,8 @@ const dealBoardCardOutput = z.object({
 	stageChangedAt: z.string(),
 	lastActivityAt: z.string().nullable(),
 	idleHours: z.number().nullable(),
+	phone: z.string().nullable(),
+	task: dealBoardTaskOutput.nullable(),
 });
 
 const dealBoardColumnOutput = z.object({
