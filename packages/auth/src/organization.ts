@@ -45,6 +45,10 @@ export function canManageTracking(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
 
+export function canManageInventory(role: WorkspaceRole | null): boolean {
+	return isWorkspaceAdmin(role);
+}
+
 export async function ensureWorkspaceMembership(
 	userId: string,
 ): Promise<string | undefined> {

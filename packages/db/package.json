@@ -23,6 +23,7 @@
 		"./idempotency": "./src/idempotency.ts",
 		"./json": "./src/json.ts",
 		"./lead-source": "./src/lead-source.ts",
+		"./product": "./src/product.ts",
 		"./phone": "./src/phone.ts",
 		"./safe-fetch": "./src/safe-fetch.ts",
 		"./settings": "./src/settings.ts",
