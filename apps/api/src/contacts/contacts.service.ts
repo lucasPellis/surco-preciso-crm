@@ -289,6 +289,7 @@ export class ContactsService {
 			}
 		}
 
+		const ownerId = input.ownerId ?? actorId ?? null;
 		const phone = normalizePhone(input.phone ?? "");
 		if (phone) await this.assertPhoneFree(phone);
 		if (input.leadSourceId) await this.assertSourceActive(input.leadSourceId);
@@ -302,7 +303,7 @@ export class ContactsService {
 					firstName: input.firstName.trim(),
 					lastName: blankToNull(input.lastName ?? ""),
 				}),
-				ownerId: input.ownerId,
+				ownerId,
 			}));
 
 		const contact = await this.agent.withCrmEvents(async (tx, emit) => {
@@ -316,7 +317,7 @@ export class ContactsService {
 					phone,
 					title: blankToNull(input.title ?? ""),
 					companyId,
-					ownerId: input.ownerId ?? null,
+					ownerId,
 					leadSourceId: input.leadSourceId ?? null,
 					originDetail: blankToNull(input.originDetail ?? ""),
 				},
@@ -329,13 +330,12 @@ export class ContactsService {
 					createdAt: true,
 				},
 			});
-			const dealOwnerId = input.ownerId ?? actorId;
-			if (dealOwnerId) {
+			if (ownerId) {
 				const deal = await tx.deal.create({
 					data: {
 						name: nameOf(created),
 						companyId,
-						ownerId: dealOwnerId,
+						ownerId,
 						leadSourceId: input.leadSourceId ?? null,
 						contacts: { create: { contactId: created.id } },
 					},

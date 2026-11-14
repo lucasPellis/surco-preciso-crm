@@ -152,8 +152,8 @@ Lead to deal:
 - `contacts.create` opens a `Deal` in `NEW` in the same transaction. The deal is
   named after the person, joins the contact, and copies `leadSourceId` into
   `Deal.leadSourceId`. A later edit of the contact does not rewrite it.
-- The deal owner is the contact owner, else the user who created the contact. With
-  neither, no deal opens. The tracker's form filing has no user, so web leads open no
+- The owner of the contact and of the deal is the user who picks one, else the user who
+  created the contact. With neither, no deal opens. The tracker's form filing has no user, so web leads open no
   deal yet.
 
 Open in step 3:

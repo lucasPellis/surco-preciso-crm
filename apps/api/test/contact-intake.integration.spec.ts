@@ -258,6 +258,12 @@ describe("a contact has a lead source", () => {
 			},
 		});
 
+		const contact = await db.contact.findUniqueOrThrow({
+			where: { id: row.id },
+			select: { ownerId: true },
+		});
+		expect(contact.ownerId).toBe(actorId);
+
 		expect(deals).toEqual([
 			{
 				name: "Julia Ferreyra",

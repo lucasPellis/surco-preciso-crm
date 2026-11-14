@@ -280,7 +280,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value={NONE}>Unassigned</SelectItem>
+								<SelectItem value={NONE}>Yo (quien lo crea)</SelectItem>
 								{(users.data ?? []).map((user) => (
 									<SelectItem key={user.id} value={user.id}>
 										{user.name}
