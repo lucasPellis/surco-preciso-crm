@@ -72,9 +72,9 @@ const UNASSIGNED = "unassigned";
 
 function pendingFields(company: Company): string[] {
 	const missing: string[] = [];
-	if (!company.industry) missing.push("industry");
-	if (!company.description) missing.push("description");
-	if (!hasCompanyLinks(company)) missing.push("social links");
+	if (!company.industry) missing.push("sector");
+	if (!company.description) missing.push("descripción");
+	if (!hasCompanyLinks(company)) missing.push("redes sociales");
 	return missing;
 }
 
@@ -84,36 +84,36 @@ function companyConsequence(company: Company): string {
 
 	const gone =
 		deals > 0
-			? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything filed against the account go too.`
-			: "Everything filed against the account goes too.";
+			? `${deals === 1 ? "Su única oportunidad" : `Sus ${deals} oportunidades`} y todo lo archivado en la cuenta se eliminan también.`
+			: "Todo lo archivado en la cuenta se elimina también.";
 
 	const kept =
 		contacts > 0
-			? ` ${contacts === 1 ? "The one person" : `The ${contacts} people`} who work there stay in the CRM, without a company.`
+			? ` ${contacts === 1 ? "La persona que trabaja ahí sigue" : `Las ${contacts} personas que trabajan ahí siguen`} en el CRM, sin empresa.`
 			: "";
 
 	return gone + kept;
 }
 
 const CONTACT_COLUMNS = [
-	{ id: "primary", srLabel: "Primary", width: "w-10", className: "pl-0" },
-	{ id: "name", header: "Name", width: "w-[28%]" },
-	{ id: "title", header: "Title", width: "w-[24%]" },
+	{ id: "primary", srLabel: "Principal", width: "w-10", className: "pl-0" },
+	{ id: "name", header: "Nombre", width: "w-[28%]" },
+	{ id: "title", header: "Cargo", width: "w-[24%]" },
 	{ id: "email", header: "Email", width: "w-[26%]" },
-	{ id: "owner", header: "Owner", width: "w-[22%]" },
+	{ id: "owner", header: "Responsable", width: "w-[22%]" },
 ];
 
 const DEAL_COLUMNS = [
-	{ id: "deal", header: "Deal", width: "w-[32%]", className: "pl-0" },
-	{ id: "stage", header: "Stage", width: "w-[24%]" },
+	{ id: "deal", header: "Oportunidad", width: "w-[32%]", className: "pl-0" },
+	{ id: "stage", header: "Etapa", width: "w-[24%]" },
 	{
 		id: "amount",
-		header: "Amount",
+		header: "Monto",
 		width: "w-[16%]",
 		align: "right" as const,
 	},
-	{ id: "close-date", header: "Close date", width: "w-[14%]" },
-	{ id: "owner", header: "Owner", width: "w-[14%]" },
+	{ id: "close-date", header: "Fecha de cierre", width: "w-[14%]" },
+	{ id: "owner", header: "Responsable", width: "w-[14%]" },
 ];
 
 export function CompanySheet({ companyId }: { companyId: string }) {
@@ -146,12 +146,12 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 	const tabs: RecordSheetTab[] = [
 		{
 			value: "overview",
-			label: "Overview",
+			label: "Resumen",
 			content: company ? <CompanyOverview company={company} /> : null,
 		},
 		{
 			value: "contacts",
-			label: "Contacts",
+			label: "Contactos",
 			count: company?.contacts.length,
 			fills: true,
 			content: company ? (
@@ -165,7 +165,7 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 		},
 		{
 			value: "deals",
-			label: "Deals",
+			label: "Oportunidades",
 			count: company?.deals.length,
 			fills: true,
 			content: company ? (
@@ -179,13 +179,13 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 		},
 		{
 			value: "activity",
-			label: "Activity",
+			label: "Actividad",
 			fills: true,
 			content: company ? <Timeline anchor={{ companyId: company.id }} /> : null,
 		},
 		{
 			value: "agent",
-			label: "Agent",
+			label: "Agente",
 			fills: true,
 			content: company ? (
 				<AgentPanel record={{ kind: "company", id: company.id }} />
@@ -215,7 +215,7 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 				kind="company"
 				loading={query.isPending}
 				error={query.error?.message ?? null}
-				title={company?.name ?? "Company"}
+				title={company?.name ?? "Empresa"}
 				media={
 					company ? (
 						<EntityLogo
@@ -283,38 +283,38 @@ function CompanyOverview({ company }: { company: Company }) {
 	} = company.openPipeline;
 	return (
 		<>
-			<RecordSection label="Open pipeline">
+			<RecordSection label="Funnel abierto">
 				<RecordFigure
 					value={
 						openValueCents === null
-							? "None yet"
+							? "Todavía nada"
 							: formatMoney(openValueCents, company.reportingCurrency)
 					}
 				>
 					<span>
 						{openDeals === 0
-							? "No open deals"
+							? "Sin oportunidades abiertas"
 							: openDeals === 1
-								? "1 open deal"
-								: `${openDeals} open deals`}
+								? "1 oportunidad abierta"
+								: `${openDeals} oportunidades abiertas`}
 					</span>
 					{closing ? (
 						<span>
-							Next close <LocalDay date={closing} />
+							Próximo cierre <LocalDay date={closing} />
 						</span>
 					) : null}
 					{openUncounted > 0 ? (
 						<span>
 							{openUncounted === 1
-								? "1 deal has no rate and is left out"
-								: `${openUncounted} deals have no rate and are left out`}
+								? "1 oportunidad sin cotización queda fuera"
+								: `${openUncounted} oportunidades sin cotización quedan fuera`}
 						</span>
 					) : null}
 				</RecordFigure>
 			</RecordSection>
 
 			{company.description ? (
-				<DetailSheetSection title="About">
+				<DetailSheetSection title="Acerca de">
 					<DetailSheetProse>{company.description}</DetailSheetProse>
 				</DetailSheetSection>
 			) : null}
@@ -348,32 +348,35 @@ function CompanyRail({ company }: { company: Company }) {
 
 	return (
 		<>
-			<DetailSheetSection title="Details" action={<FieldsCog kind="company" />}>
+			<DetailSheetSection
+				title="Detalles"
+				action={<FieldsCog kind="company" />}
+			>
 				<DetailSheetProperties columns={1}>
 					<InlineField
-						label="Name"
+						label="Nombre"
 						value={company.name}
 						saving={isSaving("name")}
 						onSave={(name) => name && save({ name })}
 					/>
 					<InlineField
-						label="Domain"
+						label="Dominio"
 						value={company.domain}
 						type="url"
-						placeholder="stripe.com"
+						placeholder="agroejemplo.com"
 						saving={isSaving("domain")}
 						onSave={(domain) => save({ domain })}
 					/>
 					<InlineField
-						label="Website"
+						label="Sitio web"
 						value={company.website}
 						type="url"
-						placeholder="https://stripe.com"
+						placeholder="https://agroejemplo.com"
 						saving={isSaving("website")}
 						onSave={(website) => save({ website })}
 					/>
 					<InlineField
-						label="Phone"
+						label="Teléfono"
 						value={company.phone}
 						type="tel"
 						saving={isSaving("phone")}
@@ -387,22 +390,22 @@ function CompanyRail({ company }: { company: Company }) {
 						onSave={(email) => save({ email })}
 					/>
 					<InlineField
-						label="City"
+						label="Ciudad"
 						value={company.city}
 						saving={isSaving("city")}
 						onSave={(city) => save({ city })}
 					/>
 					<InlineField
-						label="Country"
+						label="País"
 						value={company.country}
 						saving={isSaving("country")}
 						onSave={(country) => save({ country })}
 					/>
 					<InlineSelectField
-						label="Owner"
+						label="Responsable"
 						value={company.owner?.id ?? UNASSIGNED}
 						options={[
-							{ value: UNASSIGNED, label: "Unassigned" },
+							{ value: UNASSIGNED, label: "Sin asignar" },
 							...(users.data ?? []).map((user) => ({
 								value: user.id,
 								label: user.name,
@@ -426,7 +429,7 @@ function CompanyRail({ company }: { company: Company }) {
 			/>
 
 			{hasCompanyLinks(company) ? (
-				<DetailSheetSection title="Links">
+				<DetailSheetSection title="Enlaces">
 					<CompanySocials company={company} />
 				</DetailSheetSection>
 			) : null}
@@ -471,12 +474,12 @@ function CompanyContacts({
 				{adding ? null : (
 					<DetailSheetEmpty
 						icon={UsersIcon}
-						title="No contacts yet"
-						description={`Everyone you talk to at ${company.name} lives here. Add the first person, and their calls, emails and notes hang off them.`}
+						title="Todavía no hay contactos"
+						description={`Todas las personas con las que hablas en ${company.name} viven aquí. Agrega a la primera y sus llamadas, emails y notas quedan asociados a ella.`}
 						action={
 							<Button variant="outline" size="sm" onClick={onAdd}>
 								<Icon icon={PlusIcon} data-icon="inline-start" />
-								Add contact
+								Agregar contacto
 							</Button>
 						}
 					/>
@@ -526,12 +529,12 @@ function CompanyContacts({
 												className={isPrimary ? "fill-current" : undefined}
 											/>
 											<span className="sr-only">
-												{isPrimary ? "Primary contact" : "Make primary"}
+												{isPrimary ? "Contacto principal" : "Hacer principal"}
 											</span>
 										</Button>
 									</TooltipTrigger>
 									<TooltipContent>
-										{isPrimary ? "Primary contact" : "Make primary"}
+										{isPrimary ? "Contacto principal" : "Hacer principal"}
 									</TooltipContent>
 								</Tooltip>
 							</TableCell>
@@ -566,7 +569,7 @@ function CompanyContacts({
 				})}
 
 				<AddRow
-					label="Add contact"
+					label="Agregar contacto"
 					columns={CONTACT_COLUMNS.length}
 					onClick={onAdd}
 				/>
@@ -604,12 +607,12 @@ function CompanyDeals({
 				{adding ? null : (
 					<DetailSheetEmpty
 						icon={HandshakeIcon}
-						title="No deals yet"
-						description={`Nothing is being sold to ${company.name} right now. Open one and it joins the pipeline and the forecast.`}
+						title="Todavía no hay oportunidades"
+						description={`Por ahora no se le vende nada a ${company.name}. Abre una oportunidad y entra al funnel y a la proyección.`}
 						action={
 							<Button variant="outline" size="sm" onClick={onAdd}>
 								<Icon icon={PlusIcon} data-icon="inline-start" />
-								New deal
+								Nueva oportunidad
 							</Button>
 						}
 					/>
@@ -659,7 +662,7 @@ function CompanyDeals({
 				))}
 
 				<AddRow
-					label="New deal"
+					label="Nueva oportunidad"
 					columns={DEAL_COLUMNS.length}
 					onClick={onAdd}
 				/>
