@@ -13,6 +13,7 @@ import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
 import { formatCount, formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { ArchiveIcon } from "lucide-react";
+import { useQueryState } from "nuqs";
 import { useMemo } from "react";
 import { CLOSING_OPTIONS } from "@/components/crm/closing-window";
 import { CompanyCell } from "@/components/crm/company-cell";
@@ -26,9 +27,11 @@ import { ListEmpty } from "@/components/data-table/list-empty";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
+import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useStages } from "@/lib/use-stages";
+import { overviewParsers } from "../overview-search-params";
 import { DealsBulkActions } from "./deals-bulk-actions";
 import { dealsSearchParams } from "./deals-search-params";
 
@@ -169,10 +172,13 @@ export function DealsTable() {
 	const trpc = useTRPC();
 	const prefetchRecord = usePrefetchRecord();
 	const { query, input, setArchived } = useTableQuery(dealsSearchParams);
+	const [scope] = useQueryState(
+		SEARCH_PARAM.overview.scope,
+		overviewParsers[SEARCH_PARAM.overview.scope],
+	);
 
 	const deals = useQuery({
-		...trpc.deals.list.queryOptions(input),
-		placeholderData: (previous) => previous,
+		...trpc.deals.list.queryOptions({ ...input, scope }),
 	});
 	const users = useQuery(trpc.users.list.queryOptions());
 	const leadSources = useQuery(trpc.leadSources.list.queryOptions());

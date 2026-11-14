@@ -28,6 +28,7 @@ export const CLOSING_WINDOWS = [
 export type ClosingWindow = (typeof CLOSING_WINDOWS)[number];
 
 export const dealListInput = listInput.extend({
+	scope: z.enum(DASHBOARD_SCOPES).optional(),
 	status: z.string().default("all"),
 	owner: z.array(z.string()).default([]),
 	leadSource: z.array(z.string()).default([]),

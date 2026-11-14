@@ -228,7 +228,7 @@ export function FunnelView() {
 						))}
 						{column.total > column.cards.length ? (
 							<li className="px-1.5 text-13 text-muted-foreground">
-								Y {column.total - column.cards.length} más. Usa Oportunidades
+								Y {column.total - column.cards.length} más. Usa la vista Lista
 								para verlas todas.
 							</li>
 						) : null}

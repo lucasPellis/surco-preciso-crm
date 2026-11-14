@@ -54,6 +54,7 @@ import {
 	paginate,
 	resolveOrderBy,
 } from "../trpc/list-input";
+import { dealListScopeFilter } from "./deal-list-scope";
 import type {
 	ClosingWindow,
 	DealAttachContactInput,
@@ -126,9 +127,12 @@ export class DealsService {
 		private readonly fields: FieldsService,
 	) {}
 
-	async list(input: DealListInput) {
+	async list(input: DealListInput, userId?: string) {
 		const filterableFields = await this.fields.filterableFieldsFor("DEAL");
-		const where = this.buildWhere(input, filterableFields);
+		const scopeFilter = dealListScopeFilter(input.scope, userId);
+		const where = {
+			AND: [this.buildWhere(input, filterableFields), scopeFilter],
+		};
 		const { skip, take } = paginate(input);
 
 		const openWhere = { AND: [where, OPEN_STAGE_FILTER] };
@@ -159,7 +163,7 @@ export class DealsService {
 					},
 				}),
 				this.db.deal.count({ where }),
-				this.facetCounts(input, filterableFields),
+				this.facetCounts(input, filterableFields, scopeFilter),
 				this.db.deal.aggregate({
 					where: { AND: [openWhere, this.conversion.countedWhere(base)] },
 					_sum: { baseAmount: true },
@@ -1240,9 +1244,14 @@ export class DealsService {
 	private async facetCounts(
 		input: DealListInput,
 		filterableFields: FieldDefinitionWithOptions[],
+		scopeFilter: Prisma.DealWhereInput,
 	) {
 		const where: Prisma.DealWhereInput = {
-			AND: [this.searchFilter(input.q), archivedFilter(input.archived)],
+			AND: [
+				this.searchFilter(input.q),
+				archivedFilter(input.archived),
+				scopeFilter,
+			],
 		};
 
 		const [

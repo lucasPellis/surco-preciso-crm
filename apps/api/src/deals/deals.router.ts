@@ -67,8 +67,11 @@ export class DealsRouter {
 		output: dealListOutput,
 		meta: restMeta("POST", "/deals/search", ["Deals"]),
 	})
-	async list(@Input() input: z.infer<typeof dealListInput>) {
-		return this.deals.list(input);
+	async list(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof dealListInput>,
+	) {
+		return this.deals.list(input, ctx.user.id);
 	}
 
 	@Query({
