@@ -29,6 +29,7 @@ export type ClosingWindow = (typeof CLOSING_WINDOWS)[number];
 export const dealListInput = listInput.extend({
 	status: z.string().default("all"),
 	owner: z.array(z.string()).default([]),
+	leadSource: z.array(z.string()).default([]),
 	stage: z.array(z.string()).default([]),
 	closing: z.array(z.string()).default([]),
 	fields: z.record(z.string(), z.array(z.string())).default({}),
@@ -193,6 +194,12 @@ const dealContactOutput = dealContactSummaryOutput.extend({
 	role: z.string().nullable(),
 });
 
+const dealLeadSourceOutput = z.object({
+	id: z.string(),
+	name: z.string(),
+	icon: z.string().nullable(),
+});
+
 const dealListRowOutput = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -200,6 +207,7 @@ const dealListRowOutput = z.object({
 	currency: z.string(),
 	company: dealCompanyOutput,
 	owner: dealOwnerOutput,
+	leadSource: dealLeadSourceOutput.nullable(),
 	amountCents: z.number().nullable(),
 	baseAmountCents: z.number().nullable(),
 	expectedCloseDate: z.string().nullable(),
@@ -233,6 +241,7 @@ export const dealDetailOutput = z.object({
 	closedReason: z.string().nullable(),
 	company: dealCompanyDetailOutput,
 	owner: dealOwnerOutput,
+	leadSource: dealLeadSourceOutput.nullable(),
 	fields: z.array(recordFieldOutput),
 	amountCents: z.number().nullable(),
 	baseAmountCents: z.number().nullable(),

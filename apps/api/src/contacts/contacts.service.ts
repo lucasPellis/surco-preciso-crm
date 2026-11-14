@@ -34,8 +34,10 @@ import {
 	activityFilter,
 	archivedFilter,
 	countsByKey,
+	FACET_NO_LEAD_SOURCE,
 	FACET_UNASSIGNED,
 	type ListResult,
+	leadSourceFilter,
 	type OrderByColumns,
 	ownerFilter,
 	paginate,
@@ -70,7 +72,6 @@ const COMPANY_SELECT = {
 } as const;
 
 const NO_COMPANY = "none";
-const NO_LEAD_SOURCE = "none";
 
 const LEAD_SOURCE_SELECT = { id: true, name: true, icon: true } as const;
 
@@ -857,17 +858,6 @@ export class ContactsService {
 		return { OR: [{ companyId: { in: ids } }, { companyId: null }] };
 	}
 
-	private leadSourceFilter(
-		values: string[],
-	): Prisma.ContactWhereInput | undefined {
-		if (values.length === 0) return undefined;
-
-		const { ids, includesSentinel } = splitSentinel(values, NO_LEAD_SOURCE);
-		if (includesSentinel && ids.length === 0) return { leadSourceId: null };
-		if (!includesSentinel) return { leadSourceId: { in: ids } };
-		return { OR: [{ leadSourceId: { in: ids } }, { leadSourceId: null }] };
-	}
-
 	private buildWhere(
 		input: ContactListInput,
 		filterableFields: FieldDefinitionWithOptions[],
@@ -884,7 +874,9 @@ export class ContactsService {
 		const company = this.companyFilter(input.company);
 		if (company) and.push(company);
 
-		const leadSource = this.leadSourceFilter(input.leadSource);
+		const leadSource = leadSourceFilter<Prisma.ContactWhereInput>(
+			input.leadSource,
+		);
 		if (leadSource) and.push(leadSource);
 
 		if (input.source.length > 0) {
@@ -965,7 +957,11 @@ export class ContactsService {
 		return {
 			owner: countsByKey(owners, "ownerId", FACET_UNASSIGNED),
 			company: countsByKey(companies, "companyId", NO_COMPANY),
-			leadSource: countsByKey(leadSources, "leadSourceId", NO_LEAD_SOURCE),
+			leadSource: countsByKey(
+				leadSources,
+				"leadSourceId",
+				FACET_NO_LEAD_SOURCE,
+			),
 			source: countsByKey(sources, "source"),
 			title: countsByKey(titles, "title"),
 			seniority: countsByKey(seniorities, "seniority"),

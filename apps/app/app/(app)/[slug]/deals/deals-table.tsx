@@ -7,6 +7,7 @@ import {
 	type DataTableFacet,
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
+import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
 import { MetaRow } from "@crm/ui/components/meta-row";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
 import { formatMoney } from "@crm/ui/lib/format";
@@ -71,6 +72,22 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 				<span className="tabular-nums">
 					{formatMoney(row.amountCents, row.currency)}
 				</span>
+			),
+	},
+	{
+		id: "leadSource",
+		header: "Origen",
+		sortable: true,
+		width: "40",
+		hideBelow: "lg",
+		cell: (row) =>
+			row.leadSource ? (
+				<span className="flex min-w-0 items-center gap-2">
+					<LeadSourceMark icon={row.leadSource.icon} />
+					<span className="truncate">{row.leadSource.name}</span>
+				</span>
+			) : (
+				<EmptyCellValue />
 			),
 	},
 	{
@@ -158,6 +175,7 @@ export function DealsTable() {
 		placeholderData: (previous) => previous,
 	});
 	const users = useQuery(trpc.users.list.queryOptions());
+	const leadSources = useQuery(trpc.leadSources.list.queryOptions());
 
 	const rows = deals.data?.rows ?? [];
 	const selection = useTableSelection(
@@ -190,6 +208,17 @@ export function DealsTable() {
 					? [{ value: user.id, label: user.name }]
 					: [],
 			),
+		},
+		{
+			id: "leadSource",
+			label: "Origen",
+			options: [
+				...(leadSources.data?.sources ?? []).map((source) => ({
+					value: source.id,
+					label: source.name,
+				})),
+				{ value: "none", label: "Desconocido" },
+			].filter((option) => (facetCounts?.leadSource?.[option.value] ?? 0) > 0),
 		},
 		{
 			id: "stage",

@@ -9,6 +9,7 @@ import {
 	type EntityLogoTone,
 } from "@crm/ui/components/entity-logo";
 import { Icon } from "@crm/ui/components/icon";
+import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
 import {
 	RecordFigure,
@@ -403,6 +404,16 @@ function DealRail({ deal }: { deal: Deal }) {
 					}))}
 					onSave={(ownerId) => save({ ownerId })}
 				/>
+				<DetailSheetProperty label="Origen">
+					{deal.leadSource ? (
+						<span className="flex min-w-0 items-center gap-2">
+							<LeadSourceMark icon={deal.leadSource.icon} />
+							<span className="truncate">{deal.leadSource.name}</span>
+						</span>
+					) : (
+						<EmptyCellValue />
+					)}
+				</DetailSheetProperty>
 				<RecordFields
 					fields={deal.fields}
 					saving={isSavingField}

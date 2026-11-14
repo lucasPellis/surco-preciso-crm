@@ -117,7 +117,7 @@ contact with a null `leadSourceId` is unknown, and the UI and the reports label 
    facet. The create sheet has Teléfono, Origen (active sources only) and Detalle del
    origen. The contact sheet edits Origen and Detalle del origen. Test in
    `apps/api/test/contact-intake.integration.spec.ts`.
-6. **Docs.** Update `docs/api.md`. Update `docs/crm-plan.md` §15 when step 4 starts.
+6. **Docs. Done for `docs/api.md`.** Update `docs/crm-plan.md` §15 when step 4 starts.
 
 ### Out of scope for step 2
 
@@ -162,6 +162,8 @@ Lead to deal:
 
 Open in step 3:
 
+- `deals.list` and `deals.byId` return the source. The deals table has an *Origen*
+  column and facet, and the deal sheet shows it.
 - The stage labels are Spanish. The rest of the deals UI is still English.
 
 ## Language

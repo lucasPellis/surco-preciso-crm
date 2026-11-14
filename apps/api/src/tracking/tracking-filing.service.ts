@@ -1,5 +1,11 @@
 import { workspaceDomains } from "@crm/auth/workspace";
-import { ActivityType, type Db, Prisma, RecordSource } from "@crm/db";
+import {
+	ActivityType,
+	type Db,
+	DealStage,
+	Prisma,
+	RecordSource,
+} from "@crm/db";
 import type { Touch } from "@crm/db/attribution";
 import { readDefaultLeadOwner } from "@crm/db/settings";
 import {
@@ -115,36 +121,56 @@ export class TrackingFilingService {
 			ownerId,
 		});
 
+		const fullName = [firstName, lastName].filter(Boolean).join(" ");
+		const leadSourceId = webSource?.id ?? null;
+
 		let contact: { id: string };
 		try {
-			contact = await this.db.contact.create({
-				data: {
-					firstName,
-					lastName,
-					email,
-					companyId,
-					ownerId,
-					leadSourceId: webSource?.id ?? null,
-					source: RecordSource.TRACKING,
-					lastActivityAt: new Date(),
-					...(ownerId
-						? {
-								deals: {
-									create: {
-										deal: {
-											create: {
-												name: [firstName, lastName].filter(Boolean).join(" "),
-												companyId,
-												ownerId,
-												leadSourceId: webSource?.id ?? null,
-											},
-										},
-									},
-								},
-							}
-						: {}),
-				},
-				select: { id: true },
+			contact = await this.agent.withCrmEvents(async (tx, emit) => {
+				const created = await tx.contact.create({
+					data: {
+						firstName,
+						lastName,
+						email,
+						companyId,
+						ownerId,
+						leadSourceId,
+						source: RecordSource.TRACKING,
+						lastActivityAt: new Date(),
+					},
+					select: { id: true, createdAt: true },
+				});
+				await emit({
+					type: "contact.created",
+					record: { kind: "contact", id: created.id },
+					occurredAt: created.createdAt,
+					data: {
+						firstName,
+						lastName,
+						email,
+						companyId,
+						source: RecordSource.TRACKING,
+					},
+				});
+				if (ownerId) {
+					const deal = await tx.deal.create({
+						data: {
+							name: fullName,
+							companyId,
+							ownerId,
+							leadSourceId,
+							contacts: { create: { contactId: created.id } },
+						},
+						select: { id: true },
+					});
+					await emit({
+						type: "deal.created",
+						record: { kind: "deal", id: deal.id },
+						occurredAt: created.createdAt,
+						data: { companyId, stage: DealStage.NEW },
+					});
+				}
+				return { id: created.id };
 			});
 		} catch (error) {
 			await this.counters.release(window);

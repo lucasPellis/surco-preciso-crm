@@ -38,8 +38,10 @@ import { FieldsService } from "../fields/fields.service";
 import {
 	archivedFilter,
 	countsByKey,
+	FACET_NO_LEAD_SOURCE,
 	FACET_UNASSIGNED,
 	type ListResult,
+	leadSourceFilter,
 	type OrderByColumns,
 	ownerFilter,
 	paginate,
@@ -87,7 +89,10 @@ const CONTACT_SELECT = {
 
 const LOSING = new Set<DealStage>(LOSING_DEAL_STAGES);
 
+const LEAD_SOURCE_SELECT = { id: true, name: true, icon: true } as const;
+
 const SORTABLE: OrderByColumns<Prisma.DealOrderByWithRelationInput[]> = {
+	leadSource: (dir) => [{ leadSource: { name: dir } }, { name: "asc" }],
 	name: (dir) => [{ name: dir }],
 	company: (dir) => [{ company: { name: dir } }, { name: "asc" }],
 	stage: (dir) => [{ stage: dir }, { expectedCloseDate: "asc" }],
@@ -137,6 +142,7 @@ export class DealsService {
 						closedAt: true,
 						company: { select: COMPANY_SELECT },
 						owner: { select: OWNER_SELECT },
+						leadSource: { select: LEAD_SOURCE_SELECT },
 						lastActivityAt: true,
 						createdAt: true,
 						archivedAt: true,
@@ -214,6 +220,7 @@ export class DealsService {
 				archivedAt: true,
 				company: { select: { ...COMPANY_SELECT, industry: true } },
 				owner: { select: OWNER_SELECT },
+				leadSource: { select: LEAD_SOURCE_SELECT },
 				contacts: {
 					select: { role: true, contact: { select: CONTACT_SELECT } },
 					orderBy: { contact: { firstName: "asc" } },
@@ -770,6 +777,11 @@ export class DealsService {
 		const owner = ownerFilter<Prisma.DealWhereInput>(input.owner);
 		if (owner) and.push(owner);
 
+		const leadSource = leadSourceFilter<Prisma.DealWhereInput>(
+			input.leadSource,
+		);
+		if (leadSource) and.push(leadSource);
+
 		if (input.status === "open") {
 			and.push({ stage: { in: [...OPEN_DEAL_STAGES] } });
 		} else if (input.status === "closed") {
@@ -799,14 +811,26 @@ export class DealsService {
 			AND: [this.searchFilter(input.q), archivedFilter(input.archived)],
 		};
 
-		const [owners, stages, fieldFacets, ...closingCounts] = await Promise.all([
-			this.db.deal.groupBy({ by: ["ownerId"], where, _count: { _all: true } }),
-			this.db.deal.groupBy({ by: ["stage"], where, _count: { _all: true } }),
-			this.fields.filterFacetCounts("DEAL", where, filterableFields),
-			...CLOSING_WINDOWS.map((window) =>
-				this.db.deal.count({ where: { AND: [where, closingFilter(window)] } }),
-			),
-		]);
+		const [owners, leadSources, stages, fieldFacets, ...closingCounts] =
+			await Promise.all([
+				this.db.deal.groupBy({
+					by: ["ownerId"],
+					where,
+					_count: { _all: true },
+				}),
+				this.db.deal.groupBy({
+					by: ["leadSourceId"],
+					where,
+					_count: { _all: true },
+				}),
+				this.db.deal.groupBy({ by: ["stage"], where, _count: { _all: true } }),
+				this.fields.filterFacetCounts("DEAL", where, filterableFields),
+				...CLOSING_WINDOWS.map((window) =>
+					this.db.deal.count({
+						where: { AND: [where, closingFilter(window)] },
+					}),
+				),
+			]);
 
 		const stageCounts = countsByKey(stages, "stage");
 		const openCount = OPEN_DEAL_STAGES.reduce(
@@ -821,6 +845,11 @@ export class DealsService {
 		return {
 			status: { open: openCount, closed: closedCount },
 			owner: countsByKey(owners, "ownerId", FACET_UNASSIGNED),
+			leadSource: countsByKey(
+				leadSources,
+				"leadSourceId",
+				FACET_NO_LEAD_SOURCE,
+			),
 			stage: stageCounts,
 			closing: Object.fromEntries(
 				CLOSING_WINDOWS.map((window, index) => [

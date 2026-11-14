@@ -247,6 +247,7 @@ describe("the deals list", () => {
 			dir: "desc",
 			status: "open",
 			owner: [userId],
+			leadSource: [],
 			stage: [],
 			closing: [],
 			fields: {},
