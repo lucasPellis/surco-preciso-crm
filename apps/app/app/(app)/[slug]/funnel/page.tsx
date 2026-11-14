@@ -19,15 +19,15 @@ import {
 	OverviewScopeToggleFallback,
 } from "../overview-scope";
 import { loadOverviewSearchParams } from "../overview-search-params";
-import { PipelineView } from "./pipeline-view";
+import { FunnelView } from "./funnel-view";
 
 export const metadata: Metadata = {
 	title: "Funnel",
 };
 
-export default function PipelinePage({
+export default function FunnelPage({
 	searchParams,
-}: PageProps<"/[slug]/pipeline">) {
+}: PageProps<"/[slug]/funnel">) {
 	return (
 		<PageShell className="min-h-0">
 			<PageShellHeader>
@@ -48,16 +48,16 @@ export default function PipelinePage({
 
 			<PageShellContent className="min-h-0">
 				<Suspense fallback={<PageShellLoading shape="table" />}>
-					<Pipeline searchParams={searchParams} />
+					<Funnel searchParams={searchParams} />
 				</Suspense>
 			</PageShellContent>
 		</PageShell>
 	);
 }
 
-async function Pipeline({
+async function Funnel({
 	searchParams,
-}: Pick<PageProps<"/[slug]/pipeline">, "searchParams">) {
+}: Pick<PageProps<"/[slug]/funnel">, "searchParams">) {
 	const [, { scope }] = await Promise.all([
 		requireSession(),
 		loadOverviewSearchParams(searchParams),
@@ -69,7 +69,7 @@ async function Pipeline({
 
 	return (
 		<HydrateClient>
-			<PipelineView />
+			<FunnelView />
 		</HydrateClient>
 	);
 }

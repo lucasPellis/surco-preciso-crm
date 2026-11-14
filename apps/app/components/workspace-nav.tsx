@@ -58,7 +58,7 @@ const PRIMARY: NavItem[] = [
 		match: "prefix",
 	},
 	{ title: "Contactos", href: "/contacts", icon: UsersIcon, match: "prefix" },
-	{ title: "Funnel", href: "/pipeline", icon: KanbanIcon, match: "prefix" },
+	{ title: "Funnel", href: "/funnel", icon: KanbanIcon, match: "prefix" },
 	{ title: "Oportunidades", href: "/deals", icon: HandshakeIcon, match: "prefix" },
 	{ title: "Tareas", href: "/tasks", icon: ListChecksIcon, match: "prefix" },
 ];

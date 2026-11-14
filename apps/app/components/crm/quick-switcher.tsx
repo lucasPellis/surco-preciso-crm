@@ -83,9 +83,9 @@ const PAGES: Destination[] = [
 		keywords: ["personas", "leads"],
 	},
 	{
-		id: "pipeline",
+		id: "funnel",
 		label: "Funnel",
-		href: "/pipeline",
+		href: "/funnel",
 		icon: KanbanIcon,
 		keywords: [
 			"tablero",

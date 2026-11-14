@@ -53,7 +53,7 @@ function CardBody({ card }: { card: BoardCard }) {
 	);
 }
 
-export function PipelineView() {
+export function FunnelView() {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const queryClient = useQueryClient();

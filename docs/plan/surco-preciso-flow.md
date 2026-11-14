@@ -162,7 +162,7 @@ Lead to deal:
 
 Pipeline screen:
 
-- Route `/pipeline`, nav entry *Funnel*. A board with one column per stage: the five
+- Route `/funnel`, nav entry *Funnel*. A board with one column per stage: the five
   open stages, then Ganado and Perdido. The closed columns show the last 30 days
   (`DEAL_BOARD` in `apps/api/src/deals/deals-config.ts`). A column shows 50 cards and
   its real count.
@@ -181,7 +181,7 @@ Pipeline screen:
   actividad hace N días*. The API computes it from the last activity, else from the day
   the deal entered its stage. Closed columns never flag.
 - `packages/ui/src/components/pipeline-board.tsx` holds the generic board. The deal
-  cards live in `pipeline-view.tsx`.
+  cards live in `funnel-view.tsx`.
 
 Open in step 3:
 
