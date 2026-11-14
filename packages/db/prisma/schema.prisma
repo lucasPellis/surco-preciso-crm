@@ -546,6 +546,7 @@ model LeadSource {
   archivedAt DateTime?
 
   contacts  Contact[]
+  deals     Deal[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -1079,6 +1080,9 @@ model Deal {
   ownerId       String
   owner         User                @relation("DealOwner", fields: [ownerId], references: [id])
 
+  leadSourceId String?
+  leadSource   LeadSource? @relation(fields: [leadSourceId], references: [id], onDelete: SetNull)
+
   stage             DealStage @default(NEW)
   stageChangedAt    DateTime  @default(now())
   amount            Decimal?  @db.Decimal(14, 2)
@@ -1103,6 +1107,7 @@ model Deal {
 
   @@index([companyId])
   @@index([ownerId])
+  @@index([leadSourceId])
   @@index([stage])
   @@index([expectedCloseDate])
   @@index([lastActivityAt])

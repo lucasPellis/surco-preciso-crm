@@ -147,10 +147,17 @@ Done in code, not yet seen in a browser. The stages live on `Deal`.
 - `LOST` is the only losing stage. It asks for a reason.
 - `ARS`, `PYG` and `BRL` join `CURRENCIES`. `PYG` has no minor unit.
 
+Lead to deal:
+
+- `contacts.create` opens a `Deal` in `NEW` in the same transaction. The deal is
+  named after the person, joins the contact, and copies `leadSourceId` into
+  `Deal.leadSourceId`. A later edit of the contact does not rewrite it.
+- The deal owner is the contact owner, else the user who created the contact. With
+  neither, no deal opens. The tracker's form filing has no user, so web leads open no
+  deal yet.
+
 Open in step 3:
 
-- Copy `Contact.leadSourceId` onto `Deal` at creation, for source statistics.
-- Create a `Deal` in `NEW` when a lead is captured.
 - The stage labels are Spanish. The rest of the deals UI is still English.
 
 ## Language

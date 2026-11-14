@@ -1,6 +1,7 @@
 import {
 	type ContactBriefSections,
 	type Db,
+	DealStage,
 	type FactEvidence,
 	FactStatus,
 	type Prisma,
@@ -270,7 +271,7 @@ export class ContactsService {
 		};
 	}
 
-	async create(input: ContactCreateInput) {
+	async create(input: ContactCreateInput, actorId?: string) {
 		const email = normalizeEmail(input.email ?? "");
 
 		if (email) {
@@ -328,6 +329,25 @@ export class ContactsService {
 					createdAt: true,
 				},
 			});
+			const dealOwnerId = input.ownerId ?? actorId;
+			if (dealOwnerId) {
+				const deal = await tx.deal.create({
+					data: {
+						name: nameOf(created),
+						companyId,
+						ownerId: dealOwnerId,
+						leadSourceId: input.leadSourceId ?? null,
+						contacts: { create: { contactId: created.id } },
+					},
+					select: { id: true },
+				});
+				await emit({
+					type: "deal.created",
+					record: { kind: "deal", id: deal.id },
+					occurredAt: created.createdAt,
+					data: { companyId, stage: DealStage.NEW },
+				});
+			}
 			await emit({
 				type: "contact.created",
 				record: { kind: "contact", id: created.id },

@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
@@ -48,8 +48,10 @@ function phone(offset: number): string {
 	return `+${base + offset}`;
 }
 
-async function file(input: ContactCreateInput) {
-	const created = await contacts.create(input);
+const actorId = `intake-actor-${suffix}`;
+
+async function file(input: ContactCreateInput, actor?: string) {
+	const created = await contacts.create(input, actor);
 	contactIds.push(created.id);
 	const row = await db.contact.findUniqueOrThrow({
 		where: { id: created.id },
@@ -66,9 +68,21 @@ async function companyOf(id: string | null) {
 	});
 }
 
+beforeAll(async () => {
+	await db.user.create({
+		data: {
+			id: actorId,
+			name: "Intake Actor",
+			email: `${actorId}@example.test`,
+		},
+	});
+});
+
 afterAll(async () => {
 	await db.contact.deleteMany({ where: { id: { in: contactIds } } });
+	await db.deal.deleteMany({ where: { ownerId: actorId } });
 	await db.company.deleteMany({ where: { id: { in: companyIds } } });
+	await db.user.deleteMany({ where: { id: actorId } });
 	await db.leadSource.deleteMany({ where: { id: { in: sourceIds } } });
 });
 
@@ -214,6 +228,53 @@ describe("a contact has a lead source", () => {
 			contactListInput.parse({ leadSource: ["none"] }),
 		);
 		expect(unknown.rows.every((row) => row.leadSource === null)).toBe(true);
+	});
+
+	it("opens a deal in Nuevo with the same source", async () => {
+		const source = await db.leadSource.create({
+			data: { key: `intake-${suffix}-deal`, name: `Deal ${suffix}` },
+			select: { id: true },
+		});
+		sourceIds.push(source.id);
+
+		const row = await file(
+			{
+				firstName: "Julia",
+				lastName: "Ferreyra",
+				phone: phone(40),
+				leadSourceId: source.id,
+			},
+			actorId,
+		);
+
+		const deals = await db.deal.findMany({
+			where: { companyId: row.companyId ?? "" },
+			select: {
+				name: true,
+				stage: true,
+				ownerId: true,
+				leadSourceId: true,
+				contacts: { select: { contactId: true } },
+			},
+		});
+
+		expect(deals).toEqual([
+			{
+				name: "Julia Ferreyra",
+				stage: "NEW",
+				ownerId: actorId,
+				leadSourceId: source.id,
+				contacts: [{ contactId: row.id }],
+			},
+		]);
+	});
+
+	it("opens no deal when nobody owns the contact", async () => {
+		const row = await file({ firstName: "Nadie", phone: phone(41) });
+
+		expect(
+			await db.deal.count({ where: { companyId: row.companyId ?? "" } }),
+		).toBe(0);
 	});
 
 	it("refuses an archived source", async () => {

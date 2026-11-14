@@ -60,8 +60,11 @@ export class ContactsRouter {
 		output: contactBasicOutput,
 		meta: restMeta("POST", "/contacts", ["Contacts"]),
 	})
-	async create(@Input() input: z.infer<typeof contactCreateInput>) {
-		return this.contacts.create(input);
+	async create(
+		@Input() input: z.infer<typeof contactCreateInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.contacts.create(input, ctx.user.id);
 	}
 
 	@Mutation({
