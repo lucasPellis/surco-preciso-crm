@@ -238,6 +238,44 @@ describe("finding the lead that already exists", () => {
 	});
 });
 
+describe("a new lead counts as activity", () => {
+	it("stamps the contact, the deal and the company with the task", async () => {
+		const row = await file({ firstName: "Gael", phone: phone(64) }, actorId);
+
+		const task = await db.activity.findFirstOrThrow({
+			where: { contactId: row.id },
+			select: { createdAt: true },
+		});
+		const contact = await db.contact.findUniqueOrThrow({
+			where: { id: row.id },
+			select: { lastActivityAt: true },
+		});
+		const link = await db.dealContact.findFirstOrThrow({
+			where: { contactId: row.id },
+			select: { deal: { select: { lastActivityAt: true } } },
+		});
+		const company = await db.company.findUniqueOrThrow({
+			where: { id: row.companyId ?? "" },
+			select: { lastActivityAt: true },
+		});
+
+		expect(contact.lastActivityAt?.getTime()).toBe(task.createdAt.getTime());
+		expect(link.deal.lastActivityAt?.getTime()).toBe(task.createdAt.getTime());
+		expect(company.lastActivityAt?.getTime()).toBe(task.createdAt.getTime());
+	});
+
+	it("leaves the stamp empty when no deal opens", async () => {
+		const row = await file({ firstName: "Sin dueño", phone: phone(65) });
+
+		const contact = await db.contact.findUniqueOrThrow({
+			where: { id: row.id },
+			select: { lastActivityAt: true },
+		});
+
+		expect(contact.lastActivityAt).toBeNull();
+	});
+});
+
 describe("a contact has a lead source", () => {
 	it("stores an active source", async () => {
 		const source = await db.leadSource.create({

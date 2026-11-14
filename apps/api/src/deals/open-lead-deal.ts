@@ -19,6 +19,7 @@ export async function openLeadDeal(
 			companyId: lead.companyId,
 			ownerId: lead.ownerId,
 			leadSourceId: lead.leadSourceId,
+			lastActivityAt: lead.now,
 			contacts: { create: { contactId: lead.contactId } },
 		},
 		select: { id: true },
@@ -30,6 +31,7 @@ export async function openLeadDeal(
 			type: ActivityType.TASK,
 			subject: NEW_LEAD.followUpSubject,
 			occurredAt: lead.now,
+			createdAt: lead.now,
 			dueAt: new Date(
 				startOfToday.getTime() + NEW_LEAD.followUpDueInDays * DEAL_BOARD.dayMs,
 			),
@@ -38,6 +40,18 @@ export async function openLeadDeal(
 			dealId: deal.id,
 			createdById: lead.ownerId,
 		},
+	});
+
+	await tx.contact.update({
+		where: { id: lead.contactId },
+		data: { lastActivityAt: lead.now },
+	});
+	await tx.company.updateMany({
+		where: {
+			id: lead.companyId,
+			OR: [{ lastActivityAt: null }, { lastActivityAt: { lt: lead.now } }],
+		},
+		data: { lastActivityAt: lead.now },
 	});
 
 	return deal.id;
