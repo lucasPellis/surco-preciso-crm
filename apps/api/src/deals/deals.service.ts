@@ -247,12 +247,25 @@ export class DealsService {
 					total,
 					valueCents: toCents(value._sum.baseAmount),
 					cards: rows.map(
-						({ amount, stageChangedAt, lastActivityAt, ...row }) => ({
-							...row,
-							amountCents: toCents(amount),
-							stageChangedAt: stageChangedAt.toISOString(),
-							lastActivityAt: lastActivityAt?.toISOString() ?? null,
-						}),
+						({ amount, stageChangedAt, lastActivityAt, ...row }) => {
+							const idleDays = isClosedStage(stage)
+								? null
+								: Math.floor(
+										(Date.now() -
+											(lastActivityAt ?? stageChangedAt).getTime()) /
+											DEAL_BOARD.dayMs,
+									);
+							return {
+								...row,
+								amountCents: toCents(amount),
+								stageChangedAt: stageChangedAt.toISOString(),
+								lastActivityAt: lastActivityAt?.toISOString() ?? null,
+								idleDays:
+									idleDays !== null && idleDays >= DEAL_BOARD.idleAfterDays
+										? idleDays
+										: null,
+							};
+						},
 					),
 				};
 			}),

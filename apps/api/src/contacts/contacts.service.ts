@@ -28,6 +28,7 @@ import {
 import { type BulkResult, requireOwner, runBulk } from "../crm/bulk";
 import { blankToNull, normalizeEmail, toCents } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
+import { openLeadDeal } from "../deals/open-lead-deal";
 import { FieldsService } from "../fields/fields.service";
 import {
 	activityFacetCounts,
@@ -332,19 +333,17 @@ export class ContactsService {
 				},
 			});
 			if (ownerId) {
-				const deal = await tx.deal.create({
-					data: {
-						name: nameOf(created),
-						companyId,
-						ownerId,
-						leadSourceId: input.leadSourceId ?? null,
-						contacts: { create: { contactId: created.id } },
-					},
-					select: { id: true },
+				const dealId = await openLeadDeal(tx, {
+					name: nameOf(created),
+					companyId,
+					contactId: created.id,
+					ownerId,
+					leadSourceId: input.leadSourceId ?? null,
+					now: created.createdAt,
 				});
 				await emit({
 					type: "deal.created",
-					record: { kind: "deal", id: deal.id },
+					record: { kind: "deal", id: dealId },
 					occurredAt: created.createdAt,
 					data: { companyId, stage: DealStage.NEW },
 				});

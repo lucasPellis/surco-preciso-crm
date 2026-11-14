@@ -25,6 +25,7 @@ function card(id: string, stage: "NEW" | "QUOTED") {
 		leadSource: null,
 		stageChangedAt: "2026-11-14T00:00:00.000Z",
 		lastActivityAt: null,
+		idleDays: null,
 	};
 }
 

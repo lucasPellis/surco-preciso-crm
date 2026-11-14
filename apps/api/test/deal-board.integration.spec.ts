@@ -58,6 +58,21 @@ beforeAll(async () => {
 			{ name: "Ajena", companyId, ownerId: otherId, stage: "NEW" },
 			{ name: "Cotizada", companyId, ownerId, stage: "QUOTED" },
 			{
+				name: "Dormida",
+				companyId,
+				ownerId,
+				stage: "CONTACTED",
+				stageChangedAt: new Date(Date.now() - 5 * 86_400_000),
+			},
+			{
+				name: "Activa",
+				companyId,
+				ownerId,
+				stage: "CONTACTED",
+				stageChangedAt: new Date(Date.now() - 5 * 86_400_000),
+				lastActivityAt: new Date(),
+			},
+			{
 				name: "Ganada reciente",
 				companyId,
 				ownerId,
@@ -132,6 +147,20 @@ describe("the pipeline board", () => {
 			"Ajena",
 		]);
 		expect(column(result, "QUOTED").total).toBe(0);
+	});
+
+	it("flags a deal with no activity for days and nobody else", async () => {
+		const result = await deals.board({ scope: "me" }, ownerId);
+		const cards = column(result, "CONTACTED").cards;
+
+		expect(cards.find((card) => card.name === "Dormida")?.idleDays).toBe(5);
+		expect(cards.find((card) => card.name === "Activa")?.idleDays).toBeNull();
+		expect(
+			column(result, "NEW").cards.every((card) => card.idleDays === null),
+		).toBe(true);
+		expect(
+			column(result, "WON").cards.every((card) => card.idleDays === null),
+		).toBe(true);
 	});
 
 	it("shows only recently closed deals in the closed columns", async () => {

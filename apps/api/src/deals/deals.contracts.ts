@@ -237,6 +237,7 @@ const dealBoardCardOutput = z.object({
 	leadSource: dealLeadSourceOutput.nullable(),
 	stageChangedAt: z.string(),
 	lastActivityAt: z.string().nullable(),
+	idleDays: z.number().nullable(),
 });
 
 const dealBoardColumnOutput = z.object({

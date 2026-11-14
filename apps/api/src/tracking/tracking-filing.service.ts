@@ -20,6 +20,7 @@ import { isMachineDomain } from "../companies/domain";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { normalizeEmail } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
+import { openLeadDeal } from "../deals/open-lead-deal";
 import {
 	isAutomatedAddress,
 	isMachineAddress,
@@ -153,19 +154,17 @@ export class TrackingFilingService {
 					},
 				});
 				if (ownerId) {
-					const deal = await tx.deal.create({
-						data: {
-							name: fullName,
-							companyId,
-							ownerId,
-							leadSourceId,
-							contacts: { create: { contactId: created.id } },
-						},
-						select: { id: true },
+					const dealId = await openLeadDeal(tx, {
+						name: fullName,
+						companyId,
+						contactId: created.id,
+						ownerId,
+						leadSourceId,
+						now: created.createdAt,
 					});
 					await emit({
 						type: "deal.created",
-						record: { kind: "deal", id: deal.id },
+						record: { kind: "deal", id: dealId },
 						occurredAt: created.createdAt,
 						data: { companyId, stage: DealStage.NEW },
 					});

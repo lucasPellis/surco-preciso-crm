@@ -264,6 +264,20 @@ describe("a contact has a lead source", () => {
 		});
 		expect(contact.ownerId).toBe(actorId);
 
+		const task = await db.activity.findFirstOrThrow({
+			where: { contactId: row.id, type: "TASK" },
+			select: {
+				subject: true,
+				createdById: true,
+				completedAt: true,
+				dueAt: true,
+			},
+		});
+		expect(task.subject).toBe("Contactar al lead");
+		expect(task.createdById).toBe(actorId);
+		expect(task.completedAt).toBeNull();
+		expect(task.dueAt).not.toBeNull();
+
 		expect(deals).toEqual([
 			{
 				name: "Julia Ferreyra",

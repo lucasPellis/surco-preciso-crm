@@ -173,6 +173,13 @@ Pipeline screen:
   keyboard handle, and each card also has the stage menu.
 - *Nuevo lead* opens the contact form in lead mode. It creates the contact, the company
   if missing, and the deal in `NEW`.
+- A new lead gets a task, *Contactar al lead*, due today. It belongs to the deal owner,
+  so it shows in their tasks. `openLeadDeal` creates the deal, the contact link and the
+  task in one transaction, for both `contacts.create` and the tracker. The text and the
+  due day are in `NEW_LEAD`.
+- A card with no activity for 3 days or more (`DEAL_BOARD.idleAfterDays`) shows *Sin
+  actividad hace N días*. The API computes it from the last activity, else from the day
+  the deal entered its stage. Closed columns never flag.
 - `packages/ui/src/components/pipeline-board.tsx` holds the generic board. The deal
   cards live in `pipeline-view.tsx`.
 

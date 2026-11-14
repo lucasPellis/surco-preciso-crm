@@ -31,6 +31,11 @@ function CardBody({ card }: { card: BoardCard }) {
 			<span className="truncate text-13 text-muted-foreground">
 				{card.company.name}
 			</span>
+			{card.idleDays === null ? null : (
+				<span className="text-13 text-status-warning-text">
+					Sin actividad hace {card.idleDays} días
+				</span>
+			)}
 			<span className="flex items-center justify-between gap-2 text-13">
 				<span className="tabular-nums">
 					{card.amountCents === null
