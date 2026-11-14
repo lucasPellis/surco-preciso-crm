@@ -127,6 +127,32 @@ contact with a null `leadSourceId` is unknown, and the UI and the reports label 
 - Product interest.
 - WhatsApp inbound.
 
+## Step 3 — Commercial pipeline
+
+Done in code, not yet seen in a browser. The stages live on `Deal`.
+
+| Stage | Value | Old value it replaces |
+| --- | --- | --- |
+| Nuevo | `NEW` | `DEMO_BOOKED` |
+| Contactado | `CONTACTED` | none |
+| Calificado | `QUALIFIED` | `QUALIFIED_TO_BUY` |
+| Cotizado | `QUOTED` | `CONTRACT_SENT` |
+| Negociando | `NEGOTIATING` | `DECISION_MAKER_BOUGHT_IN` |
+| Ganado | `WON` | `CLOSED_WON` |
+| Perdido | `LOST` | `CLOSED_LOST` and `UNQUALIFIED_TO_BUY` |
+
+- Migration `20261114140000_deal_stages` renames the enum values. It also rewrites
+  the old names inside the JSON columns that can hold a stage: `activity.meta`,
+  `savedView.filters`, agent tasks, events, audit rows and manifests.
+- `LOST` is the only losing stage. It asks for a reason.
+- `ARS`, `PYG` and `BRL` join `CURRENCIES`. `PYG` has no minor unit.
+
+Open in step 3:
+
+- Copy `Contact.leadSourceId` onto `Deal` at creation, for source statistics.
+- Create a `Deal` in `NEW` when a lead is captured.
+- The stage labels are Spanish. The rest of the deals UI is still English.
+
 ## Language
 
 The UI is English today. New strings for Surco Preciso are Spanish, neutral.

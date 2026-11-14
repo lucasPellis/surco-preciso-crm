@@ -146,13 +146,10 @@ export function CloseReasonDialog() {
 		<Dialog open={open} onOpenChange={(next) => !next && close()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>
-						{stage === "CLOSED_LOST" ? "Close as lost" : "Mark as unqualified"}
-					</DialogTitle>
+					<DialogTitle>Marcar como perdido</DialogTitle>
 					<DialogDescription>
-						{stage === "CLOSED_LOST"
-							? "What did we lose it to? This is the only place that answer gets recorded."
-							: "Why is this not a fit? It goes on the timeline so nobody re-runs the same deal."}
+						¿Por qué se perdió? Es el único lugar donde queda registrado el
+						motivo, y aparece en la línea de tiempo.
 					</DialogDescription>
 				</DialogHeader>
 

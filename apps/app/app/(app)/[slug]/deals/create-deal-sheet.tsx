@@ -76,7 +76,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 	const [name, setName] = useState("");
 	const [company, setCompany] = useState(companyId ?? UNSET);
 	const [ownerId, setOwnerId] = useState(UNSET);
-	const [stage, setStage] = useState<string>("DEMO_BOOKED");
+	const [stage, setStage] = useState<string>("NEW");
 	const [amount, setAmount] = useState("");
 	const [currency, setCurrency] = useState("");
 	const [closeDate, setCloseDate] = useState("");
@@ -111,7 +111,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 		setName("");
 		setCompany(companyId ?? UNSET);
 		setOwnerId(UNSET);
-		setStage("DEMO_BOOKED");
+		setStage("NEW");
 		setAmount("");
 		setCurrency("");
 		setCloseDate("");
@@ -123,7 +123,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 				name !== "" ||
 				company !== (companyId ?? UNSET) ||
 				(ownerId !== UNSET && ownerId !== me.data?.id) ||
-				stage !== "DEMO_BOOKED" ||
+				stage !== "NEW" ||
 				amount !== "" ||
 				(currency !== "" && currency !== (workspaceCurrency || "USD")) ||
 				closeDate !== ""

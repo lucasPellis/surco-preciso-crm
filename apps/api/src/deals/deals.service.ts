@@ -261,7 +261,7 @@ export class DealsService {
 	}
 
 	async create(input: DealCreateInput) {
-		const stage = input.stage ?? "DEMO_BOOKED";
+		const stage = input.stage ?? "NEW";
 		const closed = isClosedStage(stage);
 		const now = new Date();
 

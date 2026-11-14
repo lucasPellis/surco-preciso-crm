@@ -203,11 +203,7 @@ export function DealsBulkActions({
 			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>
-							{closing === "CLOSED_LOST"
-								? `Close ${deals(ids.length)} as lost`
-								: `Mark ${deals(ids.length)} as unqualified`}
-						</DialogTitle>
+						<DialogTitle>Close {deals(ids.length)} as lost</DialogTitle>
 						<DialogDescription>
 							The same reason goes on every one of them, so keep it to what they
 							have in common.
