@@ -39,10 +39,10 @@ import { type ComponentProps, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
 import { CompanyPicker } from "@/components/crm/company-picker";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
-import { dealStageLabel, OPEN_STAGES } from "@/lib/deal-stage";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useStages } from "@/lib/use-stages";
 
 const UNSET = "";
 
@@ -76,7 +76,10 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 	const [name, setName] = useState("");
 	const [company, setCompany] = useState(companyId ?? UNSET);
 	const [ownerId, setOwnerId] = useState(UNSET);
-	const [stage, setStage] = useState<string>("NEW");
+	const stages = useStages();
+	const [chosenStage, setStage] = useState<string | null>(null);
+	const entryStage = stages.open.find((row) => row.isEntry)?.key ?? "";
+	const stage = chosenStage ?? entryStage;
 	const [amount, setAmount] = useState("");
 	const [currency, setCurrency] = useState("");
 	const [closeDate, setCloseDate] = useState("");
@@ -111,7 +114,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 		setName("");
 		setCompany(companyId ?? UNSET);
 		setOwnerId(UNSET);
-		setStage("NEW");
+		setStage(null);
 		setAmount("");
 		setCurrency("");
 		setCloseDate("");
@@ -123,7 +126,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 				name !== "" ||
 				company !== (companyId ?? UNSET) ||
 				(ownerId !== UNSET && ownerId !== me.data?.id) ||
-				stage !== "NEW" ||
+				(chosenStage !== null && chosenStage !== entryStage) ||
 				amount !== "" ||
 				(currency !== "" && currency !== (workspaceCurrency || "USD")) ||
 				closeDate !== ""
@@ -161,7 +164,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 							name,
 							companyId: company,
 							ownerId: resolvedOwner,
-							stage: stage as never,
+							stage: chosenStage ?? undefined,
 							amountCents: Number.isFinite(parsed)
 								? Math.round(parsed * 100)
 								: null,
@@ -251,9 +254,9 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								{OPEN_STAGES.map((value) => (
-									<SelectItem key={value} value={value}>
-										{dealStageLabel(value)}
+								{stages.open.map((row) => (
+									<SelectItem key={row.key} value={row.key}>
+										{row.name}
 									</SelectItem>
 								))}
 							</SelectContent>

@@ -1,17 +1,19 @@
 import {
 	ActivityType,
 	type Db,
-	type DealStage,
 	type Prisma,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
 import { normalizeCurrency } from "@crm/db/currency";
 import {
-	CLOSED_DEAL_STAGES,
-	isClosedStage,
-	LOSING_DEAL_STAGES,
-	OPEN_DEAL_STAGES,
+	CLOSED_STAGE_FILTER,
+	entryStage,
+	firstContactStamp,
+	isClosedKind,
+	isLosingKind,
+	OPEN_STAGE_FILTER,
 } from "@crm/db/deal-stage";
+import { PipelineStageKind } from "@crm/db/enums";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
 import {
 	BadRequestException,
@@ -89,15 +91,16 @@ const CONTACT_SELECT = {
 	imageUrl: true,
 } as const;
 
-const LOSING = new Set<DealStage>(LOSING_DEAL_STAGES);
-
 const LEAD_SOURCE_SELECT = { id: true, name: true, icon: true } as const;
 
 const SORTABLE: OrderByColumns<Prisma.DealOrderByWithRelationInput[]> = {
 	leadSource: (dir) => [{ leadSource: { name: dir } }, { name: "asc" }],
 	name: (dir) => [{ name: dir }],
 	company: (dir) => [{ company: { name: dir } }, { name: "asc" }],
-	stage: (dir) => [{ stage: dir }, { expectedCloseDate: "asc" }],
+	stage: (dir) => [
+		{ pipelineStage: { position: dir } },
+		{ expectedCloseDate: "asc" },
+	],
 	amount: (dir) => [{ baseAmount: { sort: dir, nulls: "last" } }],
 	expectedCloseDate: (dir) => [{ expectedCloseDate: dir }],
 	createdAt: (dir) => [{ createdAt: dir }],
@@ -123,7 +126,7 @@ export class DealsService {
 		const where = this.buildWhere(input, filterableFields);
 		const { skip, take } = paginate(input);
 
-		const openWhere = { ...where, stage: { in: [...OPEN_DEAL_STAGES] } };
+		const openWhere = { AND: [where, OPEN_STAGE_FILTER] };
 		const base = await this.conversion.reportingCurrency();
 
 		const [rows, total, facetCounts, openValue, unconverted] =
@@ -199,6 +202,23 @@ export class DealsService {
 		};
 	}
 
+	async stages(includeArchived: boolean) {
+		const rows = await this.db.pipelineStage.findMany({
+			where: includeArchived ? {} : { archivedAt: null },
+			orderBy: { position: "asc" },
+		});
+
+		return rows.map((row) => ({
+			key: row.key,
+			name: row.name,
+			kind: row.kind,
+			position: row.position,
+			isEntry: row.isEntry,
+			idleAfterHours: row.idleAfterHours,
+			archived: row.archivedAt !== null,
+		}));
+	}
+
 	async board(input: DealBoardInput, userId: string) {
 		const base = await this.conversion.reportingCurrency();
 		const owner = ownerFilter<Prisma.DealWhereInput>(
@@ -206,13 +226,19 @@ export class DealsService {
 		);
 		const since = new Date(Date.now() - DEAL_BOARD.closedWindowMs);
 
+		const stages = await this.db.pipelineStage.findMany({
+			where: { archivedAt: null },
+			orderBy: { position: "asc" },
+		});
+
 		const columns = await Promise.all(
-			[...OPEN_DEAL_STAGES, ...CLOSED_DEAL_STAGES].map(async (stage) => {
+			stages.map(async (column) => {
+				const closed = isClosedKind(column.kind);
 				const where: Prisma.DealWhereInput = {
 					AND: [
 						archivedFilter(false),
-						{ stage },
-						...(isClosedStage(stage) ? [{ closedAt: { gte: since } }] : []),
+						{ stage: column.key },
+						...(closed ? [{ closedAt: { gte: since } }] : []),
 						...(owner ? [owner] : []),
 					],
 				};
@@ -242,27 +268,33 @@ export class DealsService {
 					}),
 				]);
 
+				const threshold =
+					column.kind === PipelineStageKind.OPEN ? column.idleAfterHours : null;
+
 				return {
-					stage,
+					stage: column.key,
 					total,
 					valueCents: toCents(value._sum.baseAmount),
 					cards: rows.map(
 						({ amount, stageChangedAt, lastActivityAt, ...row }) => {
-							const idleDays = isClosedStage(stage)
-								? null
-								: Math.floor(
-										(Date.now() -
-											(lastActivityAt ?? stageChangedAt).getTime()) /
-											DEAL_BOARD.dayMs,
-									);
+							const idleHours =
+								threshold === null
+									? null
+									: Math.floor(
+											(Date.now() -
+												(lastActivityAt ?? stageChangedAt).getTime()) /
+												DEAL_BOARD.hourMs,
+										);
 							return {
 								...row,
 								amountCents: toCents(amount),
 								stageChangedAt: stageChangedAt.toISOString(),
 								lastActivityAt: lastActivityAt?.toISOString() ?? null,
-								idleDays:
-									idleDays !== null && idleDays >= DEAL_BOARD.idleAfterDays
-										? idleDays
+								idleHours:
+									idleHours !== null &&
+									threshold !== null &&
+									idleHours >= threshold
+										? idleHours
 										: null,
 							};
 						},
@@ -349,8 +381,16 @@ export class DealsService {
 	}
 
 	async create(input: DealCreateInput) {
-		const stage = input.stage ?? "NEW";
-		const closed = isClosedStage(stage);
+		const target = input.stage
+			? await this.db.pipelineStage.findUnique({
+					where: { key: input.stage },
+				})
+			: await entryStage(this.db);
+		if (!target || target.archivedAt) {
+			throw new BadRequestException("That stage is not available.");
+		}
+		const stage = target.key;
+		const closed = isClosedKind(target.kind);
 		const now = new Date();
 
 		const currency = normalizeCurrency(
@@ -584,12 +624,16 @@ export class DealsService {
 
 	async setStage(input: SetStageInput, actingUserId: string) {
 		const closedReason = input.closedReason?.trim();
-		const closed = isClosedStage(input.stage);
 		const transition = await this.agent.withCrmEvents(async (tx, emit) => {
 			const [deal] = await tx.$queryRaw<
-				Array<{ id: string; stage: DealStage; companyId: string }>
+				Array<{
+					id: string;
+					stage: string;
+					companyId: string;
+					firstContactedAt: Date | null;
+				}>
 			>`
-				SELECT id, stage, "companyId"
+				SELECT id, stage, "companyId", "firstContactedAt"
 				FROM deal
 				WHERE id = ${input.id}
 				FOR UPDATE
@@ -607,7 +651,15 @@ export class DealsService {
 					now: null,
 				};
 			}
-			if (LOSING.has(input.stage) && !closedReason) {
+			const [from, to] = await Promise.all([
+				tx.pipelineStage.findUniqueOrThrow({ where: { key: deal.stage } }),
+				tx.pipelineStage.findUnique({ where: { key: input.stage } }),
+			]);
+			if (!to || to.archivedAt) {
+				throw new BadRequestException("That stage is not available.");
+			}
+			const closed = isClosedKind(to.kind);
+			if (isLosingKind(to.kind) && !closedReason) {
 				throw new BadRequestException(
 					"Say why it was lost. A closed-lost deal with no reason teaches nobody anything.",
 				);
@@ -619,6 +671,12 @@ export class DealsService {
 				data: {
 					stage: input.stage,
 					stageChangedAt: now,
+					firstContactedAt: firstContactStamp(
+						from,
+						to,
+						deal.firstContactedAt,
+						now,
+					),
 					closedAt: closed ? now : null,
 					closedReason: closed ? (closedReason ?? null) : null,
 				},
@@ -642,7 +700,7 @@ export class DealsService {
 				occurredAt: now,
 				data: { companyId: deal.companyId, from: deal.stage, to: input.stage },
 			});
-			if (!isClosedStage(deal.stage) && closed) {
+			if (!isClosedKind(from.kind) && closed) {
 				await emit({
 					type: "deal.closed",
 					record: { kind: "deal", id: deal.id },
@@ -654,7 +712,7 @@ export class DealsService {
 					},
 				});
 			}
-			if (isClosedStage(deal.stage) && !closed) {
+			if (isClosedKind(from.kind) && !closed) {
 				await emit({
 					type: "deal.opened",
 					record: { kind: "deal", id: deal.id },
@@ -810,8 +868,16 @@ export class DealsService {
 		actingUserId: string,
 	): Promise<BulkResult> {
 		const closedReason = input.closedReason?.trim();
+		const target = await this.db.pipelineStage.findUnique({
+			where: { key: input.stage },
+			select: { kind: true, archivedAt: true },
+		});
 
-		if (LOSING.has(input.stage) && !closedReason) {
+		if (!target || target.archivedAt) {
+			throw new BadRequestException("That stage is not available.");
+		}
+
+		if (isLosingKind(target.kind) && !closedReason) {
 			throw new BadRequestException(
 				"Say why they were lost. A closed-lost deal with no reason teaches nobody anything.",
 			);
@@ -878,13 +944,13 @@ export class DealsService {
 		if (leadSource) and.push(leadSource);
 
 		if (input.status === "open") {
-			and.push({ stage: { in: [...OPEN_DEAL_STAGES] } });
+			and.push(OPEN_STAGE_FILTER);
 		} else if (input.status === "closed") {
-			and.push({ stage: { in: [...CLOSED_DEAL_STAGES] } });
+			and.push(CLOSED_STAGE_FILTER);
 		}
 
 		if (input.stage.length > 0) {
-			and.push({ stage: { in: input.stage as DealStage[] } });
+			and.push({ stage: { in: input.stage } });
 		}
 
 		if (input.closing.length > 0) {
@@ -906,37 +972,37 @@ export class DealsService {
 			AND: [this.searchFilter(input.q), archivedFilter(input.archived)],
 		};
 
-		const [owners, leadSources, stages, fieldFacets, ...closingCounts] =
-			await Promise.all([
-				this.db.deal.groupBy({
-					by: ["ownerId"],
-					where,
-					_count: { _all: true },
+		const [
+			owners,
+			leadSources,
+			stages,
+			openCount,
+			closedCount,
+			fieldFacets,
+			...closingCounts
+		] = await Promise.all([
+			this.db.deal.groupBy({
+				by: ["ownerId"],
+				where,
+				_count: { _all: true },
+			}),
+			this.db.deal.groupBy({
+				by: ["leadSourceId"],
+				where,
+				_count: { _all: true },
+			}),
+			this.db.deal.groupBy({ by: ["stage"], where, _count: { _all: true } }),
+			this.db.deal.count({ where: { AND: [where, OPEN_STAGE_FILTER] } }),
+			this.db.deal.count({ where: { AND: [where, CLOSED_STAGE_FILTER] } }),
+			this.fields.filterFacetCounts("DEAL", where, filterableFields),
+			...CLOSING_WINDOWS.map((window) =>
+				this.db.deal.count({
+					where: { AND: [where, closingFilter(window)] },
 				}),
-				this.db.deal.groupBy({
-					by: ["leadSourceId"],
-					where,
-					_count: { _all: true },
-				}),
-				this.db.deal.groupBy({ by: ["stage"], where, _count: { _all: true } }),
-				this.fields.filterFacetCounts("DEAL", where, filterableFields),
-				...CLOSING_WINDOWS.map((window) =>
-					this.db.deal.count({
-						where: { AND: [where, closingFilter(window)] },
-					}),
-				),
-			]);
+			),
+		]);
 
 		const stageCounts = countsByKey(stages, "stage");
-		const openCount = OPEN_DEAL_STAGES.reduce(
-			(total, stage) => total + (stageCounts[stage] ?? 0),
-			0,
-		);
-		const closedCount = CLOSED_DEAL_STAGES.reduce(
-			(total, stage) => total + (stageCounts[stage] ?? 0),
-			0,
-		);
-
 		return {
 			status: { open: openCount, closed: closedCount },
 			owner: countsByKey(owners, "ownerId", FACET_UNASSIGNED),
@@ -993,8 +1059,7 @@ function closingFilter(window: ClosingWindow): Prisma.DealWhereInput {
 	switch (window) {
 		case "overdue":
 			return {
-				expectedCloseDate: { lt: now },
-				stage: { in: [...OPEN_DEAL_STAGES] },
+				AND: [{ expectedCloseDate: { lt: now } }, OPEN_STAGE_FILTER],
 			};
 		case "this-month":
 			return {

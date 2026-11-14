@@ -1,4 +1,4 @@
-import { DealStage, EnrichmentStatus, RecordSource } from "@crm/db";
+import { EnrichmentStatus, RecordSource } from "@crm/db";
 import { FIELD_TYPES } from "@crm/db/fields";
 import {
 	type CompanyImportInput,
@@ -82,9 +82,7 @@ const companyRecordSource = z.enum(
 	Object.values(RecordSource) as [RecordSource, ...RecordSource[]],
 );
 
-const companyDealStage = z.enum(
-	Object.values(DealStage) as [DealStage, ...DealStage[]],
-);
+const companyDealStage = z.string();
 
 const companyFieldType = z.enum(FIELD_TYPES);
 

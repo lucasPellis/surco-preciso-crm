@@ -1,6 +1,5 @@
 "use client";
 
-import { DealStage } from "@crm/db/enums";
 import { Button } from "@crm/ui/components/button";
 import { Checkbox } from "@crm/ui/components/checkbox";
 import { Icon } from "@crm/ui/components/icon";
@@ -14,10 +13,10 @@ import { z } from "zod";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { LocalDateTime, LocalDay } from "@/components/local-date-time";
 import { activityLabel } from "@/lib/activity-presentation";
-import { dealStageLabel } from "@/lib/deal-stage";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { useStages } from "@/lib/use-stages";
 import { ActivityIcon } from "./activity-icon";
 import { EmailThreadEntry } from "./email-thread-entry";
 import { MeetingEntry } from "./meeting-entry";
@@ -33,7 +32,7 @@ const TIME_OPTIONS: Intl.DateTimeFormatOptions = {
 };
 
 const stageChange = z
-	.object({ from: z.enum(DealStage), to: z.enum(DealStage) })
+	.object({ from: z.string(), to: z.string() })
 	.nullable()
 	.catch(null);
 
@@ -52,6 +51,7 @@ export function TimelineEntry({
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const stages = useStages();
 	const [editing, setEditing] = useState(false);
 	const editButton = useRef<HTMLButtonElement>(null);
 
@@ -99,7 +99,7 @@ export function TimelineEntry({
 		: entry.createdBy.name;
 
 	const headline = change
-		? `${dealStageLabel(change.from)} → ${dealStageLabel(change.to)}`
+		? `${stages.label(change.from)} → ${stages.label(change.to)}`
 		: entry.subject;
 
 	const here = anchorId(anchor);

@@ -5,7 +5,6 @@ import { resolveFavicon } from "../src/favicon";
 import { fieldKeyFromLabel } from "../src/fields-shape";
 import {
 	ActivityType,
-	DealStage,
 	type FieldEntity,
 	FieldType,
 	RateSource,
@@ -249,14 +248,9 @@ const TITLES = [
 	"Chief of Staff",
 ] as const;
 
-const OPEN_STAGES = [
-	DealStage.NEW,
-	DealStage.QUALIFIED,
-	DealStage.NEGOTIATING,
-	DealStage.QUOTED,
-] as const;
+const OPEN_STAGES = ["NEW", "QUALIFIED", "NEGOTIATING", "QUOTED"] as const;
 
-const CLOSED_STAGES = [DealStage.WON, DealStage.LOST, DealStage.LOST] as const;
+const CLOSED_STAGES = ["WON", "LOST", "LOST"] as const;
 
 const DEAL_DESCRIPTIONS = [
 	"Replacing a spreadsheet-and-Drive evidence process before their first SOC 2 audit. Security owns the decision, finance signs.",
@@ -817,6 +811,10 @@ async function seedDeals(
 					ownerId,
 					stage,
 					stageChangedAt,
+					firstContactedAt:
+						stage === "NEW" || stage === "LOST"
+							? null
+							: new Date(createdAt.getTime() + 86_400_000),
 					...(() => {
 						const { amount, currency, baseAmount, baseCurrency, fxRate } =
 							money(integer(6, 90) * 1000, pick(DEAL_CURRENCIES));
@@ -835,7 +833,7 @@ async function seedDeals(
 							: -closedDaysAgo + integer(-4, 9),
 					),
 					closedAt: closed ? stageChangedAt : null,
-					closedReason: stage === DealStage.LOST ? pick(LOST_REASONS) : null,
+					closedReason: stage === "LOST" ? pick(LOST_REASONS) : null,
 					createdAt,
 				},
 				update: {},
@@ -887,7 +885,7 @@ async function seedActivities(
 		dealId: string | null;
 		createdById: string;
 		createdAt: Date;
-		meta?: { from: DealStage; to: DealStage };
+		meta?: { from: string; to: string };
 	};
 
 	const rows: ActivityRow[] = [];
@@ -941,8 +939,8 @@ async function seedActivities(
 			dealId: deal.id,
 			subject: "Stage changed",
 			meta: {
-				from: DealStage.NEW,
-				to: deal.closed ? DealStage.WON : DealStage.QUALIFIED,
+				from: "NEW",
+				to: deal.closed ? "WON" : "QUALIFIED",
 			},
 		});
 	}

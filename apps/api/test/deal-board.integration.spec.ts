@@ -25,6 +25,8 @@ const deals = new DealsService(
 	new FieldsService(db, { fieldBackfill: async () => undefined } as never),
 );
 
+const customKey = `VISIT_${suffix}`.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+
 let companyId: string;
 
 function column(
@@ -50,6 +52,16 @@ beforeAll(async () => {
 		})
 	).id;
 
+	await db.pipelineStage.create({
+		data: {
+			key: customKey,
+			name: "Visita técnica",
+			kind: "OPEN",
+			position: 900,
+			idleAfterHours: 48,
+		},
+	});
+
 	const old = new Date(Date.now() - DEAL_BOARD.closedWindowMs - 86_400_000);
 	await db.deal.createMany({
 		data: [
@@ -71,6 +83,34 @@ beforeAll(async () => {
 				stage: "CONTACTED",
 				stageChangedAt: new Date(Date.now() - 5 * 86_400_000),
 				lastActivityAt: new Date(),
+			},
+			{
+				name: "Nueva tarde",
+				companyId,
+				ownerId,
+				stage: "NEW",
+				stageChangedAt: new Date(Date.now() - 30 * 3_600_000),
+			},
+			{
+				name: "Callada",
+				companyId,
+				ownerId,
+				stage: "NO_RESPONSE",
+				stageChangedAt: new Date(Date.now() - 30 * 86_400_000),
+			},
+			{
+				name: "Custom 50h",
+				companyId,
+				ownerId,
+				stage: customKey,
+				stageChangedAt: new Date(Date.now() - 50 * 3_600_000),
+			},
+			{
+				name: "Custom 47h",
+				companyId,
+				ownerId,
+				stage: customKey,
+				stageChangedAt: new Date(Date.now() - 47 * 3_600_000),
 			},
 			{
 				name: "Ganada reciente",
@@ -98,8 +138,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	await db.deal.deleteMany({ where: { companyId } });
-	await db.company.deleteMany({ where: { id: companyId } });
+	if (companyId) await db.deal.deleteMany({ where: { companyId } });
+	await db.pipelineStage.deleteMany({ where: { key: customKey } });
+	if (companyId) await db.company.deleteMany({ where: { id: companyId } });
 	await db.user.deleteMany({ where: { id: { in: [ownerId, otherId] } } });
 });
 
@@ -113,9 +154,38 @@ describe("the pipeline board", () => {
 			"QUALIFIED",
 			"QUOTED",
 			"NEGOTIATING",
+			"NO_RESPONSE",
 			"WON",
 			"LOST",
+			customKey,
 		]);
+	});
+
+	it("leaves an archived stage off the board", async () => {
+		await db.pipelineStage.update({
+			where: { key: customKey },
+			data: { archivedAt: new Date() },
+		});
+
+		try {
+			const result = await deals.board({ scope: "me" }, ownerId);
+			expect(result.columns.some((entry) => entry.stage === customKey)).toBe(
+				false,
+			);
+		} finally {
+			await db.pipelineStage.update({
+				where: { key: customKey },
+				data: { archivedAt: null },
+			});
+		}
+	});
+
+	it("shows a custom stage in its position, after the seeded ones", async () => {
+		const result = await deals.board({ scope: "me" }, ownerId);
+		const keys = result.columns.map((entry) => entry.stage);
+
+		expect(keys.indexOf(customKey)).toBeGreaterThan(keys.indexOf("LOST"));
+		expect(column(result, customKey).total).toBe(2);
 	});
 
 	it("puts each deal in its stage and leaves archived ones out", async () => {
@@ -125,7 +195,7 @@ describe("the pipeline board", () => {
 			column(result, "NEW")
 				.cards.map((card) => card.name)
 				.sort(),
-		).toEqual(["Nueva A", "Nueva B"]);
+		).toEqual(["Nueva A", "Nueva B", "Nueva tarde"]);
 		expect(column(result, "QUOTED").total).toBe(1);
 	});
 
@@ -153,14 +223,42 @@ describe("the pipeline board", () => {
 		const result = await deals.board({ scope: "me" }, ownerId);
 		const cards = column(result, "CONTACTED").cards;
 
-		expect(cards.find((card) => card.name === "Dormida")?.idleDays).toBe(5);
-		expect(cards.find((card) => card.name === "Activa")?.idleDays).toBeNull();
+		expect(cards.find((card) => card.name === "Dormida")?.idleHours).toBe(120);
+		expect(cards.find((card) => card.name === "Activa")?.idleHours).toBeNull();
 		expect(
-			column(result, "NEW").cards.every((card) => card.idleDays === null),
+			column(result, "NEW")
+				.cards.filter((card) => card.name !== "Nueva tarde")
+				.every((card) => card.idleHours === null),
 		).toBe(true);
 		expect(
-			column(result, "WON").cards.every((card) => card.idleDays === null),
+			column(result, "WON").cards.every((card) => card.idleHours === null),
 		).toBe(true);
+	});
+
+	it("uses the idle hours of each stage", async () => {
+		const result = await deals.board({ scope: "me" }, ownerId);
+
+		expect(
+			column(result, "NEW").cards.find((card) => card.name === "Nueva tarde")
+				?.idleHours,
+		).toBe(30);
+		const custom = column(result, customKey).cards;
+		expect(custom.find((card) => card.name === "Custom 50h")?.idleHours).toBe(
+			50,
+		);
+		expect(
+			custom.find((card) => card.name === "Custom 47h")?.idleHours,
+		).toBeNull();
+	});
+
+	it("never flags a paused deal", async () => {
+		const result = await deals.board({ scope: "me" }, ownerId);
+		const card = column(result, "NO_RESPONSE").cards.find(
+			(entry) => entry.name === "Callada",
+		);
+
+		expect(card).toBeDefined();
+		expect(card?.idleHours).toBeNull();
 	});
 
 	it("shows only recently closed deals in the closed columns", async () => {

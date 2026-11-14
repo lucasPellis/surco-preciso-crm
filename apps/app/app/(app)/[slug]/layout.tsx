@@ -73,6 +73,9 @@ async function WorkspaceAccount({
 		requireMailboxAccess(),
 		params,
 		loadWorkspace(),
+		getServerQueryClient().prefetchQuery(
+			getServerTrpc().deals.stages.queryOptions({ includeArchived: true }),
+		),
 	]);
 
 	if (workspace && workspace.slug !== slug) notFound();

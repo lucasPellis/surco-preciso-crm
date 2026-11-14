@@ -1,6 +1,5 @@
 "use client";
 
-import type { DealStage } from "@crm/db/enums";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -32,9 +31,9 @@ import {
 	BulkOwnerMenu,
 	reportBulk,
 } from "@/components/crm/bulk-actions";
-import { DEAL_STAGE_OPTIONS, LOSING_STAGES } from "@/lib/deal-stage";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useStages } from "@/lib/use-stages";
 
 function deals(count: number): string {
 	return formatCount(count, "oportunidad", "oportunidades");
@@ -53,7 +52,8 @@ export function DealsBulkActions({
 	const cache = useCrmCache();
 	const users = useQuery(trpc.users.list.queryOptions());
 	const reasonId = useId();
-	const [closing, setClosing] = useState<DealStage | null>(null);
+	const stages = useStages();
+	const [closing, setClosing] = useState<string | null>(null);
 	const [reason, setReason] = useState("");
 	const [confirming, setConfirming] = useState(false);
 
@@ -173,11 +173,13 @@ export function DealsBulkActions({
 					<DropdownMenuSubTrigger>Cambiar etapa</DropdownMenuSubTrigger>
 					<DropdownMenuSubContent className="max-h-72 overflow-y-auto">
 						<DropdownMenuGroup>
-							{DEAL_STAGE_OPTIONS.map((option) => (
+							{stages.options.map((option) => (
 								<DropdownMenuItem
 									key={option.value}
+									disabled={!stages.ready}
 									onSelect={() => {
-										if (LOSING_STAGES.includes(option.value)) {
+										if (!stages.ready) return;
+										if (stages.isLosing(option.value)) {
 											setClosing(option.value);
 											return;
 										}

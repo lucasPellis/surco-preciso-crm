@@ -26,9 +26,9 @@ import { ListEmpty } from "@/components/data-table/list-empty";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
-import { DEAL_STAGE_OPTIONS } from "@/lib/deal-stage";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { useStages } from "@/lib/use-stages";
 import { DealsBulkActions } from "./deals-bulk-actions";
 import { dealsSearchParams } from "./deals-search-params";
 
@@ -176,6 +176,7 @@ export function DealsTable() {
 	});
 	const users = useQuery(trpc.users.list.queryOptions());
 	const leadSources = useQuery(trpc.leadSources.list.queryOptions());
+	const stages = useStages();
 
 	const rows = deals.data?.rows ?? [];
 	const selection = useTableSelection(
@@ -223,7 +224,7 @@ export function DealsTable() {
 		{
 			id: "stage",
 			label: "Etapa",
-			options: DEAL_STAGE_OPTIONS.filter(
+			options: stages.options.filter(
 				(option) => (facetCounts?.stage?.[option.value] ?? 0) > 0,
 			),
 		},

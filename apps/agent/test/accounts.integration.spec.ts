@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { ActivityType, DealStage, db, EmailDirection } from "@crm/db";
+import { ActivityType, db, EmailDirection } from "@crm/db";
 import { readCompanyHistory, readDealHistory } from "../agent/lib/accounts";
+import { listDeals } from "../agent/lib/lookup";
 
 const suffix = process.env.TEST_RUN_ID ?? "accounts-spec";
 const domain = `fernhill-${suffix}.test`;
@@ -69,7 +70,7 @@ beforeAll(async () => {
 			name: `Fernhill platform ${suffix}`,
 			companyId,
 			ownerId: userId,
-			stage: DealStage.QUOTED,
+			stage: "QUOTED",
 			stageChangedAt: daysAgo(42),
 			amount: 48_000,
 			currency: "USD",
@@ -337,5 +338,35 @@ describe("readDealHistory", () => {
 
 	it("returns null for a deal that does not exist", async () => {
 		expect(await readDealHistory("nope")).toBeNull();
+	});
+});
+
+describe("a paused deal", () => {
+	it("is not open in the company history, the deal history or the deal list", async () => {
+		const paused = await db.deal.create({
+			data: {
+				name: `Paused ${suffix}`,
+				companyId,
+				ownerId: userId,
+				stage: "NO_RESPONSE",
+			},
+			select: { id: true },
+		});
+
+		try {
+			const company = await readCompanyHistory(companyId);
+			const deal = await readDealHistory(paused.id);
+			const listed = await listDeals({ status: "open", companyId });
+
+			expect(company?.deals.find((row) => row.id === paused.id)?.open).toBe(
+				false,
+			);
+			expect(company?.stats.openDeals).toBe(1);
+			expect(deal?.deal.open).toBe(false);
+			expect(listed.deals.some((row) => row.id === paused.id)).toBe(false);
+			expect(listed.deals.some((row) => row.id === dealId)).toBe(true);
+		} finally {
+			await db.deal.delete({ where: { id: paused.id } });
+		}
 	});
 });

@@ -28,8 +28,8 @@ import {
 	DonutStat,
 	type SeriesConfig,
 } from "@/components/dashboard-charts";
-import { dealStageChartColor, dealStageLabel } from "@/lib/deal-stage";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { useStages } from "@/lib/use-stages";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 type Summary = RouterOutputs["dashboard"]["summary"];
@@ -55,6 +55,7 @@ function changeDelta(
 
 export function SalesDashboard({ summary }: { summary: Summary }) {
 	const workspaceUrl = useWorkspaceUrl();
+	const stages = useStages();
 
 	const {
 		pipeline,
@@ -78,9 +79,9 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 			? [
 					{
 						key: stage.stage,
-						label: dealStageLabel(stage.stage),
+						label: stages.label(stage.stage),
 						value: stage.valueCents,
-						color: dealStageChartColor(stage.stage),
+						color: stages.chartColor(stage.stage),
 						count: stage.count,
 					},
 				]

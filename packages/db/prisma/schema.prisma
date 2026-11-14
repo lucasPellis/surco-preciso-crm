@@ -291,14 +291,11 @@ model RateLimit {
   @@map("rateLimit")
 }
 
-enum DealStage {
-  NEW
-  CONTACTED
-  QUALIFIED
-  QUOTED
-  NEGOTIATING
+enum PipelineStageKind {
+  OPEN
   WON
   LOST
+  PAUSED
 }
 
 enum ActivityType {
@@ -553,6 +550,25 @@ model LeadSource {
 
   @@index([archivedAt])
   @@map("lead_source")
+}
+
+model PipelineStage {
+  id             String            @id @default(cuid())
+  key            String            @unique
+  name           String
+  kind           PipelineStageKind
+  position       Int               @default(0)
+  isEntry        Boolean           @default(false)
+  idleAfterHours Int?
+  archivedAt     DateTime?
+
+  deals     Deal[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([isEntry], map: "pipeline_stage_entry_key", where: { isEntry: true, archivedAt: null })
+  @@index([archivedAt])
+  @@map("pipeline_stage")
 }
 
 enum FactBand {
@@ -1084,10 +1100,12 @@ model Deal {
   leadSourceId String?
   leadSource   LeadSource? @relation(fields: [leadSourceId], references: [id], onDelete: SetNull)
 
-  stage             DealStage @default(NEW)
-  stageChangedAt    DateTime  @default(now())
-  amount            Decimal?  @db.Decimal(14, 2)
-  currency          String    @default("USD")
+  stage             String        @default("NEW")
+  pipelineStage     PipelineStage @relation(fields: [stage], references: [key])
+  stageChangedAt    DateTime      @default(now())
+  firstContactedAt  DateTime?
+  amount            Decimal?      @db.Decimal(14, 2)
+  currency          String        @default("USD")
   expectedCloseDate DateTime?
   closedAt          DateTime?
   closedReason      String?

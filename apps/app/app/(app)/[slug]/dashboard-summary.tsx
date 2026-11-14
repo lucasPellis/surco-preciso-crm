@@ -36,10 +36,10 @@ import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { activityLabel } from "@/lib/activity-presentation";
-import { dealStageChartColor } from "@/lib/deal-stage";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useStages } from "@/lib/use-stages";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { overviewParsers } from "./overview-search-params";
 import { SalesDashboard } from "./sales-dashboard";
@@ -99,6 +99,7 @@ export function DashboardSummary() {
 	const cache = useCrmCache();
 	const openRecord = useOpenRecord();
 	const workspaceUrl = useWorkspaceUrl();
+	const stages = useStages();
 
 	const [scope] = useQueryState(
 		SEARCH_PARAM.overview.scope,
@@ -188,7 +189,7 @@ export function DashboardSummary() {
 															100
 														: 0
 												}
-												color={dealStageChartColor(deal.stage)}
+												color={stages.chartColor(deal.stage)}
 											/>
 										</TableCell>
 										<TableCell className={`${CELL} text-right tabular-nums`}>

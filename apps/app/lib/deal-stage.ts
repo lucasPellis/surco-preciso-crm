@@ -1,53 +1,74 @@
-import { DealStage } from "@crm/db/enums";
+import { PipelineStageKind } from "@crm/db/enums";
 import type { StatusTone } from "@crm/ui/components/status-indicator";
 import { type ChartColor, stageChartColor } from "@crm/ui/lib/chart-config";
+import type { RouterOutputs } from "@/lib/trpc/types";
+import { STAGE_IDLE, STAGE_TONES } from "./deal-stage-config";
 
-const ORDER = [
-	DealStage.NEW,
-	DealStage.CONTACTED,
-	DealStage.QUALIFIED,
-	DealStage.QUOTED,
-	DealStage.NEGOTIATING,
-	DealStage.WON,
-	DealStage.LOST,
-] as const;
+export type StageRow = RouterOutputs["deals"]["stages"][number];
 
-type DealStagePresentation = Record<
-	DealStage,
-	{ label: string; tone: StatusTone }
->;
+export type StageCatalog = ReturnType<typeof buildStageCatalog>;
 
-const PRESENTATION: DealStagePresentation = {
-	NEW: { label: "Nuevo", tone: "neutral" },
-	CONTACTED: { label: "Contactado", tone: "neutral" },
-	QUALIFIED: { label: "Calificado", tone: "info" },
-	QUOTED: { label: "Cotizado", tone: "info" },
-	NEGOTIATING: { label: "Negociando", tone: "warning" },
-	WON: { label: "Ganado", tone: "success" },
-	LOST: { label: "Perdido", tone: "error" },
-};
-
-export const OPEN_STAGES = ORDER.slice(0, 5) as readonly DealStage[];
-
-export const LOSING_STAGES: readonly DealStage[] = [DealStage.LOST];
-
-export const DEAL_STAGE_OPTIONS = ORDER.map((value) => ({
-	value,
-	label: PRESENTATION[value].label,
-}));
-
-export function isClosedStage(stage: DealStage): boolean {
-	return !OPEN_STAGES.includes(stage);
+function isClosedKind(kind: PipelineStageKind): boolean {
+	return kind === PipelineStageKind.WON || kind === PipelineStageKind.LOST;
 }
 
-export function dealStageChartColor(stage: DealStage): ChartColor {
-	return stageChartColor(OPEN_STAGES.indexOf(stage));
+export function buildStageCatalog(rows: readonly StageRow[]) {
+	const sorted = [...rows].sort((a, b) => a.position - b.position);
+	const byKey = new Map(sorted.map((row) => [row.key, row]));
+	const active = sorted.filter((row) => !row.archived);
+	const open = active.filter((row) => row.kind === PipelineStageKind.OPEN);
+	const rail = [
+		...open,
+		...active.filter((row) => row.kind === PipelineStageKind.WON).slice(0, 1),
+	];
+
+	function tone(key: string): StatusTone {
+		const row = byKey.get(key);
+		if (!row) return "neutral";
+		if (row.kind === PipelineStageKind.WON) return STAGE_TONES.won;
+		if (row.kind === PipelineStageKind.LOST) return STAGE_TONES.lost;
+		if (row.kind === PipelineStageKind.PAUSED) return STAGE_TONES.paused;
+		const index = open.findIndex((entry) => entry.key === key);
+		if (index < 0) return STAGE_TONES.paused;
+		return STAGE_TONES.open[index] ?? STAGE_TONES.openOverflow;
+	}
+
+	return {
+		rows: sorted,
+		open,
+		rail,
+		options: active.map((row) => ({
+			value: row.key,
+			label: row.name,
+			kind: row.kind,
+		})),
+		label: (key: string) => byKey.get(key)?.name ?? key,
+		tone,
+		isClosed: (key: string) => {
+			const row = byKey.get(key);
+			return row ? isClosedKind(row.kind) : false;
+		},
+		isWon: (key: string) => byKey.get(key)?.kind === PipelineStageKind.WON,
+		isLosing: (key: string) => byKey.get(key)?.kind === PipelineStageKind.LOST,
+		chartColor: (key: string): ChartColor =>
+			stageChartColor(open.findIndex((row) => row.key === key)),
+	};
 }
 
-export function dealStageLabel(stage: DealStage): string {
-	return PRESENTATION[stage].label;
+export function idleLabel(hours: number): string {
+	if (hours >= STAGE_IDLE.hoursPerDay) {
+		const days = Math.floor(hours / STAGE_IDLE.hoursPerDay);
+		return `Sin actividad hace ${days} ${days === 1 ? "día" : "días"}`;
+	}
+	return `Sin actividad hace ${hours} ${hours === 1 ? "hora" : "horas"}`;
 }
 
-export function dealStagePresentation(stage: DealStage) {
-	return PRESENTATION[stage];
+export function stepperSteps(stages: StageCatalog, stage: string) {
+	const rail = stages.rail.map((row) => row.key);
+
+	if (stages.isClosed(stage) && !stages.isWon(stage)) {
+		return { steps: stages.open.map((row) => row.key), trailing: true };
+	}
+
+	return { steps: rail, trailing: !rail.includes(stage) };
 }

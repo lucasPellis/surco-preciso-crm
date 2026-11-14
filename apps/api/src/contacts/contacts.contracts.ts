@@ -1,10 +1,4 @@
-import {
-	DealStage,
-	EnrichmentStatus,
-	FactBand,
-	FactStatus,
-	RecordSource,
-} from "@crm/db";
+import { EnrichmentStatus, FactBand, FactStatus, RecordSource } from "@crm/db";
 import { FIELD_ENTITIES, FIELD_TYPES } from "@crm/db/fields";
 import { LEAD_SOURCE } from "@crm/db/lead-source";
 import { isPlausiblePhone } from "@crm/db/phone";
@@ -265,7 +259,7 @@ const contactRelationshipOutput = z.object({
 const contactDealOutput = z.object({
 	id: z.string(),
 	name: z.string(),
-	stage: z.enum(Object.values(DealStage) as [DealStage, ...DealStage[]]),
+	stage: z.string(),
 	currency: z.string(),
 	expectedCloseDate: z.string().nullable(),
 	owner: contactOwnerOutput,

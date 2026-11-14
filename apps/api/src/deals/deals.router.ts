@@ -33,6 +33,8 @@ import {
 	dealListOutput,
 	dealMutateOutput,
 	dealSetStageOutput,
+	dealStagesInput,
+	dealStagesOutput,
 	dealUpdateArgs,
 	setStageInput,
 } from "./deals.contracts";
@@ -50,6 +52,15 @@ export class DealsRouter {
 	})
 	async list(@Input() input: z.infer<typeof dealListInput>) {
 		return this.deals.list(input);
+	}
+
+	@Query({
+		input: dealStagesInput,
+		output: dealStagesOutput,
+		meta: restMeta("POST", "/deals/stages", ["Deals"]),
+	})
+	async stages(@Input() input: z.infer<typeof dealStagesInput>) {
+		return this.deals.stages(input.includeArchived);
 	}
 
 	@Query({

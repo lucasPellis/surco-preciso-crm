@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { DealStage, db } from "@crm/db";
+import { db } from "@crm/db";
 import {
 	companyPreamble,
 	composeClosing,
@@ -74,7 +74,7 @@ beforeAll(async () => {
 			name: `Fernhill platform ${suffix}`,
 			companyId,
 			ownerId: user.id,
-			stage: DealStage.QUOTED,
+			stage: "QUOTED",
 			amount: 48_000,
 			contacts: { create: [{ contactId: paulaId, role: "Champion" }] },
 		},

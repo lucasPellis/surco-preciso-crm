@@ -1,13 +1,13 @@
 import {
 	type ContactBriefSections,
 	type Db,
-	DealStage,
 	type FactEvidence,
 	FactStatus,
 	type Prisma,
 	Prisma as PrismaNamespace,
 	type RecordSource,
 } from "@crm/db";
+import { NOT_CLOSED_STAGE_FILTER } from "@crm/db/deal-stage";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
 import { normalizePhone } from "@crm/db/phone";
 import {
@@ -339,7 +339,7 @@ export class ContactsService {
 				},
 			});
 			if (ownerId) {
-				dealId = await openLeadDeal(tx, {
+				const opened = await openLeadDeal(tx, {
 					name: nameOf(created),
 					companyId,
 					contactId: created.id,
@@ -347,11 +347,12 @@ export class ContactsService {
 					leadSourceId: input.leadSourceId ?? null,
 					now: created.createdAt,
 				});
+				dealId = opened.id;
 				await emit({
 					type: "deal.created",
-					record: { kind: "deal", id: dealId },
+					record: { kind: "deal", id: opened.id },
 					occurredAt: created.createdAt,
-					data: { companyId, stage: DealStage.NEW },
+					data: { companyId, stage: opened.stage },
 				});
 			}
 			await emit({
@@ -413,7 +414,7 @@ export class ContactsService {
 					where: {
 						deal: {
 							archivedAt: null,
-							stage: { notIn: [DealStage.WON, DealStage.LOST] },
+							...NOT_CLOSED_STAGE_FILTER,
 						},
 					},
 					orderBy: { deal: { createdAt: "desc" } },

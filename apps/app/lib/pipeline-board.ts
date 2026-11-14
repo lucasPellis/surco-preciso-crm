@@ -1,4 +1,3 @@
-import type { DealStage } from "@crm/db/enums";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
 export type PipelineBoardData = RouterOutputs["deals"]["board"];
@@ -6,7 +5,7 @@ export type PipelineBoardData = RouterOutputs["deals"]["board"];
 export function moveCard(
 	board: PipelineBoardData,
 	id: string,
-	to: DealStage,
+	to: string,
 ): PipelineBoardData {
 	const from = board.columns.find((column) =>
 		column.cards.some((card) => card.id === id),

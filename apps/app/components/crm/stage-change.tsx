@@ -1,6 +1,5 @@
 "use client";
 
-import type { DealStage } from "@crm/db/enums";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -26,10 +25,10 @@ import { ChevronDownIcon } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { DEAL_STAGE_OPTIONS, LOSING_STAGES } from "@/lib/deal-stage";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useStages } from "@/lib/use-stages";
 import { DealStageIndicator } from "./deal-stage";
 
 const closeReasonParams = {
@@ -40,7 +39,7 @@ const closeReasonParams = {
 export function useRequestClose() {
 	const [, setCloseParams] = useQueryStates(closeReasonParams);
 
-	return (dealId: string, stage: DealStage) =>
+	return (dealId: string, stage: string) =>
 		void setCloseParams({
 			[SEARCH_PARAM.dialog.closeDeal]: dealId,
 			[SEARCH_PARAM.dialog.closeStage]: stage,
@@ -68,11 +67,12 @@ export function DealStageMenu({
 	variant = "inline",
 }: {
 	dealId: string;
-	stage: DealStage;
+	stage: string;
 	variant?: "inline" | "control";
 }) {
 	const [, setCloseParams] = useQueryStates(closeReasonParams);
 	const setStage = useStageMutation();
+	const stages = useStages();
 
 	return (
 		<DropdownMenu>
@@ -81,7 +81,7 @@ export function DealStageMenu({
 					<Button
 						variant="outline"
 						size="sm"
-						disabled={setStage.isPending}
+						disabled={setStage.isPending || !stages.ready}
 						onClick={(event) => event.stopPropagation()}
 					>
 						<DealStageIndicator stage={stage} className="text-foreground" />
@@ -91,7 +91,7 @@ export function DealStageMenu({
 					<button
 						type="button"
 						onClick={(event) => event.stopPropagation()}
-						disabled={setStage.isPending}
+						disabled={setStage.isPending || !stages.ready}
 						className="flex max-w-full min-w-0 items-center text-left hover:text-foreground disabled:opacity-50"
 					>
 						<DealStageIndicator stage={stage} />
@@ -106,9 +106,9 @@ export function DealStageMenu({
 				<DropdownMenuRadioGroup
 					value={stage}
 					onValueChange={(next) => {
-						const chosen = next as DealStage;
-						if (chosen === stage) return;
-						if (LOSING_STAGES.includes(chosen)) {
+						const chosen = next;
+						if (!stages.ready || chosen === stage) return;
+						if (stages.isLosing(chosen)) {
 							void setCloseParams({
 								[SEARCH_PARAM.dialog.closeDeal]: dealId,
 								[SEARCH_PARAM.dialog.closeStage]: chosen,
@@ -118,7 +118,7 @@ export function DealStageMenu({
 						setStage.mutate({ id: dealId, stage: chosen });
 					}}
 				>
-					{DEAL_STAGE_OPTIONS.map((option) => (
+					{stages.options.map((option) => (
 						<DropdownMenuRadioItem key={option.value} value={option.value}>
 							{option.label}
 						</DropdownMenuRadioItem>
@@ -149,7 +149,7 @@ export function CloseReasonDialog() {
 		close();
 	});
 
-	const stage = closingStage as DealStage | null;
+	const stage = closingStage;
 	const open = Boolean(closing && stage);
 
 	return (

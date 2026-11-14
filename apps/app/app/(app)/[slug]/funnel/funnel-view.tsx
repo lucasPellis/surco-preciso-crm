@@ -1,6 +1,5 @@
 "use client";
 
-import type { DealStage } from "@crm/db/enums";
 import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
 import {
 	PipelineBoard,
@@ -16,11 +15,12 @@ import { toast } from "sonner";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { DealStageMenu, useRequestClose } from "@/components/crm/stage-change";
-import { dealStageLabel, LOSING_STAGES } from "@/lib/deal-stage";
+import { idleLabel } from "@/lib/deal-stage";
 import { moveCard, type PipelineBoardData } from "@/lib/pipeline-board";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useStages } from "@/lib/use-stages";
 import { overviewParsers } from "../overview-search-params";
 
 type BoardCard = PipelineBoardData["columns"][number]["cards"][number];
@@ -32,9 +32,9 @@ function CardBody({ card }: { card: BoardCard }) {
 			<span className="truncate text-13 text-muted-foreground">
 				{card.company.name}
 			</span>
-			{card.idleDays === null ? null : (
+			{card.idleHours === null ? null : (
 				<span className="text-13 text-status-warning-text">
-					Sin actividad hace {card.idleDays} días
+					{idleLabel(card.idleHours)}
 				</span>
 			)}
 			<span className="flex items-center justify-between gap-2 text-13">
@@ -63,6 +63,7 @@ export function FunnelView() {
 		overviewParsers[SEARCH_PARAM.overview.scope],
 	);
 	const requestClose = useRequestClose();
+	const stages = useStages();
 
 	const input = { scope };
 	const board = useQuery({
@@ -72,7 +73,7 @@ export function FunnelView() {
 
 	const [optimisticBoard, applyMove] = useOptimistic(
 		board.data,
-		(current, move: { id: string; stage: DealStage }) =>
+		(current, move: { id: string; stage: string }) =>
 			current ? moveCard(current, move.id, move.stage) : current,
 	);
 
@@ -100,10 +101,10 @@ export function FunnelView() {
 
 	const onMove = (cardId: string, columnId: string) => {
 		const card = cards.get(cardId);
-		const target = columnId as DealStage;
-		if (!card || card.stage === target) return;
+		const target = columnId;
+		if (!stages.ready || !card || card.stage === target) return;
 
-		if (LOSING_STAGES.includes(target)) {
+		if (stages.isLosing(target)) {
 			requestClose(cardId, target);
 			return;
 		}
@@ -130,12 +131,12 @@ export function FunnelView() {
 			}}
 		>
 			{columns.map((column) => {
-				const closed = column.stage === "WON" || column.stage === "LOST";
+				const closed = stages.isClosed(column.stage);
 				return (
 					<PipelineColumn
 						key={column.stage}
 						id={column.stage}
-						title={dealStageLabel(column.stage)}
+						title={stages.label(column.stage)}
 						count={column.total}
 						summary={
 							column.valueCents === null

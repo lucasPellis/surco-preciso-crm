@@ -1,11 +1,5 @@
 import { workspaceDomains } from "@crm/auth/workspace";
-import {
-	ActivityType,
-	type Db,
-	DealStage,
-	Prisma,
-	RecordSource,
-} from "@crm/db";
+import { ActivityType, type Db, Prisma, RecordSource } from "@crm/db";
 import type { Touch } from "@crm/db/attribution";
 import { readDefaultLeadOwner } from "@crm/db/settings";
 import {
@@ -154,7 +148,7 @@ export class TrackingFilingService {
 					},
 				});
 				if (ownerId) {
-					const dealId = await openLeadDeal(tx, {
+					const opened = await openLeadDeal(tx, {
 						name: fullName,
 						companyId,
 						contactId: created.id,
@@ -164,9 +158,9 @@ export class TrackingFilingService {
 					});
 					await emit({
 						type: "deal.created",
-						record: { kind: "deal", id: dealId },
+						record: { kind: "deal", id: opened.id },
 						occurredAt: created.createdAt,
-						data: { companyId, stage: DealStage.NEW },
+						data: { companyId, stage: opened.stage },
 					});
 				}
 				return { id: created.id };

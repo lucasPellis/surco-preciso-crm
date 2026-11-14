@@ -63,7 +63,7 @@ export class SearchService {
 			this.db.deal.findMany({
 				where: { name: { contains: term, mode: "insensitive" } },
 				take: QUICK_SEARCH.results.perKind,
-				orderBy: [{ stage: "asc" }, { name: "asc" }],
+				orderBy: [{ pipelineStage: { position: "asc" } }, { name: "asc" }],
 				select: {
 					id: true,
 					name: true,

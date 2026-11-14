@@ -5,7 +5,7 @@ import {
 	Prisma as PrismaNamespace,
 	RecordSource,
 } from "@crm/db";
-import { OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
+import { OPEN_STAGE_FILTER } from "@crm/db/deal-stage";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
 import { lockIdempotencyKey, lockIdempotencyKeys } from "@crm/db/idempotency";
 import { normalizePhone } from "@crm/db/phone";
@@ -116,7 +116,7 @@ export class CompaniesService {
 					_count: {
 						select: {
 							contacts: true,
-							deals: { where: { stage: { in: [...OPEN_DEAL_STAGES] } } },
+							deals: { where: OPEN_STAGE_FILTER },
 						},
 					},
 					lastActivityAt: true,
@@ -220,7 +220,10 @@ export class CompaniesService {
 					},
 				},
 				deals: {
-					orderBy: [{ stage: "asc" }, { expectedCloseDate: "asc" }],
+					orderBy: [
+						{ pipelineStage: { position: "asc" } },
+						{ expectedCloseDate: "asc" },
+					],
 					select: {
 						id: true,
 						name: true,
@@ -243,7 +246,7 @@ export class CompaniesService {
 		const openWhere: Prisma.DealWhereInput = {
 			companyId: id,
 			archivedAt: null,
-			stage: { in: [...OPEN_DEAL_STAGES] },
+			...OPEN_STAGE_FILTER,
 		};
 		const [openDeals, openValue, unconverted] = await Promise.all([
 			this.db.deal.aggregate({

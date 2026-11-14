@@ -1,4 +1,5 @@
 import { ActivityType, type Prisma } from "@crm/db";
+import { entryStage } from "@crm/db/deal-stage";
 import { taskDayBoundaries } from "../activities/task-due-date";
 import { DEAL_BOARD, NEW_LEAD } from "./deals-config";
 
@@ -12,12 +13,14 @@ export async function openLeadDeal(
 		leadSourceId: string | null;
 		now: Date;
 	},
-): Promise<string> {
+): Promise<{ id: string; stage: string }> {
+	const entry = await entryStage(tx);
 	const deal = await tx.deal.create({
 		data: {
 			name: lead.name,
 			companyId: lead.companyId,
 			ownerId: lead.ownerId,
+			stage: entry.key,
 			leadSourceId: lead.leadSourceId,
 			lastActivityAt: lead.now,
 			contacts: { create: { contactId: lead.contactId } },
@@ -54,5 +57,5 @@ export async function openLeadDeal(
 		data: { lastActivityAt: lead.now },
 	});
 
-	return deal.id;
+	return { id: deal.id, stage: entry.key };
 }

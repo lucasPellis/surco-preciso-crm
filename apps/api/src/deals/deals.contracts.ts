@@ -1,4 +1,4 @@
-import { DealStage } from "@crm/db";
+import { PipelineStageKind } from "@crm/db/enums";
 import { FIELD_ENTITIES, FIELD_TYPES } from "@crm/db/fields";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
@@ -39,15 +39,31 @@ export const dealListInput = listInput.extend({
 
 export type DealListInput = z.infer<typeof dealListInput>;
 
-const stageEnum = z.enum(
-	Object.values(DealStage) as [DealStage, ...DealStage[]],
-);
+const stageKey = z.string().trim().min(1, "Choose a stage.");
+
+export const dealStageOutput = z.object({
+	key: z.string(),
+	name: z.string(),
+	kind: z.enum(PipelineStageKind),
+	position: z.number(),
+	isEntry: z.boolean(),
+	idleAfterHours: z.number().nullable(),
+	archived: z.boolean(),
+});
+
+export type DealStageRow = z.infer<typeof dealStageOutput>;
+
+export const dealStagesInput = z.object({
+	includeArchived: z.boolean().default(false),
+});
+
+export const dealStagesOutput = z.array(dealStageOutput);
 
 export const dealCreateInput = z.object({
 	name: z.string().trim().min(1, "A deal needs a name."),
 	companyId: z.string().min(1, "A deal belongs to a company."),
 	ownerId: z.string().min(1, "A deal needs an owner."),
-	stage: stageEnum.optional(),
+	stage: stageKey.optional(),
 	amountCents,
 	currency: currencyCode.optional(),
 	expectedCloseDate: z.string().nullable().optional(),
@@ -78,7 +94,7 @@ export const dealIdInput = z.object({ id: z.string() });
 
 export const setStageInput = z.object({
 	id: z.string(),
-	stage: stageEnum,
+	stage: stageKey,
 	closedReason: z.string().trim().optional(),
 });
 
@@ -124,7 +140,7 @@ export const dealBulkOwnerInput = bulkIdsInput.extend({
 export type DealBulkOwnerInput = z.infer<typeof dealBulkOwnerInput>;
 
 export const dealBulkStageInput = bulkIdsInput.extend({
-	stage: stageEnum,
+	stage: stageKey,
 	closedReason: z.string().trim().optional(),
 });
 
@@ -205,7 +221,7 @@ const dealLeadSourceOutput = z.object({
 const dealListRowOutput = z.object({
 	id: z.string(),
 	name: z.string(),
-	stage: stageEnum,
+	stage: stageKey,
 	currency: z.string(),
 	company: dealCompanyOutput,
 	owner: dealOwnerOutput,
@@ -229,7 +245,7 @@ export type DealBoardInput = z.infer<typeof dealBoardInput>;
 const dealBoardCardOutput = z.object({
 	id: z.string(),
 	name: z.string(),
-	stage: stageEnum,
+	stage: stageKey,
 	currency: z.string(),
 	amountCents: z.number().nullable(),
 	company: dealCompanyOutput,
@@ -237,11 +253,11 @@ const dealBoardCardOutput = z.object({
 	leadSource: dealLeadSourceOutput.nullable(),
 	stageChangedAt: z.string(),
 	lastActivityAt: z.string().nullable(),
-	idleDays: z.number().nullable(),
+	idleHours: z.number().nullable(),
 });
 
 const dealBoardColumnOutput = z.object({
-	stage: stageEnum,
+	stage: stageKey,
 	total: z.number(),
 	valueCents: z.number().nullable(),
 	cards: z.array(dealBoardCardOutput),
@@ -271,7 +287,7 @@ export const dealDetailOutput = z.object({
 	id: z.string(),
 	name: z.string(),
 	description: z.string().nullable(),
-	stage: stageEnum,
+	stage: stageKey,
 	currency: z.string(),
 	closedReason: z.string().nullable(),
 	company: dealCompanyDetailOutput,
@@ -310,7 +326,7 @@ export type DealMutated = z.infer<typeof dealMutateOutput>;
 
 export const dealSetStageOutput = z.object({
 	id: z.string(),
-	stage: stageEnum,
+	stage: stageKey,
 	changed: z.boolean(),
 });
 

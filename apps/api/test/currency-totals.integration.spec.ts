@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { DealStage, db, RateSource } from "@crm/db";
+import { db, RateSource } from "@crm/db";
 import { normalizeCurrency } from "@crm/db/currency";
 import { SETTINGS_ID, writeReportingCurrency } from "@crm/db/settings";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
@@ -466,8 +466,8 @@ describe("the dashboard only values what it can convert", () => {
 		await db.user.deleteMany({ where: { id: analystId } });
 	});
 
-	async function stale(name: string, stage: DealStage) {
-		const closed = stage === DealStage.WON;
+	async function stale(name: string, stage: string) {
+		const closed = stage === "WON";
 
 		return db.deal.create({
 			data: {
@@ -494,10 +494,10 @@ describe("the dashboard only values what it can convert", () => {
 			ownerId: analystId,
 			amountCents: 10_000,
 			currency: "USD",
-			stage: DealStage.WON,
+			stage: "WON",
 		});
 
-		const unvalued = await stale("Stale win", DealStage.WON);
+		const unvalued = await stale("Stale win", "WON");
 
 		const summary = await dashboard.summary(analystId, { scope: "me" });
 
@@ -517,7 +517,7 @@ describe("the dashboard only values what it can convert", () => {
 			currency: "USD",
 		});
 
-		const unvalued = await stale("Stale open", DealStage.NEW);
+		const unvalued = await stale("Stale open", "NEW");
 
 		const summary = await dashboard.summary(analystId, { scope: "me" });
 
@@ -580,7 +580,7 @@ describe("record sheet money", () => {
 					{
 						companyId: company.id,
 						name: "Closed conversion",
-						stage: DealStage.WON,
+						stage: "WON",
 						amount: 2000,
 						currency: "USD",
 						baseAmount: 2000,

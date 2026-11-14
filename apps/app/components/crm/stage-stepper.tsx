@@ -1,28 +1,22 @@
 "use client";
 
-import { DealStage } from "@crm/db/enums";
 import { IndicatorDot } from "@crm/ui/components/status-indicator";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-	dealStageLabel,
-	dealStagePresentation,
-	isClosedStage,
-	OPEN_STAGES,
-} from "@/lib/deal-stage";
+import { type StageCatalog, stepperSteps } from "@/lib/deal-stage";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
-
-const RAIL = [...OPEN_STAGES, DealStage.WON] as readonly DealStage[];
+import { useStages } from "@/lib/use-stages";
 
 export function StageStepper({
 	dealId,
 	stage,
 }: {
 	dealId: string;
-	stage: DealStage;
+	stage: string;
 }) {
+	const stages = useStages();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
@@ -36,15 +30,14 @@ export function StageStepper({
 		}),
 	);
 
-	const exited = isClosedStage(stage) && stage !== DealStage.WON;
-	const steps = exited ? OPEN_STAGES : RAIL;
+	const { steps, trailing } = stepperSteps(stages, stage);
 	const currentIndex = steps.indexOf(stage);
 
 	return (
 		<ol className="flex w-full gap-1">
 			{steps.map((option, index) => {
-				const reached = !exited && index <= currentIndex;
-				const current = !exited && option === stage;
+				const reached = !trailing && index <= currentIndex;
+				const current = !trailing && option === stage;
 				return (
 					<li key={option} className="flex min-w-0 flex-1">
 						<button
@@ -70,10 +63,10 @@ export function StageStepper({
 								)}
 							/>
 							<span className="text-pretty wrap-break-word leading-4">
-								{current && option === DealStage.WON ? (
-									<StageOutcome stage={stage} />
+								{current && stages.isWon(option) ? (
+									<StageOutcome stage={stage} stages={stages} />
 								) : (
-									dealStageLabel(option)
+									stages.label(option)
 								)}
 							</span>
 						</button>
@@ -81,11 +74,14 @@ export function StageStepper({
 				);
 			})}
 
-			{exited ? (
+			{trailing ? (
 				<li className="flex min-w-0 flex-1">
-					<div className="flex min-w-0 flex-1 flex-col gap-2 text-xs leading-4">
+					<div
+						aria-current="step"
+						className="flex min-w-0 flex-1 flex-col gap-2 text-xs leading-4"
+					>
 						<span aria-hidden className="h-1.5 rounded-full bg-foreground" />
-						<StageOutcome stage={stage} />
+						<StageOutcome stage={stage} stages={stages} />
 					</div>
 				</li>
 			) : null}
@@ -93,8 +89,15 @@ export function StageStepper({
 	);
 }
 
-function StageOutcome({ stage }: { stage: DealStage }) {
-	const { label, tone } = dealStagePresentation(stage);
+function StageOutcome({
+	stage,
+	stages,
+}: {
+	stage: string;
+	stages: StageCatalog;
+}) {
+	const label = stages.label(stage);
+	const tone = stages.tone(stage);
 	return (
 		<span className="flex min-w-0 items-baseline gap-1.5">
 			<IndicatorDot tone={tone} aria-hidden="true" className="translate-y-px" />
