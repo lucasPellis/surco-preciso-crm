@@ -166,7 +166,7 @@ function FormSheetForm({
 }
 
 function FormSheetFooter({
-	cancelLabel = "Cancel",
+	cancelLabel = "Cancelar",
 	children,
 }: {
 	cancelLabel?: string;

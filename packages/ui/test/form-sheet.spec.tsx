@@ -156,8 +156,8 @@ if (process.env.CRM_FORM_SHEET_TEST_CHILD !== "1") {
 		await click("Fill draft");
 		await click("Close");
 		expect(questionOpen()).toBe(true);
-		expect(document.activeElement?.textContent).toBe("Keep editing");
-		await click("Keep editing");
+		expect(document.activeElement?.textContent).toBe("Seguir editando");
+		await click("Seguir editando");
 		expect(
 			document.activeElement?.closest("[data-slot=sheet-content]"),
 		).not.toBeNull();
@@ -182,7 +182,7 @@ if (process.env.CRM_FORM_SHEET_TEST_CHILD !== "1") {
 		await click("New item");
 		await click("Fill draft");
 		await pressEscape();
-		await click("Discard");
+		await click("Descartar");
 		expect(sheetOpen()).toBe(false);
 		await click("New item");
 		expect(
@@ -195,7 +195,7 @@ if (process.env.CRM_FORM_SHEET_TEST_CHILD !== "1") {
 		await render(<Fixture />);
 		await click("New item");
 		await click("Fill draft");
-		await click("Cancel");
+		await click("Cancelar");
 		expect(sheetOpen()).toBe(false);
 		expect(questionOpen()).toBe(false);
 		await click("New item");
@@ -247,7 +247,7 @@ if (process.env.CRM_FORM_SHEET_TEST_CHILD !== "1") {
 		);
 		await click("Close");
 		await pressEscape();
-		await click("Cancel");
+		await click("Cancelar");
 		await click("Save");
 		expect(sheetOpen()).toBe(true);
 		expect(questionOpen()).toBe(false);

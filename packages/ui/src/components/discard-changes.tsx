@@ -26,10 +26,10 @@ function useDiscardChanges({
 	onOpenChange,
 	onDiscard,
 	wording = {
-		title: "Discard changes?",
-		description: "Your changes have not been saved. Discard them and close?",
-		confirmLabel: "Discard",
-		keepLabel: "Keep editing",
+		title: "¿Descartar los cambios?",
+		description: "Los cambios no se guardaron. ¿Descartarlos y cerrar?",
+		confirmLabel: "Descartar",
+		keepLabel: "Seguir editando",
 	},
 }: {
 	open: boolean;
