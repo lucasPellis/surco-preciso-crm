@@ -52,7 +52,7 @@ function WorkspaceSwitcher({
 	activeSlug,
 	onSwitch,
 	actions,
-	label = "Workspaces",
+	label = "Espacios de trabajo",
 }: {
 	workspaces: SwitcherWorkspace[];
 	activeSlug: string | null;

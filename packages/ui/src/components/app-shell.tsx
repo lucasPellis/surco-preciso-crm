@@ -77,7 +77,7 @@ function AppShellHome({
 
 function AppShellSearch({
 	placeholder,
-	label = "Search",
+	label = "Buscar",
 	shortcut = "⌘K",
 	disabled = false,
 	onOpen,
@@ -195,7 +195,7 @@ function AppShell({
 								variant="ghost"
 								size="icon-sm"
 								ref={menuRef}
-								aria-label="Open navigation"
+								aria-label="Abrir navegación"
 								aria-expanded={navOpen}
 								onClick={() => onNavOpenChange(true)}
 							>

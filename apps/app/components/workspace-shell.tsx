@@ -12,7 +12,7 @@ import { useMobileNav } from "@/components/mobile-nav";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
-const SEARCH_PLACEHOLDER = "Search companies, contacts and deals…";
+const SEARCH_PLACEHOLDER = "Buscar empresas, contactos y oportunidades…";
 
 function WorkspaceHome() {
 	const workspaceUrl = useWorkspaceUrl();
@@ -21,7 +21,7 @@ function WorkspaceHome() {
 		<AppShellHome asChild>
 			<Link
 				href={workspaceUrl()}
-				aria-label="Overview"
+				aria-label="Resumen"
 				transitionTypes={["nav-lateral"]}
 			/>
 		</AppShellHome>

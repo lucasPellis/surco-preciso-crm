@@ -42,9 +42,9 @@ import { useWorkspaceSlug, useWorkspaceUrl } from "@/lib/use-workspace-url";
 type RecordKind = RecentRecord["kind"];
 
 const KINDS = {
-	company: { group: "Companies", noun: "companies", list: "/companies" },
-	contact: { group: "Contacts", noun: "contacts", list: "/contacts" },
-	deal: { group: "Deals", noun: "deals", list: "/deals" },
+	company: { group: "Empresas", noun: "empresas", list: "/companies" },
+	contact: { group: "Contactos", noun: "contactos", list: "/contacts" },
+	deal: { group: "Oportunidades", noun: "oportunidades", list: "/deals" },
 } as const satisfies Record<
 	RecordKind,
 	{ group: string; noun: string; list: string }
@@ -63,49 +63,49 @@ type Destination = {
 const PAGES: Destination[] = [
 	{
 		id: "overview",
-		label: "Overview",
+		label: "Resumen",
 		href: "/",
 		icon: LayoutDashboardIcon,
-		keywords: ["home", "dashboard", "pipeline"],
+		keywords: ["inicio", "panel", "embudo"],
 	},
 	{
 		id: "companies",
-		label: "Companies",
+		label: "Empresas",
 		href: "/companies",
 		icon: Building2Icon,
-		keywords: ["accounts", "organizations"],
+		keywords: ["cuentas", "organizaciones", "clientes"],
 	},
 	{
 		id: "contacts",
-		label: "Contacts",
+		label: "Contactos",
 		href: "/contacts",
 		icon: UsersIcon,
-		keywords: ["people", "leads"],
+		keywords: ["personas", "leads"],
 	},
 	{
 		id: "pipeline",
 		label: "Embudo",
 		href: "/pipeline",
 		icon: KanbanIcon,
-		keywords: ["tablero", "etapas", "leads", "oportunidades", "pipeline"],
+		keywords: ["tablero", "etapas", "leads", "oportunidades", "kanban"],
 	},
 	{
 		id: "deals",
-		label: "Deals",
+		label: "Oportunidades",
 		href: "/deals",
 		icon: HandshakeIcon,
-		keywords: ["opportunities", "pipeline", "revenue"],
+		keywords: ["negocios", "embudo", "ventas", "ingresos"],
 	},
 	{
 		id: "tasks",
-		label: "Tasks",
+		label: "Tareas",
 		href: "/tasks",
 		icon: ListChecksIcon,
-		keywords: ["todo", "follow up"],
+		keywords: ["pendientes", "seguimiento"],
 	},
 	{
 		id: "settings",
-		label: "Settings",
+		label: "Configuración",
 		href: "/settings",
 		icon: SettingsIcon,
 	},
@@ -114,24 +114,24 @@ const PAGES: Destination[] = [
 const CREATE: Destination[] = [
 	{
 		id: "new-company",
-		label: "New company",
+		label: "Nueva empresa",
 		href: `/companies?${SEARCH_PARAM.dialog.create}=true`,
 		icon: PlusIcon,
-		keywords: ["add", "create", "account"],
+		keywords: ["agregar", "crear", "cuenta"],
 	},
 	{
 		id: "new-contact",
-		label: "New contact",
+		label: "Nuevo contacto",
 		href: `/contacts?${SEARCH_PARAM.dialog.create}=true`,
 		icon: PlusIcon,
-		keywords: ["add", "create", "person"],
+		keywords: ["agregar", "crear", "persona", "lead"],
 	},
 	{
 		id: "new-deal",
-		label: "New deal",
+		label: "Nueva oportunidad",
 		href: `/deals?${SEARCH_PARAM.dialog.create}=true`,
 		icon: PlusIcon,
-		keywords: ["add", "create", "opportunity"],
+		keywords: ["agregar", "crear", "negocio"],
 	},
 ];
 
@@ -140,49 +140,49 @@ const SETTINGS: Destination[] = [
 		id: "settings-general",
 		label: "General",
 		href: "/settings",
-		keywords: ["workspace", "name", "agent model"],
+		keywords: ["espacio de trabajo", "nombre", "modelo del agente"],
 	},
 	{
 		id: "settings-tracking",
-		label: "Tracking & Analytics",
+		label: "Seguimiento y analítica",
 		href: "/settings/tracking",
-		keywords: ["script", "website", "forms"],
+		keywords: ["script", "sitio web", "formularios", "tracking"],
 	},
 	{
 		id: "settings-connections",
-		label: "Connections",
+		label: "Conexiones",
 		href: "/settings/connections",
-		keywords: ["integrations", "slack", "gmail", "mcp"],
+		keywords: ["integraciones", "slack", "gmail", "mcp"],
 	},
 	{
 		id: "settings-currencies",
-		label: "Currencies",
+		label: "Monedas",
 		href: "/settings/currencies",
-		keywords: ["exchange rates", "money"],
+		keywords: ["tipo de cambio", "cotización", "dinero", "divisas"],
 	},
 	{
 		id: "settings-lead-sources",
 		label: "Orígenes",
 		href: "/settings/lead-sources",
-		keywords: ["lead source", "canal", "campaña", "utm", "channel"],
+		keywords: ["origen del lead", "canal", "campaña", "utm"],
 	},
 	{
 		id: "settings-members",
-		label: "Members",
+		label: "Miembros",
 		href: "/settings/members",
-		keywords: ["team", "people", "invite", "roles"],
+		keywords: ["equipo", "personas", "invitar", "roles"],
 	},
 	{
 		id: "settings-api-keys",
-		label: "API Keys",
+		label: "Claves de API",
 		href: "/settings/api-keys",
-		keywords: ["tokens", "developers"],
+		keywords: ["tokens", "desarrolladores", "api keys"],
 	},
 	{
 		id: "settings-sso",
 		label: "SSO",
 		href: "/settings/sso",
-		keywords: ["single sign-on", "saml", "okta", "identity provider"],
+		keywords: ["inicio de sesión único", "saml", "okta", "proveedor de identidad"],
 	},
 ];
 
@@ -283,10 +283,10 @@ export function QuickSwitcher() {
 			if (exists) choose(record);
 			else
 				toast.error(
-					"This record no longer exists. It is removed from recent records.",
+					"Este registro ya no existe. Se quitó de los recientes.",
 				);
 		} catch {
-			toast.error("This record cannot be opened. Try again.");
+			toast.error("No se puede abrir este registro. Inténtalo de nuevo.");
 		}
 	};
 
@@ -335,7 +335,7 @@ export function QuickSwitcher() {
 			...records,
 			{
 				id: `all:${kind}`,
-				label: `All ${KINDS[kind].noun} matching “${current}”`,
+				label: `Todas las ${KINDS[kind].noun} que coinciden con “${current}”`,
 				group: KINDS[kind].group,
 				icon: SearchIcon,
 				onSelect: () => go(`${KINDS[kind].list}?${params}`),
@@ -350,15 +350,15 @@ export function QuickSwitcher() {
 					(record): CommandSearchItem => ({
 						id: `recent:${record.kind}:${record.id}`,
 						label: record.label,
-						group: "Recent",
+						group: "Recientes",
 						media: recordMedia(record),
 						snippet: record.detail ?? undefined,
 						onSelect: () => void chooseRecent(record),
 					}),
 				)),
-		...PAGES.map(destination("Pages")),
-		...CREATE.map(destination("Create")),
-		...SETTINGS.map(destination("Settings", ["Settings", "Workspace"])),
+		...PAGES.map(destination("Páginas")),
+		...CREATE.map(destination("Crear")),
+		...SETTINGS.map(destination("Configuración", ["Configuración", "Espacio de trabajo"])),
 	];
 
 	return (
@@ -376,8 +376,8 @@ export function QuickSwitcher() {
 				items={items}
 				results={results}
 				workspaceName={workspace.data?.name.trim() || undefined}
-				placeholder="Search companies, contacts, deals and pages…"
-				description="Jump to a company, contact, deal, page or setting."
+				placeholder="Buscar empresas, contactos, oportunidades y páginas…"
+				description="Ir a una empresa, contacto, oportunidad, página o ajuste."
 				onQueryChange={(value) => {
 					setQuery(value);
 
@@ -398,7 +398,7 @@ export function QuickSwitcher() {
 				loading={searchable && (!ready || search.isPending)}
 				searchError={
 					ready && search.error
-						? "Search failed. Pages still match."
+						? "La búsqueda falló. Las páginas siguen coincidiendo."
 						: undefined
 				}
 				onRetry={() => void search.refetch()}

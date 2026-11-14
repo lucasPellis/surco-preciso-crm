@@ -213,5 +213,13 @@ Glossary. Use these words and no others:
 | Amount | Monto |
 | Archive | Archivar |
 | Settings | Configuración |
+| Overview | Resumen |
+| Tasks | Tareas |
+| Workspace | Espacio de trabajo |
+| Members | Miembros |
+| Connections | Conexiones |
+| Currencies | Monedas |
+| API Keys | Claves de API |
+| Tracking & Analytics | Seguimiento y analítica |
 
 Add a row here when a screen needs a new term.

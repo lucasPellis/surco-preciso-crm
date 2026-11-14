@@ -50,21 +50,21 @@ type WorkspaceData = {
 };
 
 const PRIMARY: NavItem[] = [
-	{ title: "Overview", href: "/", icon: LayoutDashboardIcon, match: "exact" },
+	{ title: "Resumen", href: "/", icon: LayoutDashboardIcon, match: "exact" },
 	{
-		title: "Companies",
+		title: "Empresas",
 		href: "/companies",
 		icon: Building2Icon,
 		match: "prefix",
 	},
-	{ title: "Contacts", href: "/contacts", icon: UsersIcon, match: "prefix" },
+	{ title: "Contactos", href: "/contacts", icon: UsersIcon, match: "prefix" },
 	{ title: "Embudo", href: "/pipeline", icon: KanbanIcon, match: "prefix" },
-	{ title: "Deals", href: "/deals", icon: HandshakeIcon, match: "prefix" },
-	{ title: "Tasks", href: "/tasks", icon: ListChecksIcon, match: "prefix" },
+	{ title: "Oportunidades", href: "/deals", icon: HandshakeIcon, match: "prefix" },
+	{ title: "Tareas", href: "/tasks", icon: ListChecksIcon, match: "prefix" },
 ];
 
 const SETTINGS: NavItem = {
-	title: "Settings",
+	title: "Configuración",
 	href: "/settings",
 	icon: SettingsIcon,
 	match: "prefix",
@@ -72,18 +72,18 @@ const SETTINGS: NavItem = {
 
 const SETTINGS_PAGES: { title: string; href: string }[] = [
 	{ title: "General", href: "/settings" },
-	{ title: "Tracking & Analytics", href: "/settings/tracking" },
-	{ title: "Connections", href: "/settings/connections" },
-	{ title: "Currencies", href: "/settings/currencies" },
+	{ title: "Seguimiento y analítica", href: "/settings/tracking" },
+	{ title: "Conexiones", href: "/settings/connections" },
+	{ title: "Monedas", href: "/settings/currencies" },
 	{ title: "Orígenes", href: "/settings/lead-sources" },
-	{ title: "Members", href: "/settings/members" },
-	{ title: "API Keys", href: "/settings/api-keys" },
+	{ title: "Miembros", href: "/settings/members" },
+	{ title: "Claves de API", href: "/settings/api-keys" },
 	{ title: "SSO", href: "/settings/sso" },
 ];
 
 const WORKSPACE_ACTIONS: { title: string; href: string; icon: LucideIcon }[] = [
-	{ title: "Workspace settings", href: "/settings", icon: SettingsIcon },
-	{ title: "Members", href: "/settings/members", icon: UserPlusIcon },
+	{ title: "Configuración del espacio", href: "/settings", icon: SettingsIcon },
+	{ title: "Miembros", href: "/settings/members", icon: UserPlusIcon },
 ];
 
 function startsWithSegment(pathname: string, href: string): boolean {
@@ -114,7 +114,7 @@ function WorkspaceHeader({
 
 	if (!workspace.data) {
 		return (
-			<AppSidebarWorkspace name="Workspace" loading={workspace.isPending} />
+			<AppSidebarWorkspace name="Espacio de trabajo" loading={workspace.isPending} />
 		);
 	}
 
@@ -122,13 +122,13 @@ function WorkspaceHeader({
 
 	return (
 		<WorkspaceSwitcher
-			workspaces={[{ id, slug, name: name.trim() || "Workspace", logo: null }]}
+			workspaces={[{ id, slug, name: name.trim() || "Espacio de trabajo", logo: null }]}
 			activeSlug={slug}
 			onSwitch={() => {
 				nav.close();
 				router.push(workspaceUrl());
 			}}
-			label="Workspace"
+			label="Espacio de trabajo"
 			actions={WORKSPACE_ACTIONS.map((action) => (
 				<DropdownMenuItem key={action.href} asChild onSelect={nav.close}>
 					<Link href={workspaceUrl(action.href)}>
@@ -161,11 +161,11 @@ export function WorkspaceNav({
 	if (startsWithSegment(pathname, settings.href)) {
 		return (
 			<AppSidebar
-				label="Workspace settings"
+				label="Configuración del espacio"
 				header={<WorkspaceHeader initialWorkspace={initialWorkspace} />}
 			>
 				<AppSidebarSection
-					label="Settings"
+					label="Configuración"
 					back={<Link href={workspaceUrl()} transitionTypes={["nav-back"]} />}
 				>
 					<AppSidebarGroup>
@@ -229,7 +229,7 @@ export function WorkspaceNav({
 
 	return (
 		<AppSidebar
-			label="Primary"
+			label="Principal"
 			header={<WorkspaceHeader initialWorkspace={initialWorkspace} />}
 			footer={link(settings, SETTINGS.href)}
 		>
@@ -242,7 +242,7 @@ export function WorkspaceNav({
 
 export function WorkspaceNavFallback() {
 	return (
-		<AppSidebar label="Primary" header={<AppSidebarWorkspace loading />}>
+		<AppSidebar label="Principal" header={<AppSidebarWorkspace loading />}>
 			<AppSidebarSkeleton rows={PRIMARY.length} />
 		</AppSidebar>
 	);

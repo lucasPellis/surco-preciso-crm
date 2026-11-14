@@ -205,12 +205,12 @@ function CommandSearch({
 	searchError,
 	onRetry,
 	workspaceName,
-	title = "Search",
-	description = "Search records, pages, settings and actions.",
-	placeholder = "Search records, pages and actions…",
-	loadingLabel = "Searching…",
-	emptyLabel = "Nothing matches that.",
-	retryLabel = "Try again",
+	title = "Buscar",
+	description = "Buscar registros, páginas, configuración y acciones.",
+	placeholder = "Buscar registros, páginas y acciones…",
+	loadingLabel = "Buscando…",
+	emptyLabel = "No hay coincidencias.",
+	retryLabel = "Reintentar",
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
