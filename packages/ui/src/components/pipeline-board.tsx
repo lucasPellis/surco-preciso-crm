@@ -2,23 +2,73 @@
 
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
+import { PIPELINE_BOARD } from "@crm/ui/lib/pipeline-board-config";
+import { columnTargetX } from "@crm/ui/lib/pipeline-board-keyboard";
 import { cn } from "@crm/ui/lib/utils";
 import {
+	type Announcements,
+	type CollisionDetection,
 	DndContext,
 	type DragEndEvent,
 	DragOverlay,
 	type DragStartEvent,
+	type KeyboardCoordinateGetter,
 	KeyboardSensor,
-	PointerSensor,
+	MouseSensor,
 	pointerWithin,
+	rectIntersection,
+	TouchSensor,
 	useDraggable,
 	useDroppable,
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
 import { GripVerticalIcon } from "lucide-react";
-import { useReducedMotion } from "motion/react";
 import { type ReactNode, useState } from "react";
+
+const { copy } = PIPELINE_BOARD;
+
+const collisionDetection: CollisionDetection = (args) =>
+	args.pointerCoordinates ? pointerWithin(args) : rectIntersection(args);
+
+const keyboardCoordinates: KeyboardCoordinateGetter = (
+	event,
+	{
+		context: { collisionRect, droppableRects, droppableContainers },
+		currentCoordinates,
+	},
+) => {
+	const step = PIPELINE_BOARD.keyboardStep.get(event.code);
+	if (step === undefined || !collisionRect) return undefined;
+	event.preventDefault();
+	const columns = droppableContainers.getEnabled().flatMap((container) => {
+		const rect = droppableRects.get(container.id);
+		return rect ? [rect] : [];
+	});
+	const x = columnTargetX(columns, collisionRect, step);
+	return x === undefined ? undefined : { x, y: currentCoordinates.y };
+};
+
+function dataText(
+	source: { data: { current?: Record<string, unknown> } },
+	key: string,
+) {
+	const value = source.data.current?.[key];
+	return typeof value === "string" ? value : "";
+}
+
+const announcements: Announcements = {
+	onDragStart: ({ active }) => copy.picked(dataText(active, "label")),
+	onDragOver: ({ active, over }) =>
+		over
+			? copy.over(dataText(active, "label"), dataText(over, "title"))
+			: undefined,
+	onDragEnd: ({ active, over }) =>
+		over
+			? copy.dropped(dataText(active, "label"), dataText(over, "title"))
+			: copy.returned(dataText(active, "label")),
+	onDragCancel: ({ active }) => copy.cancelled(dataText(active, "label")),
+};
 
 export function PipelineBoard({
 	label,
@@ -31,12 +81,19 @@ export function PipelineBoard({
 	overlay: (cardId: string) => ReactNode;
 	children: ReactNode;
 }) {
-	const reduced = useReducedMotion() === true;
 	const [activeId, setActiveId] = useState<string | null>(null);
 
 	const sensors = useSensors(
-		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-		useSensor(KeyboardSensor),
+		useSensor(MouseSensor, {
+			activationConstraint: { distance: PIPELINE_BOARD.drag.mouseDistancePx },
+		}),
+		useSensor(TouchSensor, {
+			activationConstraint: {
+				delay: PIPELINE_BOARD.drag.touchDelayMs,
+				tolerance: PIPELINE_BOARD.drag.touchTolerancePx,
+			},
+		}),
+		useSensor(KeyboardSensor, { coordinateGetter: keyboardCoordinates }),
 	);
 
 	const onDragStart = (event: DragStartEvent) => {
@@ -52,7 +109,11 @@ export function PipelineBoard({
 	return (
 		<DndContext
 			sensors={sensors}
-			collisionDetection={pointerWithin}
+			collisionDetection={collisionDetection}
+			accessibility={{
+				announcements,
+				screenReaderInstructions: { draggable: copy.instructions },
+			}}
 			onDragStart={onDragStart}
 			onDragEnd={onDragEnd}
 			onDragCancel={() => setActiveId(null)}
@@ -63,7 +124,7 @@ export function PipelineBoard({
 			>
 				{children}
 			</section>
-			<DragOverlay dropAnimation={reduced ? null : undefined}>
+			<DragOverlay dropAnimation={null}>
 				{activeId ? overlay(activeId) : null}
 			</DragOverlay>
 		</DndContext>
@@ -83,7 +144,7 @@ export function PipelineColumn({
 	summary?: ReactNode;
 	children: ReactNode;
 }) {
-	const { setNodeRef, isOver } = useDroppable({ id });
+	const { setNodeRef, isOver } = useDroppable({ id, data: { title } });
 
 	return (
 		<div
@@ -121,13 +182,18 @@ export function PipelineCard({
 	children: ReactNode;
 }) {
 	const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } =
-		useDraggable({ id });
+		useDraggable({
+			id,
+			data: { label },
+			attributes: { roleDescription: copy.roleDescription },
+		});
 
 	return (
 		<li
 			ref={setNodeRef}
+			{...listeners}
 			className={cn(
-				"flex items-start gap-1 rounded-md bg-card p-2 text-card-foreground text-sm shadow-border",
+				"flex cursor-grab items-start gap-1 rounded-md bg-card p-2 text-card-foreground text-sm shadow-border",
 				isDragging && "opacity-40",
 			)}
 		>
@@ -136,12 +202,11 @@ export function PipelineCard({
 				type="button"
 				variant="ghost"
 				size="icon-xs"
-				className="cursor-grab text-muted-foreground"
+				className="text-muted-foreground"
 				{...attributes}
-				{...listeners}
 			>
 				<Icon icon={GripVerticalIcon} motion="none" />
-				<span className="sr-only">Mover {label}</span>
+				<span className="sr-only">{copy.move(label)}</span>
 			</Button>
 			<div className="min-w-0 flex-1">{children}</div>
 		</li>

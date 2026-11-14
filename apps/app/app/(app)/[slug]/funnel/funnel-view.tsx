@@ -9,8 +9,9 @@ import {
 	PipelineColumn,
 } from "@crm/ui/components/pipeline-board";
 import { formatMoney } from "@crm/ui/lib/format";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
+import { startTransition, useOptimistic } from "react";
 import { toast } from "sonner";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
@@ -56,7 +57,6 @@ function CardBody({ card }: { card: BoardCard }) {
 export function FunnelView() {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
-	const queryClient = useQueryClient();
 	const openRecord = useOpenRecord();
 	const [scope] = useQueryState(
 		SEARCH_PARAM.overview.scope,
@@ -70,26 +70,15 @@ export function FunnelView() {
 		placeholderData: (previous) => previous,
 	});
 
+	const [optimisticBoard, applyMove] = useOptimistic(
+		board.data,
+		(current, move: { id: string; stage: DealStage }) =>
+			current ? moveCard(current, move.id, move.stage) : current,
+	);
+
 	const setStage = useMutation(
 		trpc.deals.setStage.mutationOptions({
-			onMutate: async (variables) => {
-				const key = trpc.deals.board.queryKey(input);
-				await queryClient.cancelQueries({ queryKey: key });
-				const previous = queryClient.getQueryData(key);
-				if (previous) {
-					queryClient.setQueryData(
-						key,
-						moveCard(previous, variables.id, variables.stage),
-					);
-				}
-				return { previous, key };
-			},
-			onError: (error, _variables, context) => {
-				if (context?.previous) {
-					queryClient.setQueryData(context.key, context.previous);
-				}
-				toast.error(error.message);
-			},
+			onError: (error) => toast.error(error.message),
 			onSettled: (_data, _error, variables) => cache.deal(variables.id),
 		}),
 	);
@@ -102,9 +91,9 @@ export function FunnelView() {
 		);
 	}
 
-	if (!board.data) return null;
+	if (!optimisticBoard) return null;
 
-	const { columns, reportingCurrency, closedWindowDays } = board.data;
+	const { columns, reportingCurrency, closedWindowDays } = optimisticBoard;
 	const cards = new Map(
 		columns.flatMap((column) => column.cards.map((card) => [card.id, card])),
 	);
@@ -119,7 +108,12 @@ export function FunnelView() {
 			return;
 		}
 
-		setStage.mutate({ id: cardId, stage: target });
+		startTransition(async () => {
+			applyMove({ id: cardId, stage: target });
+			await setStage
+				.mutateAsync({ id: cardId, stage: target })
+				.catch(() => undefined);
+		});
 	};
 
 	return (
