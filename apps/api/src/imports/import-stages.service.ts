@@ -49,17 +49,40 @@ export class ImportStagesService {
 
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async settings(actingUserId: string): Promise<ImportStageSettings> {
-		const [rows, counts, role] = await Promise.all([
-			this.db.importStage.findMany({ orderBy: { position: "asc" } }),
-			this.db.shipment.groupBy({ by: ["stageKey"], _count: { _all: true } }),
+	async settings(
+		actingUserId: string,
+		processId: string,
+	): Promise<ImportStageSettings> {
+		const [owner, rows, counts, role] = await Promise.all([
+			this.db.importProcess.findUnique({
+				where: { id: processId },
+				select: { id: true, name: true, countryCode: true, archivedAt: true },
+			}),
+			this.db.importStage.findMany({
+				where: { processId },
+				orderBy: { position: "asc" },
+			}),
+			this.db.shipment.groupBy({
+				by: ["stageKey"],
+				where: { stage: { processId } },
+				_count: { _all: true },
+			}),
 			workspaceRoleOf(actingUserId),
 		]);
+		if (!owner) {
+			throw new NotFoundException("No existe un proceso con ese id.");
+		}
 		const perStage = new Map(
 			counts.map((row) => [row.stageKey, row._count._all]),
 		);
 
 		return {
+			process: {
+				id: owner.id,
+				name: owner.name,
+				countryCode: owner.countryCode,
+				archived: owner.archivedAt !== null,
+			},
 			stages: rows.map((row) => ({
 				key: row.key,
 				name: row.name,
@@ -81,13 +104,22 @@ export class ImportStagesService {
 		await this.requireManager(actingUserId);
 
 		await this.db.$transaction(async (tx) => {
-			await this.assertNameFree(tx, input.name);
-			const all = await tx.importStage.findMany({
-				select: { key: true, position: true, isEntry: true, kind: true },
+			const owner = await tx.importProcess.findUnique({
+				where: { id: input.processId },
+				select: { id: true },
+			});
+			if (!owner) {
+				throw new NotFoundException("No existe un proceso con ese id.");
+			}
+			await this.assertNameFree(tx, input.processId, input.name);
+			const taken = await tx.importStage.findMany({ select: { key: true } });
+			const siblings = await tx.importStage.findMany({
+				where: { processId: input.processId },
+				select: { position: true, isEntry: true, kind: true },
 			});
 			const key = uniqueStageKey(
 				input.name,
-				new Set(all.map((row) => row.key)),
+				new Set(taken.map((row) => row.key)),
 			);
 			if (!key) {
 				throw new BadRequestException(
@@ -97,15 +129,16 @@ export class ImportStagesService {
 			await tx.importStage.create({
 				data: {
 					key,
+					processId: input.processId,
 					name: input.name,
 					kind: ImportStageKind.IN_PROGRESS,
 					tone: input.tone ?? IMPORT_STAGE.defaultTone,
-					position: nextIntermediatePosition(all),
+					position: nextIntermediatePosition(siblings),
 				},
 			});
 		});
 
-		return this.settings(actingUserId);
+		return this.settings(actingUserId, input.processId);
 	}
 
 	async update(
@@ -114,16 +147,17 @@ export class ImportStagesService {
 	): Promise<ImportStageSettings> {
 		await this.requireManager(actingUserId);
 
-		await this.db.$transaction(async (tx) => {
+		const processId = await this.db.$transaction(async (tx) => {
 			const stage = await this.lock(tx, input.key);
-			await this.assertNameFree(tx, input.name, stage.key);
+			await this.assertNameFree(tx, stage.processId, input.name, stage.key);
 			await tx.importStage.update({
 				where: { key: stage.key },
 				data: { name: input.name, tone: input.tone },
 			});
+			return stage.processId;
 		});
 
-		return this.settings(actingUserId);
+		return this.settings(actingUserId, processId);
 	}
 
 	async reorder(
@@ -133,9 +167,11 @@ export class ImportStagesService {
 		await this.requireManager(actingUserId);
 
 		await this.db.$transaction(async (tx) => {
-			await tx.$queryRaw`SELECT 1 FROM import_stage FOR UPDATE`;
+			await tx.$queryRaw`
+				SELECT 1 FROM import_stage WHERE "processId" = ${input.processId} FOR UPDATE
+			`;
 			const active = await tx.importStage.findMany({
-				where: { archivedAt: null },
+				where: { processId: input.processId, archivedAt: null },
 			});
 			const current = active
 				.filter((row) => !isFixedImportStage(row))
@@ -155,7 +191,7 @@ export class ImportStagesService {
 			}
 		});
 
-		return this.settings(actingUserId);
+		return this.settings(actingUserId, input.processId);
 	}
 
 	async archive(
@@ -168,7 +204,7 @@ export class ImportStagesService {
 		);
 		const occurredOn = input.occurredAt ?? today;
 
-		const moved = await this.db.$transaction(async (tx) => {
+		const result = await this.db.$transaction(async (tx) => {
 			const stage = await this.lock(tx, input.key);
 			if (isFixedImportStage(stage)) {
 				throw new BadRequestException("Una etapa fija no se puede archivar.");
@@ -189,7 +225,7 @@ export class ImportStagesService {
 						`Hay ${shipments.length} envíos en esta etapa. Elige a qué etapa pasan antes de archivarla.`,
 					);
 				}
-				await this.assertTarget(tx, input.targetKey, stage.key);
+				await this.assertTarget(tx, input.targetKey, stage);
 				for (const shipment of shipments) {
 					await moveShipmentInTx(tx, {
 						shipmentId: shipment.id,
@@ -205,16 +241,16 @@ export class ImportStagesService {
 				data: { archivedAt: new Date() },
 			});
 
-			return shipments.length;
+			return { processId: stage.processId, moved: shipments.length };
 		});
 
 		this.logger.log({
 			message: "Import stage archived",
 			stage: input.key,
-			shipmentsMoved: moved,
+			shipmentsMoved: result.moved,
 		});
 
-		return this.settings(actingUserId);
+		return this.settings(actingUserId, result.processId);
 	}
 
 	async restore(
@@ -223,21 +259,26 @@ export class ImportStagesService {
 	): Promise<ImportStageSettings> {
 		await this.requireManager(actingUserId);
 
-		await this.db.$transaction(async (tx) => {
+		const processId = await this.db.$transaction(async (tx) => {
 			const stage = await this.lock(tx, key);
 			if (!stage.archivedAt) {
 				throw new ConflictException("Esa etapa no está archivada.");
 			}
-			const all = await tx.importStage.findMany({
+			const siblings = await tx.importStage.findMany({
+				where: { processId: stage.processId },
 				select: { position: true, isEntry: true, kind: true },
 			});
 			await tx.importStage.update({
 				where: { key },
-				data: { archivedAt: null, position: nextIntermediatePosition(all) },
+				data: {
+					archivedAt: null,
+					position: nextIntermediatePosition(siblings),
+				},
 			});
+			return stage.processId;
 		});
 
-		return this.settings(actingUserId);
+		return this.settings(actingUserId, processId);
 	}
 
 	private async lock(
@@ -257,9 +298,9 @@ export class ImportStagesService {
 	private async assertTarget(
 		tx: Prisma.TransactionClient,
 		targetKey: string,
-		sourceKey: string,
+		source: StageRecord,
 	): Promise<void> {
-		if (targetKey === sourceKey) {
+		if (targetKey === source.key) {
 			throw new BadRequestException("Elige otra etapa para los envíos.");
 		}
 		const target = await tx.importStage.findUnique({
@@ -267,22 +308,25 @@ export class ImportStagesService {
 		});
 		if (
 			!target ||
+			target.processId !== source.processId ||
 			target.archivedAt ||
 			target.kind !== ImportStageKind.IN_PROGRESS
 		) {
 			throw new BadRequestException(
-				"Los envíos solo pueden pasar a una etapa activa en curso.",
+				"Los envíos solo pueden pasar a una etapa activa en curso del mismo proceso.",
 			);
 		}
 	}
 
 	private async assertNameFree(
 		tx: Prisma.TransactionClient,
+		processId: string,
 		name: string,
 		exceptKey?: string,
 	): Promise<void> {
 		const existing = await tx.importStage.findFirst({
 			where: {
+				processId,
 				name: { equals: name, mode: "insensitive" },
 				key: exceptKey ? { not: exceptKey } : undefined,
 			},

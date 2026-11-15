@@ -38,6 +38,7 @@ export type CrmCache = {
 	currency(options?: Options): Promise<void>;
 	leadSources(options?: Options): Promise<void>;
 	products(options?: Options): Promise<void>;
+	importProcesses(options?: Options): Promise<void>;
 	importStages(options?: Options): Promise<void>;
 	importOrders(options?: Options): Promise<void>;
 	stages(options?: Options): Promise<void>;
@@ -304,17 +305,33 @@ export function useCrmCache(): CrmCache {
 
 		products: (options) => run([trpc.products.list.queryKey()], [], options),
 
+		importProcesses: (options) =>
+			run(
+				[trpc.importProcesses.list.queryKey()],
+				[
+					trpc.importStages.settings.queryKey(),
+					trpc.importOrders.options.queryKey(),
+				],
+				options,
+			),
+
 		importStages: (options) =>
 			run(
 				[trpc.importStages.settings.queryKey()],
-				[trpc.importOrders.byId.queryKey()],
+				[
+					trpc.importOrders.byId.queryKey(),
+					trpc.importProcesses.list.queryKey(),
+				],
 				options,
 			),
 
 		importOrders: (options) =>
 			run(
 				[trpc.importOrders.list.queryKey(), trpc.importOrders.byId.queryKey()],
-				[trpc.importStages.settings.queryKey()],
+				[
+					trpc.importStages.settings.queryKey(),
+					trpc.importProcesses.list.queryKey(),
+				],
 				options,
 			),
 

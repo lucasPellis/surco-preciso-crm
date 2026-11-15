@@ -4,7 +4,8 @@ import { isClosedImportKind } from "./import-stage";
 const DAY_MS = 86_400_000;
 
 export const IMPORT_ORDER = {
-	numberMaxLength: 40,
+	numberPrefix: "OC",
+	numberPadding: 4,
 	supplierNameMaxLength: 120,
 	notesMaxLength: 2000,
 	referenceMaxLength: 80,
@@ -13,6 +14,11 @@ export const IMPORT_ORDER = {
 	maxQuantity: 1_000_000,
 	optionsLimit: 500,
 } as const;
+
+export function formatOrderNumber(year: number, sequence: number): string {
+	const padded = String(sequence).padStart(IMPORT_ORDER.numberPadding, "0");
+	return `${IMPORT_ORDER.numberPrefix}-${year}-${padded}`;
+}
 
 export type ShippedPart = { quantity: number; kind: ImportStageKind };
 

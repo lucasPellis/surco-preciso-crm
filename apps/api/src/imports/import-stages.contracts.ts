@@ -1,4 +1,8 @@
-import { ImportStageKind, PipelineStageTone } from "@crm/db/enums";
+import {
+	ImportCountry,
+	ImportStageKind,
+	PipelineStageTone,
+} from "@crm/db/enums";
 import { IMPORT_STAGE } from "@crm/db/import-stage";
 import { z } from "zod";
 import { taskDueDayInput } from "../activities/task-due-date";
@@ -14,7 +18,12 @@ const stageName = z
 
 const stageKeyInput = z.string().trim().min(1);
 
+const processIdInput = z.string().min(1);
+
+export const importStageProcessInput = z.object({ processId: processIdInput });
+
 export const importStageCreateInput = z.object({
+	processId: processIdInput,
 	name: stageName,
 	tone: z.enum(PipelineStageTone).optional(),
 });
@@ -26,6 +35,7 @@ export const importStageUpdateInput = z.object({
 });
 
 export const importStageReorderInput = z.object({
+	processId: processIdInput,
 	keys: z.array(stageKeyInput),
 });
 
@@ -49,10 +59,17 @@ export const importStageRowOutput = z.object({
 });
 
 export const importStageSettingsOutput = z.object({
+	process: z.object({
+		id: z.string(),
+		name: z.string(),
+		countryCode: z.enum(ImportCountry).nullable(),
+		archived: z.boolean(),
+	}),
 	stages: z.array(importStageRowOutput),
 	canManage: z.boolean(),
 });
 
+export type ImportStageProcessInput = z.infer<typeof importStageProcessInput>;
 export type ImportStageCreateInput = z.infer<typeof importStageCreateInput>;
 export type ImportStageUpdateInput = z.infer<typeof importStageUpdateInput>;
 export type ImportStageReorderInput = z.infer<typeof importStageReorderInput>;

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { ImportStageKind } from "@crm/db/enums";
+import { IMPORT_STAGE } from "@crm/db/import-stage";
 import {
 	BadRequestException,
 	ConflictException,
@@ -11,6 +12,7 @@ import {
 	moveShipmentInTx,
 	type ShipmentMoveInput,
 } from "../src/imports/shipment-moves";
+import { removeTestProcesses } from "./import-process-fixture";
 
 const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
 const actorId = `sm-actor-${suffix}`;
@@ -19,14 +21,18 @@ const NOW = new Date("2026-03-01T15:00:00.000Z");
 const START_DAY = "2026-01-10";
 
 const stageKeys = {
+	entry: `SM_ENTRY_${suffix}`,
 	first: `SM_FIRST_${suffix}`,
 	second: `SM_SECOND_${suffix}`,
 	archived: `SM_ARCHIVED_${suffix}`,
+	received: `SM_RECEIVED_${suffix}`,
+	foreign: `SM_FOREIGN_${suffix}`,
 };
+const entryKey = stageKeys.entry;
+const receivedKey = stageKeys.received;
+const processIds: string[] = [];
 
 let orderId: string;
-let entryKey: string;
-let receivedKey: string;
 
 function move(input: Omit<ShipmentMoveInput, "actorId">) {
 	return db.$transaction((tx) =>
@@ -72,46 +78,69 @@ beforeAll(async () => {
 			email: `${actorId}@example.test`,
 		},
 	});
-	const [entry, received] = await Promise.all([
-		db.importStage.findFirstOrThrow({
-			where: { isEntry: true, archivedAt: null },
-			select: { key: true },
-		}),
-		db.importStage.findFirstOrThrow({
-			where: { kind: ImportStageKind.RECEIVED, archivedAt: null },
-			select: { key: true },
-		}),
-	]);
-	entryKey = entry.key;
-	receivedKey = received.key;
-	await db.importStage.createMany({
-		data: [
-			{
-				key: stageKeys.first,
-				name: `Primera ${suffix}`,
-				kind: ImportStageKind.IN_PROGRESS,
-				position: 900,
+	const own = await db.importProcess.create({
+		data: {
+			name: `Movimientos ${suffix}`,
+			stages: {
+				create: [
+					{
+						key: stageKeys.entry,
+						name: `Entrada ${suffix}`,
+						kind: ImportStageKind.IN_PROGRESS,
+						isEntry: true,
+						position: IMPORT_STAGE.entryPosition,
+					},
+					{
+						key: stageKeys.first,
+						name: `Primera ${suffix}`,
+						kind: ImportStageKind.IN_PROGRESS,
+						position: 1,
+					},
+					{
+						key: stageKeys.second,
+						name: `Segunda ${suffix}`,
+						kind: ImportStageKind.IN_PROGRESS,
+						position: 2,
+					},
+					{
+						key: stageKeys.archived,
+						name: `Archivada ${suffix}`,
+						kind: ImportStageKind.IN_PROGRESS,
+						position: 3,
+						archivedAt: new Date(),
+					},
+					{
+						key: stageKeys.received,
+						name: `Recibida ${suffix}`,
+						kind: ImportStageKind.RECEIVED,
+						position: IMPORT_STAGE.fixedEndPosition,
+					},
+				],
 			},
-			{
-				key: stageKeys.second,
-				name: `Segunda ${suffix}`,
-				kind: ImportStageKind.IN_PROGRESS,
-				position: 901,
-			},
-			{
-				key: stageKeys.archived,
-				name: `Archivada ${suffix}`,
-				kind: ImportStageKind.IN_PROGRESS,
-				position: 902,
-				archivedAt: new Date(),
-			},
-		],
+		},
+		select: { id: true },
 	});
+	const foreign = await db.importProcess.create({
+		data: {
+			name: `Movimientos ajenos ${suffix}`,
+			stages: {
+				create: {
+					key: stageKeys.foreign,
+					name: `Ajena ${suffix}`,
+					kind: ImportStageKind.IN_PROGRESS,
+					position: 1,
+				},
+			},
+		},
+		select: { id: true },
+	});
+	processIds.push(own.id, foreign.id);
 	const order = await db.purchaseOrder.create({
 		data: {
 			number: `${prefix}-1`,
 			supplierName: "Proveedor de prueba",
 			orderedAt: taskDueDay(START_DAY),
+			processId: own.id,
 		},
 		select: { id: true },
 	});
@@ -119,12 +148,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	await db.purchaseOrder.deleteMany({
-		where: { number: { startsWith: prefix } },
-	});
-	await db.importStage.deleteMany({
-		where: { key: { in: Object.values(stageKeys) } },
-	});
+	await removeTestProcesses(processIds);
 	await db.user.deleteMany({ where: { id: actorId } });
 });
 
@@ -229,6 +253,21 @@ describe("moving a shipment", () => {
 				occurredOn: "2026-02-01",
 			}),
 		).rejects.toBeInstanceOf(BadRequestException);
+	});
+
+	it("refuses a stage of another process and writes nothing", async () => {
+		const id = await shipmentIn(entryKey);
+
+		await expect(
+			move({
+				shipmentId: id,
+				targetKey: stageKeys.foreign,
+				occurredOn: "2026-02-01",
+			}),
+		).rejects.toBeInstanceOf(BadRequestException);
+
+		expect((await eventsOf(id)).length).toBe(1);
+		expect((await stageOf(id)).stageKey).toBe(entryKey);
 	});
 
 	it("refuses every move once the shipment is received", async () => {

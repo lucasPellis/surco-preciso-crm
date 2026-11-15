@@ -72,7 +72,7 @@ const SETTINGS_PAGES: { title: string; href: string }[] = [
 	{ title: "Monedas", href: "/settings/currencies" },
 	{ title: "Orígenes", href: "/settings/lead-sources" },
 	{ title: "Etapas", href: "/settings/stages" },
-	{ title: "Etapas de importación", href: "/settings/import-stages" },
+	{ title: "Procesos de importación", href: "/settings/import-processes" },
 	{ title: "Miembros", href: "/settings/members" },
 	{ title: "Claves de API", href: "/settings/api-keys" },
 	{ title: "SSO", href: "/settings/sso" },

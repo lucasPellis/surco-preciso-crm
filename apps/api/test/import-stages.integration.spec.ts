@@ -8,6 +8,7 @@ import {
 	BadRequestException,
 	ConflictException,
 	ForbiddenException,
+	NotFoundException,
 } from "@nestjs/common";
 import {
 	serializeTaskDueDay,
@@ -26,6 +27,11 @@ import {
 } from "../src/imports/import-stages.contracts";
 import { ImportStagesService } from "../src/imports/import-stages.service";
 import { expectOutput } from "./expect-output";
+import {
+	createTestProcess,
+	removeTestProcesses,
+	type TestProcess,
+} from "./import-process-fixture";
 
 const suffix = crypto.randomUUID().slice(0, 8);
 const token = suffix.toUpperCase();
@@ -43,7 +49,9 @@ const contract =
 	async (...args: Args) =>
 		expectOutput(importStageSettingsOutput, await call(...args));
 const stages = {
-	settings: contract((userId: string) => service.settings(userId)),
+	settings: contract((userId: string) =>
+		service.settings(userId, mainProcess.id),
+	),
 	create: contract((userId: string, input: ImportStageCreateInput) =>
 		service.create(userId, input),
 	),
@@ -62,16 +70,19 @@ const stages = {
 };
 
 let orderId: string;
-const createdKeys: string[] = [];
+let mainProcess: TestProcess;
+let otherProcess: TestProcess;
 
-async function make(name: string) {
+async function make(name: string, processId?: string) {
 	const result = await stages.create(
 		adminId,
-		importStageCreateInput.parse({ name: label(name) }),
+		importStageCreateInput.parse({
+			processId: processId ?? mainProcess.id,
+			name: label(name),
+		}),
 	);
 	const found = result.stages.find((stage) => stage.name === label(name));
 	if (!found) throw new Error(`No stage called ${name}.`);
-	createdKeys.push(found.key);
 	return found;
 }
 
@@ -169,11 +180,14 @@ beforeAll(async () => {
 			},
 		],
 	});
+	mainProcess = await createTestProcess(`Etapas ${suffix}`);
+	otherProcess = await createTestProcess(`Etapas ajenas ${suffix}`);
 	const order = await db.purchaseOrder.create({
 		data: {
 			number: `${prefix}-1`,
 			supplierName: "Proveedor de prueba",
 			orderedAt: taskDueDay(START_DAY),
+			processId: mainProcess.id,
 		},
 		select: { id: true },
 	});
@@ -181,10 +195,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	await db.purchaseOrder.deleteMany({
-		where: { number: { startsWith: prefix } },
-	});
-	await db.importStage.deleteMany({ where: { key: { in: createdKeys } } });
+	await removeTestProcesses([mainProcess.id, otherProcess.id]);
 	await db.member.deleteMany({
 		where: { userId: { in: [adminId, memberId] } },
 	});
@@ -210,12 +221,14 @@ describe("creating an import stage", () => {
 
 		const result = await stages.create(
 			adminId,
-			importStageCreateInput.parse({ name: `Mi-etapa ${suffix}` }),
+			importStageCreateInput.parse({
+				processId: mainProcess.id,
+				name: `Mi-etapa ${suffix}`,
+			}),
 		);
 		const second = result.stages.find(
 			(stage) => stage.name === `Mi-etapa ${suffix}`,
 		);
-		if (second) createdKeys.push(second.key);
 
 		expect(second?.key).toBe(`${first.key}_2`);
 	});
@@ -227,6 +240,7 @@ describe("creating an import stage", () => {
 			stages.create(
 				adminId,
 				importStageCreateInput.parse({
+					processId: mainProcess.id,
 					name: label("REPETIDA").toLowerCase(),
 				}),
 			),
@@ -235,22 +249,36 @@ describe("creating an import stage", () => {
 
 	it("refuses a name with no letters or digits", async () => {
 		await expect(
-			stages.create(adminId, importStageCreateInput.parse({ name: "!!!" })),
+			stages.create(
+				adminId,
+				importStageCreateInput.parse({
+					processId: mainProcess.id,
+					name: "!!!",
+				}),
+			),
 		).rejects.toBeInstanceOf(BadRequestException);
 	});
 
 	it("validates the name and the tone at the boundary", () => {
-		expect(importStageCreateInput.safeParse({ name: "  " }).success).toBe(
-			false,
-		);
+		expect(
+			importStageCreateInput.safeParse({ processId: "p", name: "  " }).success,
+		).toBe(false);
 		expect(
 			importStageCreateInput.safeParse({
+				processId: "p",
 				name: "x".repeat(IMPORT_STAGE.nameMaxLength + 1),
 			}).success,
 		).toBe(false);
 		expect(
-			importStageCreateInput.safeParse({ name: "Ok", tone: "PINK" }).success,
+			importStageCreateInput.safeParse({
+				processId: "p",
+				name: "Ok",
+				tone: "PINK",
+			}).success,
 		).toBe(false);
+		expect(importStageCreateInput.safeParse({ name: "Ok" }).success).toBe(
+			false,
+		);
 	});
 });
 
@@ -307,14 +335,23 @@ describe("reordering import stages", () => {
 		const reversed = [...before].reverse();
 
 		try {
-			await stages.reorder(adminId, { keys: reversed });
+			await stages.reorder(adminId, {
+				processId: mainProcess.id,
+				keys: reversed,
+			});
 			expect(await activeIntermediateKeys()).toEqual(reversed);
 		} finally {
-			await stages.reorder(adminId, { keys: before });
+			await stages.reorder(adminId, {
+				processId: mainProcess.id,
+				keys: before,
+			});
 		}
 
 		await expect(
-			stages.reorder(adminId, { keys: before.slice(1) }),
+			stages.reorder(adminId, {
+				processId: mainProcess.id,
+				keys: before.slice(1),
+			}),
 		).rejects.toBeInstanceOf(ConflictException);
 	});
 });
@@ -541,6 +578,49 @@ describe("restoring an import stage", () => {
 	});
 });
 
+describe("stages of one process", () => {
+	it("lists only the stages of the process", async () => {
+		const mine = await make("Solo aquí");
+		const theirs = await make("Solo allá", otherProcess.id);
+
+		const { process: owner, stages: list } = await stages.settings(adminId);
+
+		expect(owner).toEqual({
+			id: mainProcess.id,
+			name: mainProcess.name,
+			countryCode: null,
+			archived: false,
+		});
+		const keys = list.map((stage) => stage.key);
+		expect(keys).toContain(mine.key);
+		expect(keys).not.toContain(theirs.key);
+	});
+
+	it("accepts a name that another process uses", async () => {
+		const mine = await make("Compartida");
+		const theirs = await make("Compartida", otherProcess.id);
+
+		expect(theirs.key).not.toBe(mine.key);
+	});
+
+	it("refuses an archive target of another process", async () => {
+		const source = await make("Origen propio");
+		await shipmentIn(source.key);
+		const foreign = await make("Destino ajeno", otherProcess.id);
+
+		await expect(
+			stages.archive(adminId, { key: source.key, targetKey: foreign.key }),
+		).rejects.toBeInstanceOf(BadRequestException);
+		expect((await row(source.key)).archived).toBe(false);
+	});
+
+	it("reports a missing process as not found", async () => {
+		await expect(
+			service.settings(adminId, `no-such-process-${suffix}`),
+		).rejects.toBeInstanceOf(NotFoundException);
+	});
+});
+
 describe("permissions", () => {
 	it("lets a member read and refuses every write", async () => {
 		const settings = await stages.settings(memberId);
@@ -549,9 +629,13 @@ describe("permissions", () => {
 
 		const target = await make("Solo admin");
 		const writes = [
-			() => service.create(memberId, { name: label("Prohibida") }),
+			() =>
+				service.create(memberId, {
+					processId: mainProcess.id,
+					name: label("Prohibida"),
+				}),
 			() => service.update(memberId, { key: target.key, name: target.name }),
-			() => service.reorder(memberId, { keys: [] }),
+			() => service.reorder(memberId, { processId: mainProcess.id, keys: [] }),
 			() => service.archive(memberId, { key: target.key }),
 			() => service.restore(memberId, target.key),
 		];

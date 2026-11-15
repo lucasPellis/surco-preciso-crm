@@ -3,6 +3,7 @@ import { ImportStageKind } from "../src/generated/prisma/enums";
 import {
 	countsTowardOrdered,
 	daysBetween,
+	formatOrderNumber,
 	IMPORT_ORDER,
 	isoDay,
 	lineProgress,
@@ -116,8 +117,21 @@ describe("lead times", () => {
 
 describe("IMPORT_ORDER", () => {
 	it("keeps every limit positive", () => {
-		for (const value of Object.values(IMPORT_ORDER)) {
+		const { numberPrefix: _prefix, ...limits } = IMPORT_ORDER;
+		for (const value of Object.values(limits)) {
 			expect(value).toBeGreaterThan(0);
 		}
+	});
+});
+
+describe("formatOrderNumber", () => {
+	it("pads the sequence to four digits", () => {
+		expect(formatOrderNumber(2026, 1)).toBe("OC-2026-0001");
+		expect(formatOrderNumber(2026, 42)).toBe("OC-2026-0042");
+	});
+
+	it("grows past four digits", () => {
+		expect(formatOrderNumber(2027, 9999)).toBe("OC-2027-9999");
+		expect(formatOrderNumber(2027, 10000)).toBe("OC-2027-10000");
 	});
 });

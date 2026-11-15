@@ -14,11 +14,13 @@ import {
 	type ImportStageArchiveInput,
 	type ImportStageCreateInput,
 	type ImportStageKeyInput,
+	type ImportStageProcessInput,
 	type ImportStageReorderInput,
 	type ImportStageUpdateInput,
 	importStageArchiveInput,
 	importStageCreateInput,
 	importStageKeyInput,
+	importStageProcessInput,
 	importStageReorderInput,
 	importStageSettingsOutput,
 	importStageUpdateInput,
@@ -35,11 +37,15 @@ export class ImportStagesRouter {
 	) {}
 
 	@Query({
+		input: importStageProcessInput,
 		output: importStageSettingsOutput,
 		meta: restMeta("GET", "/import-stages", TAGS),
 	})
-	async settings(@Ctx() ctx: AuthedTrpcContext) {
-		return this.stages.settings(ctx.user.id);
+	async settings(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: ImportStageProcessInput,
+	) {
+		return this.stages.settings(ctx.user.id, input.processId);
 	}
 
 	@Mutation({

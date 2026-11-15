@@ -38,6 +38,7 @@ import { SortableItem, SortableList } from "@crm/ui/components/sortable-list";
 import { Spinner } from "@crm/ui/components/spinner";
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import {
 	type ReactNode,
 	startTransition,
@@ -56,6 +57,7 @@ import {
 } from "@/lib/import-stage-settings";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 const ROW = "flex items-center gap-2.5 border-b px-5 py-2.5 last:border-b-0";
 
@@ -318,14 +320,15 @@ function Row({ children }: { children: ReactNode }) {
 	return <div className={ROW}>{children}</div>;
 }
 
-export function ImportStagesSettings() {
+export function ImportStagesSettings({ processId }: { processId: string }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const url = useWorkspaceUrl();
 
 	const [editing, setEditing] = useState<ImportStageRow | "new" | null>(null);
 	const [archiving, setArchiving] = useState<ImportStageRow | null>(null);
 
-	const list = useQuery(trpc.importStages.settings.queryOptions());
+	const list = useQuery(trpc.importStages.settings.queryOptions({ processId }));
 	const [rows, applyKeys] = useOptimistic(
 		list.data?.stages,
 		(current, keys: string[]) =>
@@ -411,7 +414,7 @@ export function ImportStagesSettings() {
 	const onReorder = (keys: string[]) => {
 		startTransition(async () => {
 			applyKeys(keys);
-			await reorder.mutateAsync({ keys }).catch(() => undefined);
+			await reorder.mutateAsync({ processId, keys }).catch(() => undefined);
 		});
 	};
 
@@ -436,8 +439,13 @@ export function ImportStagesSettings() {
 
 	return (
 		<SettingsColumn>
+			<Button asChild variant="link" size="inline" className="self-start">
+				<Link href={url("/settings/import-processes")}>
+					Volver a los procesos
+				</Link>
+			</Button>
 			<SettingsCard
-				title="Etapas de importación"
+				title={list.data.process.name}
 				description="Arrastra las etapas intermedias para cambiar el orden. Pedido va siempre primero, y Recibido y Cancelado siempre al final."
 				hint={
 					canManage
@@ -534,7 +542,7 @@ export function ImportStagesSettings() {
 					onClose={() => setEditing(null)}
 					onSubmit={(values) =>
 						editing === "new"
-							? create.mutate(values)
+							? create.mutate({ processId, ...values })
 							: update.mutate({ key: editing.key, ...values })
 					}
 				/>

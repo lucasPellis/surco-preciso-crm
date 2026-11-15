@@ -12,46 +12,46 @@ import { Suspense } from "react";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
-import { ImportStagesSettings } from "./import-stages-settings";
+import { ImportProcessesSettings } from "./import-processes-settings";
 
 export const metadata: Metadata = {
-	title: "Etapas de importación",
+	title: "Procesos de importación",
 };
 
-export default function ImportStagesSettingsPage() {
+export default function ImportProcessesSettingsPage() {
 	return (
 		<PageShell width="narrow">
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Etapas de importación</PageShellTitle>
+					<PageShellTitle>Procesos de importación</PageShellTitle>
 					<PageShellDescription>
-						Las etapas por las que pasa un envío. Cambia nombres, orden y color,
-						o agrega etapas intermedias. Pedido, Recibido y Cancelado son fijas
-						y solo se renombran.
+						Un proceso es la lista de etapas que sigue un envío, por ejemplo
+						según el país de destino o el transporte. Cada orden elige su
+						proceso.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
 
 			<PageShellContent>
 				<Suspense fallback={<PageShellLoading shape="settings" />}>
-					<Stages />
+					<Processes />
 				</Suspense>
 			</PageShellContent>
 		</PageShell>
 	);
 }
 
-async function Stages() {
+async function Processes() {
 	await requireSession();
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
 
-	await queryClient.prefetchQuery(trpc.importStages.settings.queryOptions());
+	await queryClient.prefetchQuery(trpc.importProcesses.list.queryOptions());
 
 	return (
 		<HydrateClient>
-			<ImportStagesSettings />
+			<ImportProcessesSettings />
 		</HydrateClient>
 	);
 }

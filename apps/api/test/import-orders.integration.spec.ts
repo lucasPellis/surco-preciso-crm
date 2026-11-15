@@ -25,6 +25,11 @@ import {
 } from "../src/import-orders/import-orders.contracts";
 import { ImportOrdersService } from "../src/import-orders/import-orders.service";
 import { expectOutput } from "./expect-output";
+import {
+	createTestProcess,
+	removeTestProcesses,
+	type TestProcess,
+} from "./import-process-fixture";
 
 const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
 const adminId = `io-admin-${suffix}`;
@@ -60,6 +65,9 @@ const orders = {
 		detailOf(await service.moveShipment(userId, input, NOW)),
 };
 
+let mainProcess: TestProcess;
+let otherProcess: TestProcess;
+let closedProcess: TestProcess;
 let entryKey: string;
 let receivedKey: string;
 let cancelledKey: string;
@@ -71,7 +79,6 @@ let archivedProductId: string;
 let companyId: string;
 let openDealId: string;
 let wonDealId: string;
-let nextNumber = 0;
 
 type DraftLine = { productId?: string; quantity: number; dealId?: string };
 
@@ -79,12 +86,11 @@ function orderInput(
 	lines: DraftLine[],
 	overrides: Partial<ImportOrderCreateInput> = {},
 ): ImportOrderCreateInput {
-	nextNumber += 1;
 	return {
-		number: `${prefix}-${String(nextNumber).padStart(3, "0")}`,
 		supplierName: "Proveedor de prueba",
 		orderedAt: ORDER_DAY,
 		notes: "",
+		processId: mainProcess.id,
 		lines: lines.map((line) => ({
 			productId: line.productId ?? productId,
 			quantity: line.quantity,
@@ -93,6 +99,10 @@ function orderInput(
 		})),
 		...overrides,
 	};
+}
+
+function sequenceOf(number: string): number {
+	return Number(number.split("-")[2]);
 }
 
 function orderWith(quantity: number) {
@@ -142,7 +152,25 @@ function headerOf(order: ImportOrderDetail) {
 		supplierName: order.supplierName,
 		orderedAt: order.orderedAt,
 		notes: "",
+		processId: order.process.id,
 	};
+}
+
+function sameLines(order: ImportOrderDetail) {
+	return order.lines.map((line) => ({
+		id: line.id,
+		productId: line.productId,
+		quantity: line.quantity,
+		unitCostCents: line.unitCostCents,
+		dealId: line.dealId,
+	}));
+}
+
+async function setArchived(id: string, archived: boolean) {
+	await db.importProcess.update({
+		where: { id },
+		data: { archivedAt: archived ? new Date() : null },
+	});
 }
 
 beforeAll(async () => {
@@ -188,19 +216,13 @@ beforeAll(async () => {
 			},
 		],
 	});
-	const [entry, received, cancelled, openStage, wonStage] = await Promise.all([
-		db.importStage.findFirstOrThrow({
-			where: { isEntry: true, archivedAt: null },
-			select: { key: true },
-		}),
-		db.importStage.findFirstOrThrow({
-			where: { kind: ImportStageKind.RECEIVED, archivedAt: null },
-			select: { key: true },
-		}),
-		db.importStage.findFirstOrThrow({
-			where: { kind: ImportStageKind.CANCELLED, archivedAt: null },
-			select: { key: true },
-		}),
+	mainProcess = await createTestProcess(`Pedidos ${suffix}`);
+	otherProcess = await createTestProcess(`Pedidos ajenos ${suffix}`);
+	closedProcess = await createTestProcess(`Pedidos cerrados ${suffix}`);
+	entryKey = mainProcess.entryKey;
+	receivedKey = mainProcess.receivedKey;
+	cancelledKey = mainProcess.cancelledKey;
+	const [openStage, wonStage] = await Promise.all([
 		db.pipelineStage.findFirstOrThrow({
 			where: { kind: PipelineStageKind.OPEN, archivedAt: null },
 			select: { key: true },
@@ -210,9 +232,6 @@ beforeAll(async () => {
 			select: { key: true },
 		}),
 	]);
-	entryKey = entry.key;
-	receivedKey = received.key;
-	cancelledKey = cancelled.key;
 	openStageKey = openStage.key;
 	wonStageKey = wonStage.key;
 
@@ -249,12 +268,18 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+	const processIds = [mainProcess.id, otherProcess.id, closedProcess.id];
 	await db.shipment.deleteMany({
-		where: { order: { number: { startsWith: prefix } } },
+		where: { order: { processId: { in: processIds } } },
 	});
 	await db.purchaseOrder.deleteMany({
-		where: { number: { startsWith: prefix } },
+		where: { processId: { in: processIds } },
 	});
+	await removeTestProcesses([
+		mainProcess.id,
+		otherProcess.id,
+		closedProcess.id,
+	]);
 	await db.product.deleteMany({ where: { sku: { startsWith: prefix } } });
 	await db.company.deleteMany({ where: { id: companyId } });
 	await db.member.deleteMany({
@@ -294,15 +319,48 @@ describe("creating an order", () => {
 		});
 	});
 
-	it("refuses a number that exists", async () => {
-		const order = await orderWith(1);
+	it("generates the number from the year of the creation day", async () => {
+		const order = await orders.create(adminId, orderInput([{ quantity: 1 }]));
 
-		await expect(
-			orders.create(
-				adminId,
-				orderInput([{ quantity: 1 }], { number: order.number }),
-			),
-		).rejects.toBeInstanceOf(ConflictException);
+		expect(order.number).toMatch(/^OC-2026-\d{4,}$/);
+	});
+
+	it("numbers consecutive orders one after the other", async () => {
+		const first = await orderWith(1);
+		const second = await orderWith(1);
+
+		expect(sequenceOf(second.number)).toBe(sequenceOf(first.number) + 1);
+	});
+
+	it("restarts the sequence for another year", async () => {
+		const first = await service.create(
+			adminId,
+			orderInput([{ quantity: 1 }]),
+			new Date("2031-03-01T15:00:00.000Z"),
+		);
+		const second = await service.create(
+			adminId,
+			orderInput([{ quantity: 1 }]),
+			new Date("2031-03-01T15:00:00.000Z"),
+		);
+
+		expect(first.number).toBe("OC-2031-0001");
+		expect(second.number).toBe("OC-2031-0002");
+	});
+
+	it("gives two concurrent creates different numbers", async () => {
+		const [first, second] = await Promise.all([orderWith(1), orderWith(1)]);
+
+		expect(first.number).not.toBe(second.number);
+	});
+
+	it("does not take the number from the input", () => {
+		const parsed = importOrderCreateInput.parse({
+			...orderInput([{ quantity: 1 }]),
+			number: "X-1",
+		});
+
+		expect("number" in parsed).toBe(false);
 	});
 
 	it("refuses an order day after today", async () => {
@@ -334,9 +392,6 @@ describe("creating an order", () => {
 		expect(importOrderCreateInput.safeParse(valid).success).toBe(true);
 		expect(
 			importOrderCreateInput.safeParse({ ...valid, lines: [] }).success,
-		).toBe(false);
-		expect(
-			importOrderCreateInput.safeParse({ ...valid, number: "  " }).success,
 		).toBe(false);
 		expect(
 			importOrderCreateInput.safeParse({ ...valid, orderedAt: "2026-13-01" })
@@ -849,7 +904,131 @@ describe("shipment details", () => {
 	});
 });
 
+describe("the process of an order", () => {
+	it("shows the process and only its active stages", async () => {
+		const order = await orderWith(1);
+		const own = await db.importStage.findMany({
+			where: { processId: mainProcess.id, archivedAt: null },
+			orderBy: { position: "asc" },
+			select: { key: true },
+		});
+
+		expect(order.process).toEqual({
+			id: mainProcess.id,
+			name: mainProcess.name,
+			archived: false,
+		});
+		expect(order.stages.map((stage) => stage.key)).toEqual(
+			own.map((stage) => stage.key),
+		);
+	});
+
+	it("starts a shipment in the entry stage of the order's process", async () => {
+		const order = await orders.create(
+			adminId,
+			orderInput([{ quantity: 2 }], { processId: otherProcess.id }),
+		);
+
+		const shipment = lastShipment(await ship(order, 1));
+
+		expect(shipment.stage.key).toBe(otherProcess.entryKey);
+	});
+
+	it("changes the process until the first shipment", async () => {
+		const order = await orderWith(2);
+
+		const moved = await orders.update(adminId, {
+			...headerOf(order),
+			processId: otherProcess.id,
+			lines: sameLines(order),
+		});
+		expect(moved.process.id).toBe(otherProcess.id);
+		await ship(moved, 1);
+
+		await expect(
+			orders.update(adminId, {
+				...headerOf(moved),
+				processId: mainProcess.id,
+				lines: sameLines(moved),
+			}),
+		).rejects.toBeInstanceOf(ConflictException);
+		expect((await orders.detail(adminId, order.id)).process.id).toBe(
+			otherProcess.id,
+		);
+	});
+
+	it("refuses a move to a stage of another process", async () => {
+		const order = await orderWith(1);
+		const shipment = lastShipment(await ship(order, 1));
+
+		await expect(
+			orders.moveShipment(adminId, {
+				shipmentId: shipment.id,
+				targetKey: otherProcess.receivedKey,
+			}),
+		).rejects.toBeInstanceOf(BadRequestException);
+	});
+
+	it("refuses an archived process for a new order and a new shipment", async () => {
+		const order = await orders.create(
+			adminId,
+			orderInput([{ quantity: 2 }], { processId: closedProcess.id }),
+		);
+		await setArchived(closedProcess.id, true);
+		try {
+			await expect(
+				orders.create(
+					adminId,
+					orderInput([{ quantity: 1 }], { processId: closedProcess.id }),
+				),
+			).rejects.toBeInstanceOf(ConflictException);
+			await expect(ship(order, 1)).rejects.toBeInstanceOf(ConflictException);
+			const kept = await orders.update(adminId, {
+				...headerOf(order),
+				notes: "Sigue en su proceso",
+				lines: sameLines(order),
+			});
+			expect(kept.process).toEqual({
+				id: closedProcess.id,
+				name: closedProcess.name,
+				archived: true,
+			});
+		} finally {
+			await setArchived(closedProcess.id, false);
+		}
+	});
+
+	it("refuses a process that does not exist", async () => {
+		await expect(
+			orders.create(
+				adminId,
+				orderInput([{ quantity: 1 }], {
+					processId: `no-such-process-${suffix}`,
+				}),
+			),
+		).rejects.toBeInstanceOf(BadRequestException);
+	});
+});
+
 describe("picker options", () => {
+	it("offers active processes only", async () => {
+		await setArchived(closedProcess.id, true);
+		try {
+			const options = await orders.options();
+
+			expect(options.processes).toContainEqual({
+				id: mainProcess.id,
+				name: mainProcess.name,
+				countryCode: null,
+			});
+			expect(options.processes.map((item) => item.id)).not.toContain(
+				closedProcess.id,
+			);
+		} finally {
+			await setArchived(closedProcess.id, false);
+		}
+	});
+
 	it("offers active products and open deals only", async () => {
 		const options = await orders.options();
 

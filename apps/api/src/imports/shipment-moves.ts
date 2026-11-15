@@ -34,12 +34,13 @@ export async function moveShipmentInTx(
 	now: Date = new Date(),
 ): Promise<ShipmentMoved> {
 	const [shipment] = await tx.$queryRaw<
-		Array<{ id: string; stageKey: string }>
+		Array<{ id: string; stageKey: string; processId: string }>
 	>`
-		SELECT id, "stageKey"
-		FROM shipment
-		WHERE id = ${input.shipmentId}
-		FOR UPDATE
+		SELECT s.id, s."stageKey", o."processId"
+		FROM shipment s
+		JOIN purchase_order o ON o.id = s."orderId"
+		WHERE s.id = ${input.shipmentId}
+		FOR UPDATE OF s
 	`;
 	if (!shipment) {
 		throw new NotFoundException("No existe un envío con ese id.");
@@ -57,7 +58,7 @@ export async function moveShipmentInTx(
 	});
 	const to = await tx.importStage.findUnique({
 		where: { key: input.targetKey },
-		select: { key: true, kind: true, archivedAt: true },
+		select: { key: true, kind: true, archivedAt: true, processId: true },
 	});
 	const last = await tx.shipmentStageEvent.findFirst({
 		where: { shipmentId: shipment.id },
@@ -72,6 +73,9 @@ export async function moveShipmentInTx(
 	}
 	if (!to || to.archivedAt) {
 		throw new BadRequestException("Esa etapa no está disponible.");
+	}
+	if (to.processId !== shipment.processId) {
+		throw new BadRequestException("Esa etapa es de otro proceso.");
 	}
 
 	const occurredAt = taskDueDay(input.occurredOn);

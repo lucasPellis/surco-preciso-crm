@@ -135,6 +135,7 @@ function OrderBody({ order }: { order: ImportOrderDetail }) {
 			<div className="flex flex-col gap-3">
 				<MetaRow>
 					<span>{order.supplierName}</span>
+					<span>{order.process.name}</span>
 					<span>{formatDay(order.orderedAt)}</span>
 					{archived ? <span>Archivada</span> : null}
 				</MetaRow>

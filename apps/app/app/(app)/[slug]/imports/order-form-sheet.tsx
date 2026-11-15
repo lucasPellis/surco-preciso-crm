@@ -42,10 +42,13 @@ import {
 	costFromCents,
 	dealChoices,
 	dealLabel,
+	defaultProcessId,
 	draftFromLine,
 	type ImportOrderDetail,
 	type LineDraft,
 	NO_DEAL,
+	processChoices,
+	processLabel,
 	productChoices,
 	productLabel,
 	readLineDrafts,
@@ -76,33 +79,40 @@ export function OrderFormSheet({
 	});
 
 	const [today] = useState(() => utcDay());
-	const [number, setNumber] = useState(order?.number ?? "");
 	const [supplierName, setSupplierName] = useState(order?.supplierName ?? "");
 	const [orderedAt, setOrderedAt] = useState(order?.orderedAt ?? today);
 	const [notes, setNotes] = useState(order?.notes ?? "");
+	const [processId, setProcessId] = useState(order?.process.id ?? "");
 	const [lines, setLines] = useState<LineDraft[]>(() =>
 		order ? order.lines.map(draftFromLine) : [blankDraft(crypto.randomUUID())],
 	);
 	const [linesError, setLinesError] = useState<string | null>(null);
 
 	const snapshot = JSON.stringify({
-		number,
 		supplierName,
 		orderedAt,
 		notes,
+		processId,
 		lines,
 	});
 	const [initial] = useState(snapshot);
 
-	const numberId = useId();
 	const supplierId = useId();
 	const dateId = useId();
 	const notesId = useId();
+	const processFieldId = useId();
 
 	const editing = order !== null;
 	const savedLines = order?.lines ?? [];
 	const products = productChoices(options.data?.products ?? [], savedLines);
 	const deals = dealChoices(options.data?.deals ?? [], savedLines);
+	const processes = processChoices(
+		options.data?.processes ?? [],
+		order?.process ?? null,
+	);
+	const chosenProcessId =
+		processId === "" ? defaultProcessId(processes) : processId;
+	const processLocked = (order?.shipments.length ?? 0) > 0;
 
 	const onSuccess = async (saved: ImportOrderDetail) => {
 		await cache.importOrders();
@@ -178,20 +188,20 @@ export function OrderFormSheet({
 					onSubmit={(event) => {
 						event.preventDefault();
 						const errors: Record<string, string> = {};
-						if (number.trim() === "")
-							errors[numberId] = "Escribe el número de la orden.";
 						if (supplierName.trim() === "")
 							errors[supplierId] = "Escribe el proveedor.";
 						if (orderedAt === "") errors[dateId] = "Elige una fecha.";
+						if (chosenProcessId === "")
+							errors[processFieldId] = "Elige un proceso.";
 						const parsed = readLineDrafts(lines);
 						setLinesError(parsed.ok ? null : parsed.error);
 						if (!validation.validate(event.currentTarget, errors) || !parsed.ok)
 							return;
 						const values = {
-							number,
 							supplierName,
 							orderedAt,
 							notes,
+							processId: chosenProcessId,
 							lines: parsed.value,
 						};
 						if (order) update.mutate({ id: order.id, ...values });
@@ -199,25 +209,6 @@ export function OrderFormSheet({
 					}}
 				>
 					<FieldGroup>
-						<Field data-invalid={!!validation.errors[numberId]}>
-							<FieldLabel htmlFor={numberId}>Número de orden</FieldLabel>
-							<Input
-								id={numberId}
-								aria-invalid={!!validation.errors[numberId]}
-								aria-describedby={
-									validation.errors[numberId] ? `${numberId}-error` : undefined
-								}
-								value={number}
-								onChange={(event) => setNumber(event.target.value)}
-								maxLength={IMPORT_ORDER.numberMaxLength}
-								placeholder="OC-2026-001"
-								autoComplete="off"
-							/>
-							<FieldError id={`${numberId}-error`}>
-								{validation.errors[numberId]}
-							</FieldError>
-						</Field>
-
 						<Field data-invalid={!!validation.errors[supplierId]}>
 							<FieldLabel htmlFor={supplierId}>Proveedor</FieldLabel>
 							<Input
@@ -235,6 +226,43 @@ export function OrderFormSheet({
 							/>
 							<FieldError id={`${supplierId}-error`}>
 								{validation.errors[supplierId]}
+							</FieldError>
+						</Field>
+
+						<Field data-invalid={!!validation.errors[processFieldId]}>
+							<FieldLabel htmlFor={processFieldId}>Proceso</FieldLabel>
+							<Select
+								value={chosenProcessId}
+								disabled={processLocked}
+								onValueChange={setProcessId}
+							>
+								<SelectTrigger
+									id={processFieldId}
+									className="w-full"
+									aria-invalid={!!validation.errors[processFieldId]}
+									aria-describedby={
+										validation.errors[processFieldId]
+											? `${processFieldId}-error`
+											: undefined
+									}
+								>
+									<SelectValue placeholder="Elige un proceso" />
+								</SelectTrigger>
+								<SelectContent>
+									{processes.map((item) => (
+										<SelectItem key={item.id} value={item.id}>
+											{processLabel(item)}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							{processLocked ? (
+								<FieldDescription>
+									La orden ya tiene envíos. El proceso no cambia.
+								</FieldDescription>
+							) : null}
+							<FieldError id={`${processFieldId}-error`}>
+								{validation.errors[processFieldId]}
 							</FieldError>
 						</Field>
 

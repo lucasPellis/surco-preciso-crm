@@ -5,12 +5,16 @@ import {
 	daysLabel,
 	dealChoices,
 	dealLabel,
+	defaultProcessId,
 	draftFromLine,
 	formatDay,
 	type ImportOrderLine,
 	type ImportStageOption,
 	moveTargets,
 	NO_DEAL,
+	type ProcessOption,
+	processChoices,
+	processLabel,
 	productChoices,
 	productLabel,
 	readLineDrafts,
@@ -195,5 +199,43 @@ describe("choices", () => {
 			"SKU-a, Equipo a",
 		]);
 		expect(deals.map(dealLabel)).toEqual(["Nueva, Acme", "Vieja"]);
+	});
+});
+
+describe("processes", () => {
+	const courier: ProcessOption = {
+		id: "p-1",
+		name: "Courier",
+		countryCode: "AR",
+	};
+	const sea: ProcessOption = { id: "p-2", name: "Marítimo", countryCode: null };
+
+	it("keeps the archived process of a saved order among the choices", () => {
+		expect(
+			processChoices([courier], {
+				id: "p-old",
+				name: "Viejo",
+				archived: true,
+			}).map((item) => item.id),
+		).toEqual(["p-1", "p-old"]);
+		expect(
+			processChoices([courier], {
+				id: "p-1",
+				name: "Courier",
+				archived: false,
+			}),
+		).toEqual([courier]);
+		expect(processChoices([courier], null)).toEqual([courier]);
+	});
+
+	it("chooses the only process and nothing when there are several", () => {
+		expect(defaultProcessId([courier])).toBe("p-1");
+		expect(defaultProcessId([courier, sea])).toBe("");
+		expect(defaultProcessId([])).toBe("");
+	});
+
+	it("labels a process with its country", () => {
+		expect(processLabel(courier)).toBe("Courier, Argentina");
+		expect(processLabel(sea)).toBe("Marítimo");
 	});
 });

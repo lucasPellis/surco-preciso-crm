@@ -586,6 +586,27 @@ enum ImportStageKind {
   CANCELLED
 }
 
+enum ImportCountry {
+  AR
+  PY
+  BR
+}
+
+model ImportProcess {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  countryCode ImportCountry?
+  archivedAt  DateTime?
+
+  stages    ImportStage[]
+  orders    PurchaseOrder[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([archivedAt])
+  @@map("import_process")
+}
+
 model ImportStage {
   id         String            @id @default(cuid())
   key        String            @unique
@@ -595,14 +616,17 @@ model ImportStage {
   position   Int               @default(0)
   isEntry    Boolean           @default(false)
   archivedAt DateTime?
+  processId  String
+  process    ImportProcess     @relation(fields: [processId], references: [id])
 
   shipments Shipment[]
   events    ShipmentStageEvent[]
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
 
-  @@unique([isEntry], map: "import_stage_entry_key", where: { isEntry: true, archivedAt: null })
+  @@unique([processId, isEntry], map: "import_stage_entry_key", where: { isEntry: true, archivedAt: null })
   @@index([archivedAt])
+  @@index([processId, position])
   @@map("import_stage")
 }
 
@@ -613,6 +637,8 @@ model PurchaseOrder {
   orderedAt    DateTime
   notes        String?
   archivedAt   DateTime?
+  processId    String
+  process      ImportProcess @relation(fields: [processId], references: [id])
 
   lines     PurchaseOrderLine[]
   shipments Shipment[]
@@ -620,6 +646,7 @@ model PurchaseOrder {
   updatedAt DateTime            @updatedAt
 
   @@index([archivedAt])
+  @@index([processId])
   @@map("purchase_order")
 }
 

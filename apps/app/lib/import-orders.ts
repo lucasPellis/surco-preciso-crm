@@ -12,6 +12,7 @@ type ImportOrderOptions = RouterOutputs["importOrders"]["options"];
 
 export type ProductOption = ImportOrderOptions["products"][number];
 export type DealOption = ImportOrderOptions["deals"][number];
+export type ProcessOption = ImportOrderOptions["processes"][number];
 
 export const NO_DEAL = "none";
 
@@ -200,6 +201,27 @@ export function dealChoices(
 		});
 	}
 	return [...deals, ...missing.values()];
+}
+
+export function processChoices(
+	processes: readonly ProcessOption[],
+	saved: ImportOrderDetail["process"] | null,
+): ProcessOption[] {
+	if (saved === null || processes.some((item) => item.id === saved.id)) {
+		return [...processes];
+	}
+	return [...processes, { id: saved.id, name: saved.name, countryCode: null }];
+}
+
+export function defaultProcessId(processes: readonly ProcessOption[]): string {
+	const [only, ...rest] = processes;
+	return only !== undefined && rest.length === 0 ? only.id : "";
+}
+
+export function processLabel(option: ProcessOption): string {
+	return option.countryCode === null
+		? option.name
+		: `${option.name}, ${IMPORTS_UI.countryLabels[option.countryCode]}`;
 }
 
 export function productLabel(product: ProductOption): string {

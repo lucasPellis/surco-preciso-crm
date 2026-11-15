@@ -23,6 +23,7 @@ import { FieldsModule } from "./fields/fields.module";
 import { GoogleModule } from "./google/google.module";
 import { HealthModule } from "./health/health.module";
 import { ImportOrdersModule } from "./import-orders/import-orders.module";
+import { ImportProcessesModule } from "./import-processes/import-processes.module";
 import { ImportsModule } from "./imports/imports.module";
 import { LeadSourcesModule } from "./lead-sources/lead-sources.module";
 import { LoggingModule } from "./logging/logging.module";
@@ -70,6 +71,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		ProductsModule,
 		ImportsModule,
 		ImportOrdersModule,
+		ImportProcessesModule,
 		ActivitiesModule,
 		AgentModule,
 		EnrichmentModule,

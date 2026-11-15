@@ -3,6 +3,7 @@ import type { Db } from "@crm/db";
 import { Prisma } from "@crm/db";
 import { OPEN_STAGE_FILTER } from "@crm/db/deal-stage";
 import {
+	formatOrderNumber,
 	IMPORT_ORDER,
 	isoDay,
 	lineProgress,
@@ -81,6 +82,18 @@ const DETAIL_SELECT = {
 	orderedAt: true,
 	notes: true,
 	archivedAt: true,
+	process: {
+		select: {
+			id: true,
+			name: true,
+			archivedAt: true,
+			stages: {
+				where: { archivedAt: null },
+				orderBy: { position: "asc" },
+				select: STAGE_SELECT,
+			},
+		},
+	},
 	lines: {
 		orderBy: [{ createdAt: "asc" }, { id: "asc" }],
 		select: {
@@ -132,7 +145,12 @@ type ListRecord = Prisma.PurchaseOrderGetPayload<{
 	select: typeof LIST_SELECT;
 }>;
 
-type LockedOrder = { id: string; orderedAt: Date; archivedAt: Date | null };
+type LockedOrder = {
+	id: string;
+	orderedAt: Date;
+	archivedAt: Date | null;
+	processId: string;
+};
 
 function partsOf(rows: readonly ShippedRecord[]): ShippedPart[] {
 	return rows.map((row) => ({
@@ -210,7 +228,7 @@ export class ImportOrdersService {
 	}
 
 	async options(): Promise<ImportOrderOptions> {
-		const [products, deals] = await Promise.all([
+		const [products, deals, processes] = await Promise.all([
 			this.db.product.findMany({
 				where: { archivedAt: null },
 				orderBy: { sku: "asc" },
@@ -222,6 +240,11 @@ export class ImportOrdersService {
 				orderBy: { updatedAt: "desc" },
 				take: IMPORT_ORDER.optionsLimit,
 				select: { id: true, name: true, company: { select: { name: true } } },
+			}),
+			this.db.importProcess.findMany({
+				where: { archivedAt: null },
+				orderBy: { name: "asc" },
+				select: { id: true, name: true, countryCode: true },
 			}),
 		]);
 
@@ -237,6 +260,7 @@ export class ImportOrdersService {
 				name: deal.name,
 				companyName: deal.company.name,
 			})),
+			processes,
 		};
 	}
 
@@ -245,15 +269,10 @@ export class ImportOrdersService {
 		id: string,
 		now: Date = new Date(),
 	): Promise<ImportOrderDetail> {
-		const [order, stages, role] = await Promise.all([
+		const [order, role] = await Promise.all([
 			this.db.purchaseOrder.findUnique({
 				where: { id },
 				select: DETAIL_SELECT,
-			}),
-			this.db.importStage.findMany({
-				where: { archivedAt: null },
-				orderBy: { position: "asc" },
-				select: STAGE_SELECT,
 			}),
 			workspaceRoleOf(actingUserId),
 		]);
@@ -269,6 +288,11 @@ export class ImportOrdersService {
 			orderedAt: isoDay(order.orderedAt),
 			notes: order.notes,
 			archivedAt: order.archivedAt?.toISOString() ?? null,
+			process: {
+				id: order.process.id,
+				name: order.process.name,
+				archived: order.process.archivedAt !== null,
+			},
 			lines: order.lines.map((line) => {
 				const progress = lineProgress(
 					line.quantity,
@@ -317,7 +341,7 @@ export class ImportOrdersService {
 					orderToReceivedDays: receivedAfterDays(order.orderedAt, steps),
 				};
 			}),
-			stages,
+			stages: order.process.stages,
 			canManage: canManageInventory(role),
 		};
 	}
@@ -330,28 +354,30 @@ export class ImportOrdersService {
 		await this.requireManager(actingUserId);
 		const orderedAt = this.pastDay(input.orderedAt, now);
 
-		const id = await this.withNumber(input.number, () =>
-			this.db.$transaction(async (tx) => {
-				await this.assertReferences(
-					tx,
-					input.lines.map((line) => line.productId),
-					input.lines.flatMap((line) =>
-						line.dealId === null ? [] : [line.dealId],
-					),
-				);
-				const created = await tx.purchaseOrder.create({
-					data: {
-						number: input.number,
-						supplierName: input.supplierName,
-						orderedAt,
-						notes: blankToNull(input.notes),
-						lines: { create: input.lines.map(lineData) },
-					},
-					select: { id: true },
-				});
-				return created.id;
-			}),
-		);
+		const year = now.getUTCFullYear();
+		const id = await this.db.$transaction(async (tx) => {
+			await this.assertProcessOpen(tx, input.processId);
+			await this.assertReferences(
+				tx,
+				input.lines.map((line) => line.productId),
+				input.lines.flatMap((line) =>
+					line.dealId === null ? [] : [line.dealId],
+				),
+			);
+			const number = await this.nextNumber(tx, year);
+			const created = await tx.purchaseOrder.create({
+				data: {
+					number,
+					supplierName: input.supplierName,
+					orderedAt,
+					notes: blankToNull(input.notes),
+					processId: input.processId,
+					lines: { create: input.lines.map(lineData) },
+				},
+				select: { id: true },
+			});
+			return created.id;
+		});
 
 		return this.detail(actingUserId, id, now);
 	}
@@ -364,117 +390,124 @@ export class ImportOrdersService {
 		await this.requireManager(actingUserId);
 		const orderedAt = this.pastDay(input.orderedAt, now);
 
-		await this.withNumber(input.number, () =>
-			this.db.$transaction(async (tx) => {
-				await this.lockOpenOrder(tx, input.id);
-				const existing = await tx.purchaseOrderLine.findMany({
+		await this.db.$transaction(async (tx) => {
+			const order = await this.lockOpenOrder(tx, input.id);
+			if (input.processId !== order.processId) {
+				const shipments = await tx.shipment.count({
 					where: { orderId: input.id },
-					select: {
-						id: true,
-						productId: true,
-						dealId: true,
-						product: { select: { sku: true } },
-						shipmentLines: { select: SHIPPED_SELECT },
-					},
 				});
-				const current = new Map(existing.map((line) => [line.id, line]));
-				const kept = new Set<string>();
-
-				for (const line of input.lines) {
-					if (line.id === undefined) continue;
-					const before = current.get(line.id);
-					if (!before) {
-						throw new BadRequestException(
-							"Una línea no pertenece a esta orden.",
-						);
-					}
-					if (kept.has(line.id)) {
-						throw new BadRequestException("Una línea aparece dos veces.");
-					}
-					kept.add(line.id);
-					if (before.shipmentLines.length === 0) continue;
-					if (before.productId !== line.productId) {
-						throw new ConflictException(
-							`La línea de ${before.product.sku} ya tiene envíos. No se puede cambiar el producto.`,
-						);
-					}
-					const { shipped } = lineProgress(
-						line.quantity,
-						partsOf(before.shipmentLines),
+				if (shipments > 0) {
+					throw new ConflictException(
+						"La orden ya tiene envíos. No se puede cambiar el proceso.",
 					);
-					if (line.quantity < shipped) {
-						throw new ConflictException(
-							`La línea de ${before.product.sku} ya tiene ${shipped} unidades enviadas. La cantidad no puede ser menor.`,
-						);
-					}
 				}
-				for (const line of existing) {
-					if (!kept.has(line.id) && line.shipmentLines.length > 0) {
-						throw new ConflictException(
-							`La línea de ${line.product.sku} ya tiene envíos. No se puede quitar.`,
-						);
-					}
-				}
+				await this.assertProcessOpen(tx, input.processId);
+			}
+			const existing = await tx.purchaseOrderLine.findMany({
+				where: { orderId: input.id },
+				select: {
+					id: true,
+					productId: true,
+					dealId: true,
+					product: { select: { sku: true } },
+					shipmentLines: { select: SHIPPED_SELECT },
+				},
+			});
+			const current = new Map(existing.map((line) => [line.id, line]));
+			const kept = new Set<string>();
 
-				await this.assertReferences(
-					tx,
-					input.lines
-						.filter(
-							(line) =>
-								line.id === undefined ||
-								current.get(line.id)?.productId !== line.productId,
-						)
-						.map((line) => line.productId),
-					input.lines.flatMap((line) =>
-						line.dealId !== null &&
-						(line.id === undefined ||
-							current.get(line.id)?.dealId !== line.dealId)
-							? [line.dealId]
-							: [],
-					),
+			for (const line of input.lines) {
+				if (line.id === undefined) continue;
+				const before = current.get(line.id);
+				if (!before) {
+					throw new BadRequestException("Una línea no pertenece a esta orden.");
+				}
+				if (kept.has(line.id)) {
+					throw new BadRequestException("Una línea aparece dos veces.");
+				}
+				kept.add(line.id);
+				if (before.shipmentLines.length === 0) continue;
+				if (before.productId !== line.productId) {
+					throw new ConflictException(
+						`La línea de ${before.product.sku} ya tiene envíos. No se puede cambiar el producto.`,
+					);
+				}
+				const { shipped } = lineProgress(
+					line.quantity,
+					partsOf(before.shipmentLines),
 				);
-
-				const first = await tx.shipmentStageEvent.findFirst({
-					where: { shipment: { orderId: input.id } },
-					orderBy: { occurredAt: "asc" },
-					select: { occurredAt: true },
-				});
-				if (first && orderedAt > first.occurredAt) {
-					throw new BadRequestException(
-						`La fecha de la orden no puede ser posterior al ${isoDay(first.occurredAt)}, la del primer envío.`,
+				if (line.quantity < shipped) {
+					throw new ConflictException(
+						`La línea de ${before.product.sku} ya tiene ${shipped} unidades enviadas. La cantidad no puede ser menor.`,
 					);
 				}
+			}
+			for (const line of existing) {
+				if (!kept.has(line.id) && line.shipmentLines.length > 0) {
+					throw new ConflictException(
+						`La línea de ${line.product.sku} ya tiene envíos. No se puede quitar.`,
+					);
+				}
+			}
 
-				await tx.purchaseOrderLine.deleteMany({
-					where: { orderId: input.id, id: { notIn: [...kept] } },
+			await this.assertReferences(
+				tx,
+				input.lines
+					.filter(
+						(line) =>
+							line.id === undefined ||
+							current.get(line.id)?.productId !== line.productId,
+					)
+					.map((line) => line.productId),
+				input.lines.flatMap((line) =>
+					line.dealId !== null &&
+					(line.id === undefined ||
+						current.get(line.id)?.dealId !== line.dealId)
+						? [line.dealId]
+						: [],
+				),
+			);
+
+			const first = await tx.shipmentStageEvent.findFirst({
+				where: { shipment: { orderId: input.id } },
+				orderBy: { occurredAt: "asc" },
+				select: { occurredAt: true },
+			});
+			if (first && orderedAt > first.occurredAt) {
+				throw new BadRequestException(
+					`La fecha de la orden no puede ser posterior al ${isoDay(first.occurredAt)}, la del primer envío.`,
+				);
+			}
+
+			await tx.purchaseOrderLine.deleteMany({
+				where: { orderId: input.id, id: { notIn: [...kept] } },
+			});
+			for (const line of input.lines) {
+				if (line.id === undefined) continue;
+				await tx.purchaseOrderLine.update({
+					where: { id: line.id },
+					data: lineData(line),
 				});
-				for (const line of input.lines) {
-					if (line.id === undefined) continue;
-					await tx.purchaseOrderLine.update({
-						where: { id: line.id },
-						data: lineData(line),
-					});
-				}
-				const added = input.lines.filter((line) => line.id === undefined);
-				if (added.length > 0) {
-					await tx.purchaseOrderLine.createMany({
-						data: added.map((line) => ({
-							orderId: input.id,
-							...lineData(line),
-						})),
-					});
-				}
-				await tx.purchaseOrder.update({
-					where: { id: input.id },
-					data: {
-						number: input.number,
-						supplierName: input.supplierName,
-						orderedAt,
-						notes: blankToNull(input.notes),
-					},
+			}
+			const added = input.lines.filter((line) => line.id === undefined);
+			if (added.length > 0) {
+				await tx.purchaseOrderLine.createMany({
+					data: added.map((line) => ({
+						orderId: input.id,
+						...lineData(line),
+					})),
 				});
-			}),
-		);
+			}
+			await tx.purchaseOrder.update({
+				where: { id: input.id },
+				data: {
+					supplierName: input.supplierName,
+					orderedAt,
+					notes: blankToNull(input.notes),
+					processId: input.processId,
+				},
+			});
+		});
 
 		return this.detail(actingUserId, input.id, now);
 	}
@@ -518,8 +551,13 @@ export class ImportOrdersService {
 					`La fecha no puede ser anterior al ${isoDay(order.orderedAt)}, la fecha de la orden.`,
 				);
 			}
+			await this.assertProcessOpen(tx, order.processId);
 			const entry = await tx.importStage.findFirst({
-				where: { isEntry: true, archivedAt: null },
+				where: {
+					processId: order.processId,
+					isEntry: true,
+					archivedAt: null,
+				},
 				select: { key: true },
 			});
 			if (!entry) {
@@ -674,7 +712,7 @@ export class ImportOrdersService {
 		orderId: string,
 	): Promise<LockedOrder> {
 		const [order] = await tx.$queryRaw<LockedOrder[]>`
-			SELECT id, "orderedAt", "archivedAt"
+			SELECT id, "orderedAt", "archivedAt", "processId"
 			FROM purchase_order
 			WHERE id = ${orderId}
 			FOR UPDATE
@@ -688,6 +726,27 @@ export class ImportOrdersService {
 			);
 		}
 		return order;
+	}
+
+	private async assertProcessOpen(
+		tx: Prisma.TransactionClient,
+		processId: string,
+	): Promise<void> {
+		await tx.$queryRaw`
+			SELECT 1 FROM import_process WHERE id = ${processId} FOR SHARE
+		`;
+		const found = await tx.importProcess.findUnique({
+			where: { id: processId },
+			select: { archivedAt: true },
+		});
+		if (!found) {
+			throw new BadRequestException("El proceso elegido no existe.");
+		}
+		if (found.archivedAt) {
+			throw new ConflictException(
+				"El proceso está archivado. Restáuralo o elige otro proceso.",
+			);
+		}
 	}
 
 	private async assertReferences(
@@ -729,23 +788,18 @@ export class ImportOrdersService {
 		return date;
 	}
 
-	private async withNumber<Result>(
-		number: string,
-		work: () => Promise<Result>,
-	): Promise<Result> {
-		try {
-			return await work();
-		} catch (error) {
-			if (
-				error instanceof Prisma.PrismaClientKnownRequestError &&
-				error.code === "P2002"
-			) {
-				throw new ConflictException(
-					`Ya existe una orden con el número ${number}.`,
-				);
-			}
-			throw error;
-		}
+	private async nextNumber(
+		tx: Prisma.TransactionClient,
+		year: number,
+	): Promise<string> {
+		await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('purchase_order_number'))::text`;
+		const pattern = `^${IMPORT_ORDER.numberPrefix}-${year}-[0-9]+$`;
+		const [row] = await tx.$queryRaw<Array<{ last: number }>>`
+			SELECT COALESCE(MAX(split_part("number", '-', 3)::integer), 0) AS "last"
+			FROM "purchase_order"
+			WHERE "number" ~ ${pattern}
+		`;
+		return formatOrderNumber(year, (row?.last ?? 0) + 1);
 	}
 
 	private async requireManager(userId: string): Promise<void> {

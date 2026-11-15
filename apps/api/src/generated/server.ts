@@ -28,7 +28,8 @@ import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { importOrderListInput, importOrderListOutput, importOrderOptionsOutput, importOrderIdInput, importOrderDetailOutput, importOrderCreateInput, importOrderUpdateInput, shipmentCreateInput, shipmentUpdateInput, shipmentMoveRequest } from "../import-orders/import-orders.contracts";
-import { importStageSettingsOutput, importStageCreateInput, importStageUpdateInput, importStageReorderInput, importStageArchiveInput, importStageKeyInput } from "../imports/import-stages.contracts";
+import { importProcessListOutput, importProcessCreateInput, importProcessUpdateInput, importProcessDuplicateInput, importProcessIdInput } from "../import-processes/import-processes.contracts";
+import { importStageProcessInput, importStageSettingsOutput, importStageCreateInput, importStageUpdateInput, importStageReorderInput, importStageArchiveInput, importStageKeyInput } from "../imports/import-stages.contracts";
 import { leadSourceListOutput, defaultLeadOwnerInput, createLeadSourceInput, updateLeadSourceInput, leadSourceIdInput, reorderLeadSourcesInput } from "../lead-sources/lead-sources.contracts";
 import { mcpListOutput, mcpGetInput, mcpGetOutput, mcpToolsInput, mcpToolsOutput, mcpStartInput, mcpStartOutput, mcpReconnectInput, mcpReconnectOutput, mcpDisconnectInput, mcpDisconnectOutput, mcpReviewToolsInput, mcpReviewToolsOutput } from "../mcp/mcp.contracts";
 import { productListInput, productListOutput, productCreateInput, productOutput, productUpdateInput, productIdInput } from "../products/products.contracts";
@@ -665,8 +666,34 @@ const appRouter = t.router({
       .output(importOrderDetailOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
+  importProcesses: t.router({
+    list: publicProcedure
+      .output(importProcessListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(importProcessCreateInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(importProcessUpdateInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    duplicate: publicProcedure
+      .input(importProcessDuplicateInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archive: publicProcedure
+      .input(importProcessIdInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restore: publicProcedure
+      .input(importProcessIdInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
   importStages: t.router({
     settings: publicProcedure
+      .input(importStageProcessInput)
       .output(importStageSettingsOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     create: publicProcedure

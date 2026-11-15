@@ -187,10 +187,18 @@ const SETTINGS: Destination[] = [
 		keywords: ["funnel", "embudo", "pipeline", "estados", "oportunidades"],
 	},
 	{
-		id: "settings-import-stages",
-		label: "Etapas de importación",
-		href: "/settings/import-stages",
-		keywords: ["importaciones", "envíos", "aduana", "embarque", "estados"],
+		id: "settings-import-processes",
+		label: "Procesos de importación",
+		href: "/settings/import-processes",
+		keywords: [
+			"importaciones",
+			"envíos",
+			"aduana",
+			"embarque",
+			"etapas",
+			"courier",
+			"país",
+		],
 	},
 	{
 		id: "settings-members",

@@ -1,4 +1,8 @@
-import { ImportStageKind, PipelineStageTone } from "@crm/db/enums";
+import {
+	ImportCountry,
+	ImportStageKind,
+	PipelineStageTone,
+} from "@crm/db/enums";
 import { IMPORT_ORDER } from "@crm/db/import-order";
 import { z } from "zod";
 import { taskDueDayInput } from "../activities/task-due-date";
@@ -29,16 +33,13 @@ export const importOrderLineInput = z.object({
 });
 
 const orderFields = {
-	number: text(IMPORT_ORDER.numberMaxLength).min(
-		1,
-		"La orden necesita un número.",
-	),
 	supplierName: text(IMPORT_ORDER.supplierNameMaxLength).min(
 		1,
 		"La orden necesita un proveedor.",
 	),
 	orderedAt: taskDueDayInput,
 	notes: text(IMPORT_ORDER.notesMaxLength),
+	processId: recordId,
 	lines: z
 		.array(importOrderLineInput)
 		.min(1, "La orden necesita al menos una línea.")
@@ -161,6 +162,11 @@ export const importOrderDetailOutput = z.object({
 	orderedAt: day,
 	notes: z.string().nullable(),
 	archivedAt: z.string().nullable(),
+	process: z.object({
+		id: z.string(),
+		name: z.string(),
+		archived: z.boolean(),
+	}),
 	lines: z.array(orderLineOutput),
 	shipments: z.array(shipmentOutput),
 	stages: z.array(stageOutput),
@@ -181,6 +187,13 @@ export const importOrderOptionsOutput = z.object({
 			id: z.string(),
 			name: z.string(),
 			companyName: z.string(),
+		}),
+	),
+	processes: z.array(
+		z.object({
+			id: z.string(),
+			name: z.string(),
+			countryCode: z.enum(ImportCountry).nullable(),
 		}),
 	),
 });
