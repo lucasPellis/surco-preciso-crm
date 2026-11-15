@@ -18,6 +18,7 @@ import {
 	PlusIcon,
 	SearchIcon,
 	SettingsIcon,
+	ShipIcon,
 	UsersIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -95,6 +96,19 @@ const PAGES: Destination[] = [
 		href: "/products",
 		icon: PackageIcon,
 		keywords: ["catálogo", "equipos", "sku"],
+	},
+	{
+		id: "imports",
+		label: "Importaciones",
+		href: "/imports",
+		icon: ShipIcon,
+		keywords: [
+			"órdenes de compra",
+			"envíos",
+			"proveedores",
+			"aduana",
+			"embarque",
+		],
 	},
 	{
 		id: "deals",

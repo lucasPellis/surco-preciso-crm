@@ -19,6 +19,7 @@ import {
 	type LucideIcon,
 	PackageIcon,
 	SettingsIcon,
+	ShipIcon,
 	UserPlusIcon,
 	UsersIcon,
 } from "lucide-react";
@@ -53,6 +54,7 @@ const PRIMARY: NavItem[] = [
 	{ title: "Contactos", href: "/contacts", icon: UsersIcon, match: "prefix" },
 	{ title: "Funnel", href: "/funnel", icon: KanbanIcon, match: "prefix" },
 	{ title: "Productos", href: "/products", icon: PackageIcon, match: "prefix" },
+	{ title: "Importaciones", href: "/imports", icon: ShipIcon, match: "prefix" },
 	{ title: "Tareas", href: "/tasks", icon: ListChecksIcon, match: "prefix" },
 ];
 
