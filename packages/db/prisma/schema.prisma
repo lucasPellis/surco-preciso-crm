@@ -53,6 +53,8 @@ model User {
 
   apiKeys Apikey[]
 
+  shipmentStageEvents ShipmentStageEvent[] @relation("ShipmentStageEventActor")
+
   @@unique([email])
   @@map("user")
 }
@@ -572,8 +574,125 @@ model Product {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  orderLines PurchaseOrderLine[]
+
   @@index([archivedAt])
   @@map("product")
+}
+
+enum ImportStageKind {
+  IN_PROGRESS
+  RECEIVED
+  CANCELLED
+}
+
+model ImportStage {
+  id         String            @id @default(cuid())
+  key        String            @unique
+  name       String
+  kind       ImportStageKind
+  tone       PipelineStageTone @default(NEUTRAL)
+  position   Int               @default(0)
+  isEntry    Boolean           @default(false)
+  archivedAt DateTime?
+
+  shipments Shipment[]
+  events    ShipmentStageEvent[]
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@unique([isEntry], map: "import_stage_entry_key", where: { isEntry: true, archivedAt: null })
+  @@index([archivedAt])
+  @@map("import_stage")
+}
+
+model PurchaseOrder {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  supplierName String
+  orderedAt    DateTime
+  notes        String?
+  archivedAt   DateTime?
+
+  lines     PurchaseOrderLine[]
+  shipments Shipment[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([archivedAt])
+  @@map("purchase_order")
+}
+
+model PurchaseOrderLine {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity    Int
+  unitCostUsd Decimal       @db.Decimal(14, 2)
+  dealId      String?
+  deal        Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  shipmentLines ShipmentLine[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([dealId])
+  @@map("purchase_order_line")
+}
+
+model Shipment {
+  id             String        @id @default(cuid())
+  orderId        String
+  order          PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reference      String?
+  trackingNumber String?
+  stageKey       String
+  stage          ImportStage   @relation(fields: [stageKey], references: [key])
+  stageChangedAt DateTime
+
+  lines     ShipmentLine[]
+  events    ShipmentStageEvent[]
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([orderId])
+  @@index([stageKey])
+  @@map("shipment")
+}
+
+model ShipmentLine {
+  id          String            @id @default(cuid())
+  shipmentId  String
+  shipment    Shipment          @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  orderLineId String
+  orderLine   PurchaseOrderLine @relation(fields: [orderLineId], references: [id], onDelete: NoAction)
+  quantity    Int
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([shipmentId, orderLineId])
+  @@index([orderLineId])
+  @@map("shipment_line")
+}
+
+model ShipmentStageEvent {
+  id         String      @id @default(cuid())
+  shipmentId String
+  shipment   Shipment    @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  stageKey   String
+  stage      ImportStage @relation(fields: [stageKey], references: [key])
+  occurredAt DateTime
+  actorId    String?
+  actor      User?       @relation("ShipmentStageEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt  DateTime    @default(now())
+
+  @@index([shipmentId, occurredAt])
+  @@index([stageKey])
+  @@map("shipment_stage_event")
 }
 
 model PipelineStage {
@@ -1149,6 +1268,8 @@ model Deal {
   fieldValues FieldValue[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  purchaseOrderLines PurchaseOrderLine[]
 
   @@index([companyId])
   @@index([ownerId])
