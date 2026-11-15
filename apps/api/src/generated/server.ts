@@ -27,6 +27,7 @@ import { enrichmentQueueInput, modelCapabilitySchema } from "@crm/validation/enr
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { importOrderListInput, importOrderListOutput, importOrderOptionsOutput, importOrderIdInput, importOrderDetailOutput, importOrderCreateInput, importOrderUpdateInput, shipmentCreateInput, shipmentUpdateInput, shipmentMoveRequest } from "../import-orders/import-orders.contracts";
 import { importStageSettingsOutput, importStageCreateInput, importStageUpdateInput, importStageReorderInput, importStageArchiveInput, importStageKeyInput } from "../imports/import-stages.contracts";
 import { leadSourceListOutput, defaultLeadOwnerInput, createLeadSourceInput, updateLeadSourceInput, leadSourceIdInput, reorderLeadSourcesInput } from "../lead-sources/lead-sources.contracts";
 import { mcpListOutput, mcpGetInput, mcpGetOutput, mcpToolsInput, mcpToolsOutput, mcpStartInput, mcpStartOutput, mcpReconnectInput, mcpReconnectOutput, mcpDisconnectInput, mcpDisconnectOutput, mcpReviewToolsInput, mcpReviewToolsOutput } from "../mcp/mcp.contracts";
@@ -622,6 +623,47 @@ const appRouter = t.router({
       .input(calendarEventInput)
       .output(calendarEventOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  importOrders: t.router({
+    list: publicProcedure
+      .input(importOrderListInput)
+      .output(importOrderListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    options: publicProcedure
+      .output(importOrderOptionsOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    byId: publicProcedure
+      .input(importOrderIdInput)
+      .output(importOrderDetailOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(importOrderCreateInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(importOrderUpdateInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archive: publicProcedure
+      .input(importOrderIdInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restore: publicProcedure
+      .input(importOrderIdInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    createShipment: publicProcedure
+      .input(shipmentCreateInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateShipment: publicProcedure
+      .input(shipmentUpdateInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    moveShipment: publicProcedure
+      .input(shipmentMoveRequest)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   importStages: t.router({
     settings: publicProcedure
