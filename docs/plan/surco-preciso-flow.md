@@ -289,13 +289,18 @@ model. An owner edits them in the fields screen. Seed:
 
 ### Iterations
 
-1. `PipelineStage` table, kinds, `idleAfterHours` and `Deal.firstContactedAt`. Seed the
-   current stages and *Sin respuesta*. Code reads `kind`. There is no edit screen.
-2. Settings → Etapas, as described above.
-3. Pause timeout: `autoLoseAfterDays` on the stage, the Settings → Etapas field, and the
-   cron that moves expired paused deals to *Perdido*.
-4. Qualification fields, the soft gate, the card count, and loss reasons as a list.
-5. Step 4 below.
+1. Done. `PipelineStage` table, kinds, `idleAfterHours` and `Deal.firstContactedAt`. Seed
+   the current stages and *Sin respuesta*. Code reads `kind`.
+2. Done. Settings → Etapas at `/settings/stages`: create, rename, reorder by drag and drop,
+   idle hours, tone, archive with a move dialog, restore. Archive always moves every deal
+   out in one transaction, so a deal never stays in an archived stage.
+3. Done. `autoLoseAfterDays` on paused stages (seed: 7 on *Sin respuesta*), the field in
+   Settings → Etapas, and the cron `lose-paused` (`vercel.json`, `CRON_SECRET`). The loss
+   reason is the free text "Sin respuesta".
+4. Mostly done. Four qualification questions as `FieldDefinition` rows, a soft gate on
+   *Calificado*, the count on the card, and the deal sheet redesign. Not done: loss
+   reasons as a list, and the gate outside the funnel.
+5. Not started. Step 4 below.
 
 ## Step 4 — Order (Pedido)
 
@@ -320,17 +325,54 @@ independent tracks.
   with one status chip per track. Two saved views: *Instalados sin pagar* and *Pagados sin
   fecha de instalación*.
 
+## Status — 2026-11-14
+
+Iterations 1 to 4 are on `feat/surco-preciso-flow`. Nobody checked the screens in a
+browser except the author. Apply the migrations with
+`bun --env-file=.env run --filter=@crm/db db:deploy`. Create the qualification questions in
+an existing organisation with `bun --env-file=../../.env run db:seed:qualification` from
+`packages/db`. The script only adds what is missing.
+
+Built since step 3:
+
+- Funnel card: phone of the company primary contact, today's task, name shown once.
+  New contacts become the company primary contact when the company has none.
+- Deal sheet: *Próximo paso*, collapsible *Calificación*, contact card, stage days under the
+  stepper, grouped stage changes in *Actividad*, a pencil that edits the options of a
+  select field. The *Agente* tab is hidden by `DEAL_SHEET.tabs.agent`.
+- Funnel columns shrink so the stages fit at 1920 px. The page does not scroll sideways.
+
+## Next steps
+
+Ordered by value.
+
+1. Permission to edit custom fields. Today any signed-in user can change the options of a
+   field for the whole organisation, from the fields screen and from the pencil.
+2. A deal with one contact has no *Contactos* tab. The user cannot remove it or change its
+   role. Add those actions to the contact card.
+3. Step 4: *Pedidos*. Order record with the *Pago* and *Instalación* tracks, a screen and
+   two saved views. Decide *Posventa* and *Importación* with the team first.
+4. Financing on the deal: Ofrecida, Solicitada, Aprobada, Rechazada, shown from
+   *Negociando*.
+5. Loss reasons as a list instead of free text.
+6. Show the qualification notice when a deal moves from the deals table or the deal sheet.
+7. Contract tests: parse every tRPC output with its Zod schema. Only the deals module has
+   them.
+8. An error state for a failed stage query exists. The queries of other modules do not
+   have one.
+9. English text still visible: server messages, `packages/validation`, the prompts and
+   chips of the agent builder, `timeline.tsx` ("Today", "Yesterday"),
+   `agent-conversations.tsx`, the SSO screens.
+10. The sweep writes the deal owner as the actor of the stage change. Add a system actor.
+11. Phase 2: products, quotes, image proposals. *Cotizado* gets a real entry rule then.
+
 ## Open decisions
 
 1. Which statuses do *Posventa* and *Importación* have? The team postponed this until the
    *Pedidos* step.
-2. Who may edit the questions? Check the permission of the fields screen first.
-3. Can the deal sheet group the questions under one *Calificación* heading? Check
-   `FieldDefinition`: it has no group today.
-4. A deal can still point to an archived stage, for example a deal that is restored. The
-   board has no column for it and the dashboard rows do not add up to the total. Show an
-   *Archivadas* column, or move the deal to the entry stage when it is restored? Decide in
-   iteration 2.
+2. The deal sheet shows the four questions under *Calificación* because the sheet filters
+   them by key. A group in `FieldDefinition` is still not needed. Decided.
+3. Who may edit custom fields is open: see next step 1.
 
 ## Language
 
