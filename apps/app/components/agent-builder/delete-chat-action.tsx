@@ -1,8 +1,5 @@
 "use client";
 
-import Close from "@carbon/icons-react/es/Close";
-import OverflowMenuVertical from "@carbon/icons-react/es/OverflowMenuVertical";
-import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
 	AlertDialog,
 	AlertDialogCancel,
@@ -25,6 +22,7 @@ import {
 } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
 import { useMutation } from "@tanstack/react-query";
+import { EllipsisVerticalIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -57,7 +55,7 @@ export function DeleteChatAction({
 			onSuccess: async () => {
 				await cache.conversationRemoved(conversationId);
 				setConfirming(false);
-				toast.success("Chat deleted.");
+				toast.success("Chat eliminado.");
 				onDeleted?.();
 
 				if (returnToChatList) {
@@ -79,10 +77,10 @@ export function DeleteChatAction({
 					size="icon-xs"
 					className={className}
 					disabled={removeAction.pending}
-					aria-label={`Delete ${title}`}
+					aria-label={`Eliminar ${title}`}
 					onClick={() => setConfirming(true)}
 				>
-					<Icon icon={Close} />
+					<Icon icon={XIcon} />
 				</Button>
 			) : (
 				<DropdownMenu>
@@ -92,8 +90,8 @@ export function DeleteChatAction({
 							size="icon-sm"
 							disabled={removeAction.pending}
 						>
-							<Icon icon={OverflowMenuVertical} />
-							<span className="sr-only">More chat actions</span>
+							<Icon icon={EllipsisVerticalIcon} />
+							<span className="sr-only">Más acciones del chat</span>
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
@@ -101,8 +99,8 @@ export function DeleteChatAction({
 							variant="destructive"
 							onSelect={() => setConfirming(true)}
 						>
-							<Icon icon={TrashCan} />
-							Delete chat
+							<Icon icon={Trash2Icon} />
+							Eliminar chat
 						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
@@ -116,15 +114,16 @@ export function DeleteChatAction({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete {title}?</AlertDialogTitle>
+						<AlertDialogTitle>¿Eliminar {title}?</AlertDialogTitle>
 						<AlertDialogDescription>
-							This permanently deletes the chat, its messages, attachments, and
-							shared link. Any agent created from it stays available.
+							Esto elimina de forma permanente el chat, sus mensajes, adjuntos y
+							enlace compartido. Cualquier agente creado a partir de él sigue
+							disponible.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel disabled={removeAction.pending}>
-							Cancel
+							Cancelar
 						</AlertDialogCancel>
 						<Button
 							variant="destructive"
@@ -134,11 +133,11 @@ export function DeleteChatAction({
 						>
 							<AsyncButtonContent
 								status={removeAction.status}
-								pendingLabel="Deleting"
-								successLabel="Deleted"
-								errorLabel="Try again"
+								pendingLabel="Eliminando"
+								successLabel="Eliminado"
+								errorLabel="Reintentar"
 							>
-								Delete chat
+								Eliminar chat
 							</AsyncButtonContent>
 						</Button>
 					</AlertDialogFooter>

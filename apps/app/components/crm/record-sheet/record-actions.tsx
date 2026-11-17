@@ -1,9 +1,5 @@
 "use client";
 
-import Archive from "@carbon/icons-react/es/Archive";
-import OverflowMenuVertical from "@carbon/icons-react/es/OverflowMenuVertical";
-import TrashCan from "@carbon/icons-react/es/TrashCan";
-import Undo from "@carbon/icons-react/es/Undo";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -23,6 +19,12 @@ import {
 } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
 import { useMutation } from "@tanstack/react-query";
+import {
+	ArchiveIcon,
+	EllipsisVerticalIcon,
+	Trash2Icon,
+	Undo2Icon,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -34,9 +36,9 @@ import {
 } from "./record-stack";
 
 const NOUN = {
-	company: "company",
-	contact: "contact",
-	deal: "deal",
+	company: "empresa",
+	contact: "contacto",
+	deal: "oportunidad",
 } satisfies Record<RecordKind, string>;
 
 const RECORD_PROCEDURES = {
@@ -51,9 +53,7 @@ function useArchiveRecord(record: RecordRef) {
 
 	const handlers = {
 		onSuccess: (archived: { name: string }) => {
-			toast.success(
-				`${archived.name || `The ${NOUN[record.kind]}`} was archived.`,
-			);
+			toast.success(`Archivado: ${archived.name || NOUN[record.kind]}.`);
 			void cache[record.kind](record.id);
 		},
 		onError: (error: { message: string }) => toast.error(error.message),
@@ -70,9 +70,7 @@ function useRestoreRecord(record: RecordRef) {
 
 	const handlers = {
 		onSuccess: (restored: { name: string }) => {
-			toast.success(
-				`${restored.name || `The ${NOUN[record.kind]}`} was restored.`,
-			);
+			toast.success(`Restaurado: ${restored.name || NOUN[record.kind]}.`);
 			void cache[record.kind](record.id);
 		},
 		onError: (error: { message: string }) => toast.error(error.message),
@@ -91,7 +89,7 @@ function usePurgeRecord(record: RecordRef) {
 	const handlers = {
 		onSuccess: (purged: { name: string }) => {
 			toast.success(
-				`${purged.name || `The ${NOUN[record.kind]}`} was deleted forever.`,
+				`Eliminado para siempre: ${purged.name || NOUN[record.kind]}.`,
 			);
 			void cache.removed(record);
 			close();
@@ -127,8 +125,8 @@ export function RecordActions({
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" size="icon-sm" disabled={pending}>
-						<Icon icon={OverflowMenuVertical} />
-						<span className="sr-only">More actions</span>
+						<Icon icon={EllipsisVerticalIcon} />
+						<span className="sr-only">Más acciones</span>
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="min-w-44">
@@ -137,23 +135,23 @@ export function RecordActions({
 							<DropdownMenuItem
 								onSelect={() => restore.mutate({ id: record.id })}
 							>
-								<Icon icon={Undo} />
-								Restore {NOUN[record.kind]}
+								<Icon icon={Undo2Icon} />
+								Restaurar {NOUN[record.kind]}
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								variant="destructive"
 								onSelect={() => setConfirming(true)}
 							>
-								<Icon icon={TrashCan} />
-								Delete {NOUN[record.kind]} forever
+								<Icon icon={Trash2Icon} />
+								Eliminar {NOUN[record.kind]} para siempre
 							</DropdownMenuItem>
 						</>
 					) : (
 						<DropdownMenuItem
 							onSelect={() => archive.mutate({ id: record.id })}
 						>
-							<Icon icon={Archive} />
-							Archive {NOUN[record.kind]}
+							<Icon icon={ArchiveIcon} />
+							Archivar {NOUN[record.kind]}
 						</DropdownMenuItem>
 					)}
 				</DropdownMenuContent>
@@ -162,17 +160,17 @@ export function RecordActions({
 			<AlertDialog open={confirming} onOpenChange={setConfirming}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete {name} forever?</AlertDialogTitle>
+						<AlertDialogTitle>¿Eliminar {name} para siempre?</AlertDialogTitle>
 						<AlertDialogDescription>{consequence}</AlertDialogDescription>
 					</AlertDialogHeader>
 
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>Cancelar</AlertDialogCancel>
 						<AlertDialogAction
 							variant="destructive"
 							onClick={() => purge.mutate({ id: record.id })}
 						>
-							Delete forever
+							Eliminar para siempre
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

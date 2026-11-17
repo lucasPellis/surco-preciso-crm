@@ -2,6 +2,18 @@ import "@crm/env/load";
 
 import { db } from "@crm/db";
 import { readContextDevKey } from "@crm/db/settings";
+import type { ModelCapability } from "@crm/validation/enrichment-queue";
+
+export function modelCapabilityFrom(env: NodeJS.ProcessEnv): ModelCapability {
+	if (env.AI_GATEWAY_API_KEY?.trim() || env.VERCEL_OIDC_TOKEN?.trim()) {
+		return "configured";
+	}
+	return env.VERCEL === "1" ? "unknown" : "unavailable";
+}
+
+export function modelCapability(): ModelCapability {
+	return modelCapabilityFrom(process.env);
+}
 
 export const CONTEXT_DEV = "CONTEXT_DEV";
 

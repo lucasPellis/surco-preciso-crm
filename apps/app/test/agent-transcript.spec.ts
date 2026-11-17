@@ -204,7 +204,7 @@ describe("toTranscript", () => {
 		expect(grouped[0]?.items.map((item) => item.kind)).toEqual(["said", "did"]);
 	});
 
-	it("keeps emitted model reasoning as a first-class part", () => {
+	it("does not expose emitted model reasoning text", () => {
 		const grouped = toTranscript([
 			message([
 				{
@@ -215,10 +215,10 @@ describe("toTranscript", () => {
 			]),
 		]);
 
-		expect(grouped[0]?.items[0]).toMatchObject({
+		expect(grouped[0]?.items[0]).toEqual({
 			kind: "reasoned",
+			id: "m1:0",
 			streaming: true,
-			text: "I need to inspect the pipeline.",
 		});
 	});
 
@@ -324,7 +324,7 @@ describe("deal list presentation", () => {
 	const deal = {
 		id: "deal-1",
 		name: "Notion — expansion",
-		stage: "CONTRACT_SENT",
+		stage: "QUOTED",
 		amount: 14_000,
 		currency: "USD",
 		company: {

@@ -1,6 +1,5 @@
 "use client";
 
-import CalendarGlyph from "@carbon/icons-react/es/Calendar";
 import { Button } from "@crm/ui/components/button";
 import { Calendar } from "@crm/ui/components/calendar";
 import { Icon } from "@crm/ui/components/icon";
@@ -13,13 +12,14 @@ import { selectTriggerVariants } from "@crm/ui/components/select";
 import { formatDay, fromDay, toDay } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import type { VariantProps } from "class-variance-authority";
+import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 
 export function DatePicker({
 	id,
 	value,
 	onChange,
-	placeholder = "Select a date",
+	placeholder = "Selecciona una fecha",
 	variant,
 }: {
 	id?: string;
@@ -51,7 +51,7 @@ export function DatePicker({
 						{selected ? formatDay(value) : placeholder}
 					</span>
 					<Icon
-						icon={CalendarGlyph}
+						icon={CalendarIcon}
 						className="size-4 text-muted-foreground transition-opacity"
 					/>
 				</button>

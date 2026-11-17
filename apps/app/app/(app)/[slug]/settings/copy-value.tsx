@@ -1,14 +1,22 @@
 "use client";
 
-import Copy from "@carbon/icons-react/es/Copy";
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
+import { CopyIcon } from "lucide-react";
 import { toast } from "sonner";
 
-export function CopyValue({ value, label }: { value: string; label: string }) {
+export function CopyValue({
+	value,
+	label,
+	onCopied,
+}: {
+	value: string;
+	label: string;
+	onCopied?: () => void;
+}) {
 	const unavailable = () =>
 		toast.error(
-			`Could not copy the ${label.toLowerCase()}. Select it instead.`,
+			`No se pudo copiar el ${label.toLowerCase()}. Selecciónalo y cópialo a mano.`,
 		);
 
 	return (
@@ -26,12 +34,15 @@ export function CopyValue({ value, label }: { value: string; label: string }) {
 
 				clipboard
 					.writeText(value)
-					.then(() => toast.success(`${label} copied.`))
+					.then(() => {
+						toast.success(`Se copió: ${label.toLowerCase()}.`);
+						onCopied?.();
+					})
 					.catch(unavailable);
 			}}
 		>
-			<Icon icon={Copy} />
-			<span className="sr-only">Copy {label.toLowerCase()}</span>
+			<Icon icon={CopyIcon} />
+			<span className="sr-only">Copiar {label.toLowerCase()}</span>
 		</Button>
 	);
 }

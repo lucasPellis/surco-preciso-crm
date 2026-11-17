@@ -1,8 +1,9 @@
-import { DealStage } from "@crm/db";
+import { PipelineStageKind, PipelineStageTone } from "@crm/db/enums";
 import { FIELD_ENTITIES, FIELD_TYPES } from "@crm/db/fields";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
 import { currencyCode } from "../currency/currency.contracts";
+import { DASHBOARD_SCOPES } from "../dashboard/dashboard.contracts";
 import { recordFieldValues } from "../fields/fields.contracts";
 import { listInput } from "../trpc/list-input";
 
@@ -27,8 +28,10 @@ export const CLOSING_WINDOWS = [
 export type ClosingWindow = (typeof CLOSING_WINDOWS)[number];
 
 export const dealListInput = listInput.extend({
+	scope: z.enum(DASHBOARD_SCOPES).optional(),
 	status: z.string().default("all"),
 	owner: z.array(z.string()).default([]),
+	leadSource: z.array(z.string()).default([]),
 	stage: z.array(z.string()).default([]),
 	closing: z.array(z.string()).default([]),
 	fields: z.record(z.string(), z.array(z.string())).default({}),
@@ -37,15 +40,33 @@ export const dealListInput = listInput.extend({
 
 export type DealListInput = z.infer<typeof dealListInput>;
 
-const stageEnum = z.enum(
-	Object.values(DealStage) as [DealStage, ...DealStage[]],
-);
+const stageKey = z.string().trim().min(1, "Choose a stage.");
+
+export const dealStageOutput = z.object({
+	key: z.string(),
+	name: z.string(),
+	kind: z.enum(PipelineStageKind),
+	tone: z.enum(PipelineStageTone),
+	position: z.number(),
+	isEntry: z.boolean(),
+	idleAfterHours: z.number().nullable(),
+	autoLoseAfterDays: z.number().nullable(),
+	archived: z.boolean(),
+});
+
+export type DealStageRow = z.infer<typeof dealStageOutput>;
+
+export const dealStagesInput = z.object({
+	includeArchived: z.boolean().default(false),
+});
+
+export const dealStagesOutput = z.array(dealStageOutput);
 
 export const dealCreateInput = z.object({
 	name: z.string().trim().min(1, "A deal needs a name."),
 	companyId: z.string().min(1, "A deal belongs to a company."),
 	ownerId: z.string().min(1, "A deal needs an owner."),
-	stage: stageEnum.optional(),
+	stage: stageKey.optional(),
 	amountCents,
 	currency: currencyCode.optional(),
 	expectedCloseDate: z.string().nullable().optional(),
@@ -58,6 +79,7 @@ const dealUpdateInput = z.object({
 	description: z.string().nullable().optional(),
 	companyId: z.string().optional(),
 	ownerId: z.string().optional(),
+	leadSourceId: z.string().nullable().optional(),
 	amountCents,
 	currency: currencyCode.optional(),
 	expectedCloseDate: z.string().nullable().optional(),
@@ -75,7 +97,7 @@ export const dealIdInput = z.object({ id: z.string() });
 
 export const setStageInput = z.object({
 	id: z.string(),
-	stage: stageEnum,
+	stage: stageKey,
 	closedReason: z.string().trim().optional(),
 });
 
@@ -121,7 +143,7 @@ export const dealBulkOwnerInput = bulkIdsInput.extend({
 export type DealBulkOwnerInput = z.infer<typeof dealBulkOwnerInput>;
 
 export const dealBulkStageInput = bulkIdsInput.extend({
-	stage: stageEnum,
+	stage: stageKey,
 	closedReason: z.string().trim().optional(),
 });
 
@@ -178,6 +200,7 @@ const dealCompanyOutput = z.object({
 
 const dealCompanyDetailOutput = dealCompanyOutput.extend({
 	industry: z.string().nullable(),
+	primaryContactId: z.string().nullable(),
 });
 
 const dealContactSummaryOutput = z.object({
@@ -191,15 +214,24 @@ const dealContactSummaryOutput = z.object({
 
 const dealContactOutput = dealContactSummaryOutput.extend({
 	role: z.string().nullable(),
+	phone: z.string().nullable(),
+	createdAt: z.string(),
+});
+
+const dealLeadSourceOutput = z.object({
+	id: z.string(),
+	name: z.string(),
+	icon: z.string().nullable(),
 });
 
 const dealListRowOutput = z.object({
 	id: z.string(),
 	name: z.string(),
-	stage: stageEnum,
+	stage: stageKey,
 	currency: z.string(),
 	company: dealCompanyOutput,
 	owner: dealOwnerOutput,
+	leadSource: dealLeadSourceOutput.nullable(),
 	amountCents: z.number().nullable(),
 	baseAmountCents: z.number().nullable(),
 	expectedCloseDate: z.string().nullable(),
@@ -208,6 +240,50 @@ const dealListRowOutput = z.object({
 	createdAt: z.string(),
 	archivedAt: z.string().nullable(),
 	fields: z.record(z.string(), fieldValueOutput),
+});
+
+export const dealBoardInput = z.object({
+	scope: z.enum(DASHBOARD_SCOPES).default("me"),
+});
+
+export type DealBoardInput = z.infer<typeof dealBoardInput>;
+
+const dealBoardTaskOutput = z.object({
+	title: z.string().nullable(),
+	dueAt: z.string(),
+	overdue: z.boolean(),
+});
+
+const dealBoardCardOutput = z.object({
+	id: z.string(),
+	name: z.string(),
+	stage: stageKey,
+	currency: z.string(),
+	amountCents: z.number().nullable(),
+	company: dealCompanyOutput,
+	owner: dealOwnerOutput,
+	leadSource: dealLeadSourceOutput.nullable(),
+	stageChangedAt: z.string(),
+	lastActivityAt: z.string().nullable(),
+	idleHours: z.number().nullable(),
+	phone: z.string().nullable(),
+	task: dealBoardTaskOutput.nullable(),
+	qualification: z
+		.object({ answered: z.number(), total: z.number() })
+		.nullable(),
+});
+
+const dealBoardColumnOutput = z.object({
+	stage: stageKey,
+	total: z.number(),
+	valueCents: z.number().nullable(),
+	cards: z.array(dealBoardCardOutput),
+});
+
+export const dealBoardOutput = z.object({
+	columns: z.array(dealBoardColumnOutput),
+	reportingCurrency: z.string(),
+	closedWindowDays: z.number(),
 });
 
 export const dealListOutput = z.object({
@@ -224,15 +300,22 @@ export const dealListOutput = z.object({
 
 export type DealListResult = z.infer<typeof dealListOutput>;
 
+const dealNextTaskOutput = dealBoardTaskOutput.extend({
+	upcoming: z.boolean(),
+});
+
 export const dealDetailOutput = z.object({
+	nextTask: dealNextTaskOutput.nullable(),
+	idleHours: z.number().nullable(),
 	id: z.string(),
 	name: z.string(),
 	description: z.string().nullable(),
-	stage: stageEnum,
+	stage: stageKey,
 	currency: z.string(),
 	closedReason: z.string().nullable(),
 	company: dealCompanyDetailOutput,
 	owner: dealOwnerOutput,
+	leadSource: dealLeadSourceOutput.nullable(),
 	fields: z.array(recordFieldOutput),
 	amountCents: z.number().nullable(),
 	baseAmountCents: z.number().nullable(),
@@ -266,7 +349,7 @@ export type DealMutated = z.infer<typeof dealMutateOutput>;
 
 export const dealSetStageOutput = z.object({
 	id: z.string(),
-	stage: stageEnum,
+	stage: stageKey,
 	changed: z.boolean(),
 });
 

@@ -13,20 +13,28 @@ import { z } from "zod";
 
 const t = initTRPC.create();
 const publicProcedure = t.procedure;
-import { timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
+import { timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, taskListInput, taskListOutput, activityCreateInput, activityCreateOutput, activityUpdateInput, activityUpdateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
 import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
 import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
-import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
-import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
-import { conversationListInput, conversationListOutput, builderListOutput, builderResourceSearchInput, builderResourcesOutput, conversationIdInput, builderConversationDetailOutput, conversationEventsInput, conversationEventsOutput, conversationSaveInput, conversationIdOutput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderApprovalResponseInput, builderPermissionModeInput, builderResponseRatingInput, builderResponseRatingOutput, conversationShareStatusOutput, conversationShareTokenOutput, sharedConversationInput, sharedConversationOutput } from "../conversations/conversations.contracts";
+import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyImportInput, companyImportOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
+import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactDuplicateInput, contactDuplicateOutput, contactCreateInput, contactCreatedOutput, contactUpdateArgs, contactBasicOutput, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
+import { conversationListInput, conversationListOutput, builderListOutput, builderResourceSearchInput, builderResourcesOutput, conversationIdInput, builderConversationDetailOutput, conversationEventsInput, conversationEventsOutput, conversationSaveInput, conversationIdOutput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderApprovalResponseInput, builderSessionLimitResponseInput, builderPermissionModeInput, builderResponseRatingInput, builderResponseRatingOutput, conversationShareStatusOutput, conversationShareTokenOutput, sharedConversationInput, sharedConversationOutput } from "../conversations/conversations.contracts";
 import { currencySettingsOutput, setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput, dashboardSummaryOutput } from "../dashboard/dashboard.contracts";
-import { dealListInput, dealListOutput, dealIdInput, dealDetailOutput, dealCreateInput, dealCreateOutput, dealUpdateArgs, dealMutateOutput, setStageInput, dealSetStageOutput, dealContactsInput, dealContactOptionsOutput, dealAttachContactInput, dealContactLinkOutput, dealDetachContactInput, dealContactRoleInput, dealContactRoleOutput, dealBulkOwnerInput, dealBulkResultOutput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
-import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
+import { dealListInput, dealListOutput, dealStagesInput, dealStagesOutput, dealBoardInput, dealBoardOutput, dealIdInput, dealDetailOutput, dealCreateInput, dealCreateOutput, dealUpdateArgs, dealMutateOutput, setStageInput, dealSetStageOutput, dealContactsInput, dealContactOptionsOutput, dealAttachContactInput, dealContactLinkOutput, dealDetachContactInput, dealContactRoleInput, dealContactRoleOutput, dealBulkOwnerInput, dealBulkResultOutput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
+import { stageSettingsOutput, createStageInput, updateStageInput, reorderStagesInput, archiveStageInput, restoreStageInput } from "../deals/pipeline-stages.contracts";
+import { documentLabelListOutput, documentLabelCreateInput, documentLabelUpdateInput, documentLabelIdInput } from "../document-labels/document-labels.contracts";
+import { enrichmentQueueInput, modelCapabilitySchema } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { documentUploadInput, documentUploadOutput, documentAttachInput, documentIdInput, documentDownloadOutput } from "../import-documents/import-documents.contracts";
+import { importOrderDetailOutput, importOrderListInput, importOrderListOutput, importOrderOptionsOutput, importOrderIdInput, importOrderCreateInput, importOrderUpdateInput, shipmentCreateInput, shipmentSplitInput, shipmentUpdateInput, shipmentMoveRequest } from "../import-orders/import-orders.contracts";
+import { importProcessListOutput, importProcessCreateInput, importProcessUpdateInput, importProcessDuplicateInput, importProcessIdInput } from "../import-processes/import-processes.contracts";
+import { importStageProcessInput, importStageSettingsOutput, importStageCreateInput, importStageUpdateInput, importStageReorderInput, importStageArchiveInput, importStageExpectedLabelsInput, importStageKeyInput } from "../imports/import-stages.contracts";
+import { leadSourceListOutput, defaultLeadOwnerInput, createLeadSourceInput, updateLeadSourceInput, leadSourceIdInput, reorderLeadSourcesInput } from "../lead-sources/lead-sources.contracts";
 import { mcpListOutput, mcpGetInput, mcpGetOutput, mcpToolsInput, mcpToolsOutput, mcpStartInput, mcpStartOutput, mcpReconnectInput, mcpReconnectOutput, mcpDisconnectInput, mcpDisconnectOutput, mcpReviewToolsInput, mcpReviewToolsOutput } from "../mcp/mcp.contracts";
+import { productListInput, productListOutput, productCreateInput, productOutput, productUpdateInput, productIdInput } from "../products/products.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
@@ -49,9 +57,17 @@ const appRouter = t.router({
       .input(myTasksInput)
       .output(myTasksOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    tasks: publicProcedure
+      .input(taskListInput)
+      .output(taskListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     create: publicProcedure
       .input(activityCreateInput)
       .output(activityCreateOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(activityUpdateInput)
+      .output(activityUpdateOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     complete: publicProcedure
       .input(completeInput)
@@ -158,6 +174,10 @@ const appRouter = t.router({
       .input(companyCreateInput)
       .output(companySummaryOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    import: publicProcedure
+      .input(companyImportInput)
+      .output(companyImportOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     update: publicProcedure
       .input(companyUpdateArgs)
       .output(companySummaryOutput)
@@ -216,9 +236,13 @@ const appRouter = t.router({
       .input(contactIdInput)
       .output(contactByIdOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    findDuplicate: publicProcedure
+      .input(contactDuplicateInput)
+      .output(contactDuplicateOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     create: publicProcedure
       .input(contactCreateInput)
-      .output(contactBasicOutput)
+      .output(contactCreatedOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     update: publicProcedure
       .input(contactUpdateArgs)
@@ -309,6 +333,10 @@ const appRouter = t.router({
       .input(builderApprovalResponseInput)
       .output(conversationIdOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    answerBuilderSessionLimit: publicProcedure
+      .input(builderSessionLimitResponseInput)
+      .output(conversationIdOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     setBuilderPermissionMode: publicProcedure
       .input(builderPermissionModeInput)
       .output(conversationIdOutput)
@@ -372,6 +400,37 @@ const appRouter = t.router({
     list: publicProcedure
       .input(dealListInput)
       .output(dealListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    stages: publicProcedure
+      .input(dealStagesInput)
+      .output(dealStagesOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    stageList: publicProcedure
+      .output(stageSettingsOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    createStage: publicProcedure
+      .input(createStageInput)
+      .output(stageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateStage: publicProcedure
+      .input(updateStageInput)
+      .output(stageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    reorderStages: publicProcedure
+      .input(reorderStagesInput)
+      .output(stageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archiveStage: publicProcedure
+      .input(archiveStageInput)
+      .output(stageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restoreStage: publicProcedure
+      .input(restoreStageInput)
+      .output(stageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    board: publicProcedure
+      .input(dealBoardInput)
+      .output(dealBoardOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     byId: publicProcedure
       .input(dealIdInput)
@@ -438,13 +497,35 @@ const appRouter = t.router({
       .output(dealBulkResultOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
+  documentLabels: t.router({
+    list: publicProcedure
+      .output(documentLabelListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(documentLabelCreateInput)
+      .output(documentLabelListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(documentLabelUpdateInput)
+      .output(documentLabelListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archive: publicProcedure
+      .input(documentLabelIdInput)
+      .output(documentLabelListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restore: publicProcedure
+      .input(documentLabelIdInput)
+      .output(documentLabelListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
   enrichment: t.router({
     queue: publicProcedure
       .input(enrichmentQueueInput)
       .output(z.object({
+	model: modelCapabilitySchema,
 	rows: z.array(z.object({
 	id: z.string(),
-	state: z.enum(["running", "queued", "failed"]),
+	state: z.enum(["running", "queued", "failed", "paused"]),
 	line: z.string(),
 	startedAt: z.string().nullable(),
 	subject: z.discriminatedUnion("kind", [
@@ -567,6 +648,153 @@ const appRouter = t.router({
       .output(calendarEventOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
+  importDocuments: t.router({
+    uploadToken: publicProcedure
+      .input(documentUploadInput)
+      .output(documentUploadOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    attach: publicProcedure
+      .input(documentAttachInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    remove: publicProcedure
+      .input(documentIdInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    downloadUrl: publicProcedure
+      .input(documentIdInput)
+      .output(documentDownloadOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  importOrders: t.router({
+    list: publicProcedure
+      .input(importOrderListInput)
+      .output(importOrderListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    options: publicProcedure
+      .output(importOrderOptionsOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    byId: publicProcedure
+      .input(importOrderIdInput)
+      .output(importOrderDetailOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(importOrderCreateInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(importOrderUpdateInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archive: publicProcedure
+      .input(importOrderIdInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restore: publicProcedure
+      .input(importOrderIdInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    createShipment: publicProcedure
+      .input(shipmentCreateInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    splitShipments: publicProcedure
+      .input(shipmentSplitInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateShipment: publicProcedure
+      .input(shipmentUpdateInput)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    moveShipment: publicProcedure
+      .input(shipmentMoveRequest)
+      .output(importOrderDetailOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  importProcesses: t.router({
+    list: publicProcedure
+      .output(importProcessListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(importProcessCreateInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(importProcessUpdateInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    duplicate: publicProcedure
+      .input(importProcessDuplicateInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archive: publicProcedure
+      .input(importProcessIdInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restore: publicProcedure
+      .input(importProcessIdInput)
+      .output(importProcessListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  importStages: t.router({
+    settings: publicProcedure
+      .input(importStageProcessInput)
+      .output(importStageSettingsOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(importStageCreateInput)
+      .output(importStageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(importStageUpdateInput)
+      .output(importStageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    reorder: publicProcedure
+      .input(importStageReorderInput)
+      .output(importStageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archive: publicProcedure
+      .input(importStageArchiveInput)
+      .output(importStageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    setExpectedLabels: publicProcedure
+      .input(importStageExpectedLabelsInput)
+      .output(importStageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restore: publicProcedure
+      .input(importStageKeyInput)
+      .output(importStageSettingsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  leadSources: t.router({
+    list: publicProcedure
+      .output(leadSourceListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    setDefaultOwner: publicProcedure
+      .input(defaultLeadOwnerInput)
+      .output(leadSourceListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(createLeadSourceInput)
+      .output(leadSourceListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(updateLeadSourceInput)
+      .output(leadSourceListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archive: publicProcedure
+      .input(leadSourceIdInput)
+      .output(leadSourceListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restore: publicProcedure
+      .input(leadSourceIdInput)
+      .output(leadSourceListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    reorder: publicProcedure
+      .input(reorderLeadSourcesInput)
+      .output(leadSourceListOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
   mcp: t.router({
     list: publicProcedure
       .output(mcpListOutput)
@@ -612,6 +840,28 @@ const appRouter = t.router({
     setAutoCreate: publicProcedure
       .input(setOutlookAutoCreateInput)
       .output(microsoftConnectionStatusOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  products: t.router({
+    list: publicProcedure
+      .input(productListInput)
+      .output(productListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(productCreateInput)
+      .output(productOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(productUpdateInput)
+      .output(productOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archive: publicProcedure
+      .input(productIdInput)
+      .output(productOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    restore: publicProcedure
+      .input(productIdInput)
+      .output(productOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   savedViews: t.router({

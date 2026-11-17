@@ -1,13 +1,13 @@
 import {
 	ActivityType,
 	type Db,
-	DealStage,
 	EnrichmentStatus,
 	FactBand,
 	FactStatus,
 	RecordSource,
 } from "@crm/db";
 import { RETIRED_OUTCOME } from "@crm/db/agent-tasks";
+import { DEFAULT_STAGE_KEYS } from "@crm/db/deal-stage";
 import { readAgentModel } from "@crm/db/settings";
 import { CONTACT_CAP_REASON } from "@crm/db/tracking";
 import { WORKSPACE_ID } from "@crm/db/workspace";
@@ -545,7 +545,7 @@ export class RollupService {
 			),
 			deals_by_stage: countsOf(
 				stages.map((row) => ({ key: row.stage, count: row._count._all })),
-				Object.values(DealStage),
+				DEFAULT_STAGE_KEYS,
 			),
 			activities_by_type: countsOf(
 				types.map((row) => ({ key: row.type, count: row._count._all })),

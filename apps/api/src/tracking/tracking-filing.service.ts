@@ -1,6 +1,7 @@
 import { workspaceDomains } from "@crm/auth/workspace";
 import { ActivityType, type Db, Prisma, RecordSource } from "@crm/db";
 import type { Touch } from "@crm/db/attribution";
+import { readDefaultLeadOwner } from "@crm/db/settings";
 import {
 	CONTACT_CAP_REASON,
 	CONTACTS_PER_HOUR,
@@ -10,9 +11,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../companies/company-directory.service";
 import { isMachineDomain } from "../companies/domain";
+import { claimPrimaryContact } from "../companies/primary-contact";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { normalizeEmail } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
+import { openLeadDeal } from "../deals/open-lead-deal";
 import {
 	isAutomatedAddress,
 	isMachineAddress,
@@ -102,21 +105,67 @@ export class TrackingFilingService {
 			return this.skip(submission.id, CONTACT_CAP_REASON);
 		}
 
-		const companyId = await this.companies.companyForEmail(email);
 		const { firstName, lastName } = splitName(submission.name, email);
+		const ownerId = await readDefaultLeadOwner(this.db);
+		const webSource = await this.db.leadSource.findFirst({
+			where: { key: "web", archivedAt: null },
+			select: { id: true },
+		});
+		const companyId = await this.companies.resolveForContact({
+			email,
+			name: [firstName, lastName].filter(Boolean).join(" "),
+			ownerId,
+		});
+
+		const fullName = [firstName, lastName].filter(Boolean).join(" ");
+		const leadSourceId = webSource?.id ?? null;
 
 		let contact: { id: string };
 		try {
-			contact = await this.db.contact.create({
-				data: {
-					firstName,
-					lastName,
-					email,
-					companyId,
-					source: RecordSource.TRACKING,
-					lastActivityAt: new Date(),
-				},
-				select: { id: true },
+			contact = await this.agent.withCrmEvents(async (tx, emit) => {
+				const created = await tx.contact.create({
+					data: {
+						firstName,
+						lastName,
+						email,
+						companyId,
+						ownerId,
+						leadSourceId,
+						source: RecordSource.TRACKING,
+						lastActivityAt: new Date(),
+					},
+					select: { id: true, createdAt: true },
+				});
+				await emit({
+					type: "contact.created",
+					record: { kind: "contact", id: created.id },
+					occurredAt: created.createdAt,
+					data: {
+						firstName,
+						lastName,
+						email,
+						companyId,
+						source: RecordSource.TRACKING,
+					},
+				});
+				await claimPrimaryContact(tx, companyId, created.id);
+				if (ownerId) {
+					const opened = await openLeadDeal(tx, {
+						name: fullName,
+						companyId,
+						contactId: created.id,
+						ownerId,
+						leadSourceId,
+						now: created.createdAt,
+					});
+					await emit({
+						type: "deal.created",
+						record: { kind: "deal", id: opened.id },
+						occurredAt: created.createdAt,
+						data: { companyId, stage: opened.stage },
+					});
+				}
+				return { id: created.id };
 			});
 		} catch (error) {
 			await this.counters.release(window);

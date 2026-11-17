@@ -1,6 +1,5 @@
 "use client";
 
-import Archive from "@carbon/icons-react/es/Archive";
 import { Button } from "@crm/ui/components/button";
 import {
 	DataTable,
@@ -8,10 +7,14 @@ import {
 	type DataTableFacet,
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
+import { LeadSourceMark } from "@crm/ui/components/lead-source-mark";
+import { MetaRow } from "@crm/ui/components/meta-row";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatCount, formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { ArchiveIcon } from "lucide-react";
+import { useQueryState } from "nuqs";
+import { useMemo } from "react";
 import { CLOSING_OPTIONS } from "@/components/crm/closing-window";
 import { CompanyCell } from "@/components/crm/company-cell";
 import { useFieldColumns } from "@/components/crm/fields/field-columns";
@@ -20,12 +23,15 @@ import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { DealStageMenu } from "@/components/crm/stage-change";
+import { ListEmpty } from "@/components/data-table/list-empty";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
-import { DEAL_STAGE_OPTIONS } from "@/lib/deal-stage";
+import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { useStages } from "@/lib/use-stages";
+import { overviewParsers } from "../overview-search-params";
 import { DealsBulkActions } from "./deals-bulk-actions";
 import { dealsSearchParams } from "./deals-search-params";
 
@@ -34,32 +40,33 @@ type DealRow = RouterOutputs["deals"]["list"]["rows"][number];
 const COLUMNS: DataTableColumn<DealRow>[] = [
 	{
 		id: "name",
-		header: "Deal",
+		header: "Oportunidad",
 		sortable: true,
 		hideable: false,
-		width: "w-[24%]",
-		cell: (row) => <span className="truncate font-medium">{row.name}</span>,
+		cell: (row) => (
+			<span className="block truncate font-medium">{row.name}</span>
+		),
 	},
 	{
 		id: "company",
-		header: "Company",
+		header: "Empresa",
 		sortable: true,
-		width: "w-[18%]",
+		width: { sm: "40" },
 		cell: (row) => <CompanyCell company={row.company} />,
 	},
 	{
 		id: "stage",
-		header: "Stage",
+		header: "Etapa",
 		sortable: true,
-		width: "w-[18%]",
+		width: { sm: "40" },
 		cell: (row) => <DealStageMenu dealId={row.id} stage={row.stage} />,
 	},
 	{
 		id: "amount",
-		header: "Amount",
+		header: "Monto",
 		sortable: true,
 		align: "right",
-		width: "w-[12%]",
+		width: "36",
 		hideBelow: "sm",
 		cell: (row) =>
 			row.amountCents === null ? (
@@ -71,18 +78,34 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 			),
 	},
 	{
-		id: "owner",
-		header: "Owner",
+		id: "leadSource",
+		header: "Origen",
 		sortable: true,
-		width: "w-[14%]",
+		width: "40",
+		hideBelow: "lg",
+		cell: (row) =>
+			row.leadSource ? (
+				<span className="flex min-w-0 items-center gap-2">
+					<LeadSourceMark icon={row.leadSource.icon} />
+					<span className="truncate">{row.leadSource.name}</span>
+				</span>
+			) : (
+				<EmptyCellValue />
+			),
+	},
+	{
+		id: "owner",
+		header: "Responsable",
+		sortable: true,
+		width: "40",
 		hideBelow: "md",
 		cell: (row) => <OwnerCell owner={row.owner} />,
 	},
 	{
 		id: "expectedCloseDate",
-		header: "Close date",
+		header: "Fecha de cierre",
 		sortable: true,
-		width: "w-[12%]",
+		width: "32",
 		hideBelow: "lg",
 		cell: (row) =>
 			row.expectedCloseDate ? (
@@ -95,11 +118,11 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 	},
 	{
 		id: "createdAt",
-		header: "Created",
-		label: "Created date",
+		header: "Creada",
+		label: "Fecha de creación",
 		sortable: true,
 		align: "right",
-		width: "w-[10%]",
+		width: "28",
 		defaultHidden: true,
 		cell: (row) => (
 			<span className="text-muted-foreground">
@@ -109,10 +132,10 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 	},
 	{
 		id: "lastActivity",
-		header: "Last activity",
+		header: "Última actividad",
 		sortable: true,
 		align: "right",
-		width: "w-[12%]",
+		width: "40",
 		hideBelow: "lg",
 		cell: (row) => (
 			<span className="text-muted-foreground">
@@ -128,11 +151,11 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 
 const ARCHIVED_COLUMN: DataTableColumn<DealRow> = {
 	id: "archivedAt",
-	header: "Archived",
-	label: "Archived date",
+	header: "Archivada",
+	label: "Fecha de archivado",
 	sortable: true,
 	align: "right",
-	width: "w-[12%]",
+	width: "32",
 	cell: (row) => (
 		<span className="text-muted-foreground">
 			{row.archivedAt ? (
@@ -149,12 +172,17 @@ export function DealsTable() {
 	const trpc = useTRPC();
 	const prefetchRecord = usePrefetchRecord();
 	const { query, input, setArchived } = useTableQuery(dealsSearchParams);
+	const [scope] = useQueryState(
+		SEARCH_PARAM.overview.scope,
+		overviewParsers[SEARCH_PARAM.overview.scope],
+	);
 
 	const deals = useQuery({
-		...trpc.deals.list.queryOptions(input),
-		placeholderData: (previous) => previous,
+		...trpc.deals.list.queryOptions({ ...input, scope }),
 	});
 	const users = useQuery(trpc.users.list.queryOptions());
+	const leadSources = useQuery(trpc.leadSources.list.queryOptions());
+	const stages = useStages();
 
 	const rows = deals.data?.rows ?? [];
 	const selection = useTableSelection(
@@ -169,11 +197,6 @@ export function DealsTable() {
 		return selection.ids.filter((id) => matching.has(id));
 	}, [rows, input.archived, selection.ids]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: clearing on archived-mode change is the entire purpose of this effect.
-	useEffect(() => {
-		selection.clear();
-	}, [input.archived]);
-
 	const toggleArchived = (next: boolean) => {
 		selection.clear();
 		if (!next && query.sort === "archivedAt") query.setSort("");
@@ -186,7 +209,7 @@ export function DealsTable() {
 	const facets: DataTableFacet[] = [
 		{
 			id: "owner",
-			label: "Owner",
+			label: "Responsable",
 			options: (users.data ?? []).flatMap((user) =>
 				(facetCounts?.owner?.[user.id] ?? 0) > 0
 					? [{ value: user.id, label: user.name }]
@@ -194,15 +217,26 @@ export function DealsTable() {
 			),
 		},
 		{
+			id: "leadSource",
+			label: "Origen",
+			options: [
+				...(leadSources.data?.sources ?? []).map((source) => ({
+					value: source.id,
+					label: source.name,
+				})),
+				{ value: "none", label: "Desconocido" },
+			].filter((option) => (facetCounts?.leadSource?.[option.value] ?? 0) > 0),
+		},
+		{
 			id: "stage",
-			label: "Stage",
-			options: DEAL_STAGE_OPTIONS.filter(
+			label: "Etapa",
+			options: stages.options.filter(
 				(option) => (facetCounts?.stage?.[option.value] ?? 0) > 0,
 			),
 		},
 		{
 			id: "closing",
-			label: "Closing",
+			label: "Cierre",
 			options: CLOSING_OPTIONS.flatMap((option) =>
 				(facetCounts?.closing?.[option.value] ?? 0) > 0
 					? [{ value: option.value, label: option.label }]
@@ -229,17 +263,18 @@ export function DealsTable() {
 
 	return (
 		<DataTable
+			label="Oportunidades"
 			query={query}
-			search={<ListSearch placeholder="Search deals by name or company…" />}
+			search={<ListSearch placeholder="Buscar oportunidades…" />}
 			actions={
 				<Button
 					variant={input.archived ? "contrast" : "outline"}
-					size="sm"
+					aria-pressed={input.archived}
 					className="justify-start sm:justify-center"
 					onClick={() => toggleArchived(!input.archived)}
 				>
-					<Archive data-icon="inline-start" />
-					Archived
+					<ArchiveIcon data-icon="inline-start" />
+					Archivadas
 				</Button>
 			}
 			columns={columns}
@@ -249,10 +284,11 @@ export function DealsTable() {
 			facets={facets}
 			tabs={{
 				id: "status",
-				allLabel: "All deals",
+				label: "Estado",
+				allLabel: "Todas",
 				options: [
-					{ value: "open", label: "Open" },
-					{ value: "closed", label: "Closed" },
+					{ value: "open", label: "Abiertas" },
+					{ value: "closed", label: "Cerradas" },
 				],
 			}}
 			selection={{
@@ -269,26 +305,47 @@ export function DealsTable() {
 			getRowId={(row) => row.id}
 			loading={deals.isFetching}
 			onRowHover={(row) => prefetchRecord({ kind: "deal", id: row.id })}
-			onRowClick={(row) => openRecord({ kind: "deal", id: row.id })}
+			onRowClick={(row, orderedRows) =>
+				openRecord(
+					{ kind: "deal", id: row.id },
+					orderedRows.map((entry) => ({ kind: "deal", id: entry.id })),
+				)
+			}
 			empty={
-				input.archived ? "No archived deals." : "No deals match this view."
+				<ListEmpty
+					query={query}
+					noun="oportunidades"
+					archived={input.archived}
+					blank={{
+						title: "Todavía no hay oportunidades",
+						description:
+							"Agrega una oportunidad para empezar a seguir el funnel.",
+					}}
+				/>
 			}
 			meta={
 				input.archived || openPipelineCents === null ? undefined : (
-					<span>
-						{deals.data?.total ?? 0} deals ·{" "}
-						<span className="tabular-nums">
-							{formatMoney(openPipelineCents, reportingCurrency)}
-						</span>{" "}
-						open pipeline
+					<MetaRow>
+						<span>
+							{formatCount(
+								deals.data?.total ?? 0,
+								"oportunidad",
+								"oportunidades",
+							)}
+						</span>
+						<span>
+							<span className="tabular-nums">
+								{formatMoney(openPipelineCents, reportingCurrency)}
+							</span>{" "}
+							en el funnel abierto
+						</span>
 						{unconverted && unconverted.count > 0 ? (
-							<span className="text-muted-foreground">
-								{" "}
-								· {unconverted.count} not counted (no{" "}
-								{unconverted.currencies.join(", ")} rate)
+							<span>
+								{unconverted.count} sin contar (falta la cotización de{" "}
+								{unconverted.currencies.join(", ")})
 							</span>
 						) : null}
-					</span>
+					</MetaRow>
 				)
 			}
 		/>

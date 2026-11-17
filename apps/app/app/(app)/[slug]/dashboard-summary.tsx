@@ -6,87 +6,92 @@ import {
 	CardAction,
 	CardDescription,
 	CardHeader,
-	CardPanel,
 	CardPanelEmpty,
 	CardTitle,
 } from "@crm/ui/components/card";
-import { CardTableEmpty } from "@crm/ui/components/card-table";
 import { Checkbox } from "@crm/ui/components/checkbox";
+import { DashboardPanel } from "@crm/ui/components/dashboard";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
 import {
 	EntityLogo,
 	type EntityLogoTone,
 } from "@crm/ui/components/entity-logo";
+import { PageShellLoading } from "@crm/ui/components/page-shell";
 import {
 	SimpleTable,
 	type SimpleTableColumn,
 	SimpleTableRow,
 } from "@crm/ui/components/simple-table";
-import { Spinner } from "@crm/ui/components/spinner";
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { TableCell } from "@crm/ui/components/table";
+import { ValueMeter } from "@crm/ui/components/value-meter";
 import { formatCount, formatMoneyCompact } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { DealStageIndicator } from "@/components/crm/deal-stage";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { activityLabel } from "@/lib/activity-presentation";
-import { dealStageColor } from "@/lib/deal-stage";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useStages } from "@/lib/use-stages";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { overviewParsers } from "./overview-search-params";
 import { SalesDashboard } from "./sales-dashboard";
 
 const CELL = "px-3 py-2.5 align-middle";
+const STAGE_CELL = "hidden @lg/simple-table:table-cell";
+const SHARE_CELL = "hidden @sm/simple-table:table-cell";
+const COMPANY_CELL = "hidden @md/simple-table:table-cell";
+const ACTIVITY_DEAL_CELL = "hidden @2xl/simple-table:table-cell";
+const WHO_CELL = "hidden @lg/simple-table:table-cell";
 const OPEN_COLUMNS: SimpleTableColumn[] = [
-	{ id: "deal", header: "Deal" },
+	{ id: "deal", header: "Oportunidad" },
 	{
 		id: "stage",
-		header: "Stage",
-		width: "w-32",
-		className: "hidden lg:table-cell",
+		header: "Etapa",
+		width: "w-44",
+		className: STAGE_CELL,
 	},
 	{
 		id: "share",
-		srLabel: "Share of the largest",
+		srLabel: "Proporción respecto a la mayor oportunidad",
 		width: "w-24",
-		className: "hidden sm:table-cell",
+		className: SHARE_CELL,
 	},
-	{ id: "value", header: "Value", width: "w-20", align: "right" },
+	{ id: "value", header: "Valor", width: "w-20", align: "right" },
 ];
 const TASK_COLUMNS: SimpleTableColumn[] = [
-	{ id: "done", srLabel: "Done", width: "w-8" },
-	{ id: "task", header: "Task" },
-	{ id: "overdue", header: "Overdue", width: "w-24", align: "right" },
+	{ id: "done", srLabel: "Completada", width: "w-8" },
+	{ id: "task", header: "Tarea" },
+	{ id: "overdue", header: "Vencimiento", width: "w-24", align: "right" },
 ];
 const ACTIVITY_COLUMNS: SimpleTableColumn[] = [
-	{ id: "activity", header: "Activity" },
+	{ id: "activity", header: "Actividad" },
 	{
 		id: "company",
-		header: "Company",
+		header: "Empresa",
 		width: "w-44",
-		className: "hidden md:table-cell",
+		className: COMPANY_CELL,
 	},
 	{
 		id: "deal",
-		header: "Deal",
+		header: "Oportunidad",
 		width: "w-48",
-		className: "hidden lg:table-cell",
+		className: ACTIVITY_DEAL_CELL,
 	},
 	{
 		id: "who",
-		header: "Who",
+		header: "Quién",
 		width: "w-32",
-		className: "hidden md:table-cell",
+		className: WHO_CELL,
 	},
-	{ id: "when", header: "When", width: "w-20", align: "right" },
+	{ id: "when", header: "Cuándo", width: "w-20", align: "right" },
 ];
 
 export function DashboardSummary() {
@@ -94,6 +99,7 @@ export function DashboardSummary() {
 	const cache = useCrmCache();
 	const openRecord = useOpenRecord();
 	const workspaceUrl = useWorkspaceUrl();
+	const stages = useStages();
 
 	const [scope] = useQueryState(
 		SEARCH_PARAM.overview.scope,
@@ -115,11 +121,7 @@ export function DashboardSummary() {
 	const summary = summaryQuery.data;
 
 	if (!summary) {
-		return (
-			<div className="flex flex-1 justify-center py-12">
-				<Spinner />
-			</div>
-		);
+		return <PageShellLoading shape="dashboard" />;
 	}
 
 	const { biggestOpen, overdueTasks, recentActivity } = summary;
@@ -134,32 +136,42 @@ export function DashboardSummary() {
 			<div className="grid gap-6 @3xl/page-content:grid-cols-2">
 				<Card className="min-w-0">
 					<CardHeader>
-						<CardTitle>Deals in progress</CardTitle>
+						<CardTitle>Oportunidades en progreso</CardTitle>
 						<CardDescription>
-							The largest open deals, and how long each has sat in its stage
+							Las oportunidades abiertas de mayor valor y el tiempo que llevan
+							en su etapa
 						</CardDescription>
 						<CardAction>
-							<Button asChild variant="contrast" size="sm">
-								<Link href={workspaceUrl("/deals")}>Open deals</Link>
+							<Button asChild variant="outline" size="sm">
+								<Link href={workspaceUrl("/deals")}>Ver oportunidades</Link>
 							</Button>
 						</CardAction>
 					</CardHeader>
-					<CardPanel>
+					<DashboardPanel>
 						{biggestOpen.length === 0 ? (
 							<CardPanelEmpty>
-								Nothing open. Time to fill the pipeline.
+								No hay oportunidades abiertas. Agrega una oportunidad para
+								comenzar.
 							</CardPanelEmpty>
 						) : (
 							<SimpleTable
 								variant="panel"
-								surface="page"
+								surface="card"
 								columns={OPEN_COLUMNS}
 							>
 								{biggestOpen.map((deal) => (
 									<SimpleTableRow
 										key={deal.id}
 										clickable
-										onClick={() => openRecord({ kind: "deal", id: deal.id })}
+										onClick={() =>
+											openRecord(
+												{ kind: "deal", id: deal.id },
+												biggestOpen.map((entry) => ({
+													kind: "deal",
+													id: entry.id,
+												})),
+											)
+										}
 									>
 										<TableCell className={CELL}>
 											<DealCell
@@ -168,10 +180,10 @@ export function DashboardSummary() {
 												meta={<LocalRelativeTime date={deal.stageChangedAt} />}
 											/>
 										</TableCell>
-										<TableCell className={`${CELL} hidden lg:table-cell`}>
+										<TableCell className={`${CELL} ${STAGE_CELL}`}>
 											<DealStageIndicator stage={deal.stage} />
 										</TableCell>
-										<TableCell className={`${CELL} hidden sm:table-cell`}>
+										<TableCell className={`${CELL} ${SHARE_CELL}`}>
 											<ValueMeter
 												share={
 													largestOpenCents > 0
@@ -179,7 +191,7 @@ export function DashboardSummary() {
 															100
 														: 0
 												}
-												color={dealStageColor(deal.stage)}
+												color={stages.chartColor(deal.stage)}
 											/>
 										</TableCell>
 										<TableCell className={`${CELL} text-right tabular-nums`}>
@@ -193,25 +205,30 @@ export function DashboardSummary() {
 								))}
 							</SimpleTable>
 						)}
-					</CardPanel>
+					</DashboardPanel>
 				</Card>
 
 				<Card className="min-w-0">
 					<CardHeader>
-						<CardTitle>Overdue tasks</CardTitle>
+						<CardTitle>Tareas vencidas</CardTitle>
 						<CardDescription>
 							{overdueTasks.length === 0
-								? "Every task you have logged is either done or still to come"
-								: `${formatCount(overdueTasks.length, "task")} past due`}
+								? "Todas las tareas registradas están completadas o pendientes de vencer"
+								: `${formatCount(overdueTasks.length, "tarea")} ${overdueTasks.length === 1 ? "vencida" : "vencidas"}`}
 						</CardDescription>
+						<CardAction>
+							<Button asChild variant="outline" size="sm">
+								<Link href={workspaceUrl("/tasks")}>Ver tareas</Link>
+							</Button>
+						</CardAction>
 					</CardHeader>
-					<CardPanel>
+					<DashboardPanel>
 						{overdueTasks.length === 0 ? (
-							<CardPanelEmpty>Nothing overdue. Good.</CardPanelEmpty>
+							<CardPanelEmpty>No hay tareas vencidas.</CardPanelEmpty>
 						) : (
 							<SimpleTable
 								variant="panel"
-								surface="page"
+								surface="card"
 								columns={TASK_COLUMNS}
 							>
 								{overdueTasks.map((task) => (
@@ -220,7 +237,7 @@ export function DashboardSummary() {
 											<Checkbox
 												checked={false}
 												disabled={complete.isPending}
-												aria-label="Mark as done"
+												aria-label="Marcar como completada"
 												onCheckedChange={() =>
 													complete.mutate({ id: task.id, completed: true })
 												}
@@ -249,7 +266,7 @@ export function DashboardSummary() {
 													task.dueAt ? (
 														<LocalRelativeTime date={task.dueAt} />
 													) : (
-														"No due date"
+														"Sin fecha de vencimiento"
 													)
 												}
 											/>
@@ -258,69 +275,75 @@ export function DashboardSummary() {
 								))}
 							</SimpleTable>
 						)}
-					</CardPanel>
+					</DashboardPanel>
 				</Card>
 			</div>
 
 			<Card className="min-w-0">
 				<CardHeader>
 					<CardTitle>
-						{mine ? "Your recent activity" : "Recent activity"}
+						{mine ? "Tu actividad reciente" : "Actividad reciente"}
 					</CardTitle>
 					<CardDescription>
 						{mine
-							? "Every note, task and stage change you have logged"
-							: "Every note, task and stage change across the workspace"}
+							? "Las notas, tareas y cambios de etapa que has registrado"
+							: "Las notas, tareas y cambios de etapa del espacio de trabajo"}
 					</CardDescription>
 					<CardAction>
-						<Button asChild variant="contrast" size="sm">
-							<Link href={workspaceUrl("/companies")}>All companies</Link>
+						<Button asChild variant="outline" size="sm">
+							<Link href={workspaceUrl("/companies")}>Ver empresas</Link>
 						</Button>
 					</CardAction>
 				</CardHeader>
-				{recentActivity.length === 0 ? (
-					<CardTableEmpty>Nothing has happened yet.</CardTableEmpty>
-				) : (
-					<SimpleTable columns={ACTIVITY_COLUMNS}>
-						{recentActivity.map((entry) => (
-							<SimpleTableRow key={entry.id}>
-								<TableCell className={CELL}>
-									<span className="truncate">
-										{entry.subject ?? activityLabel(entry.type)}
-									</span>
-								</TableCell>
-								<TableCell className={`${CELL} hidden md:table-cell`}>
-									{entry.company ? (
-										<RecordLink kind="company" id={entry.company.id}>
-											{entry.company.name}
-										</RecordLink>
-									) : (
-										<EmptyCellValue />
-									)}
-								</TableCell>
-								<TableCell className={`${CELL} hidden lg:table-cell`}>
-									{entry.deal ? (
-										<RecordLink kind="deal" id={entry.deal.id}>
-											{entry.deal.name}
-										</RecordLink>
-									) : (
-										<EmptyCellValue />
-									)}
-								</TableCell>
-								<TableCell
-									className={`${CELL} hidden truncate text-muted-foreground md:table-cell`}
-								>
-									{entry.createdBy.name}
-								</TableCell>
-								<TableCell
-									className={`${CELL} text-right text-muted-foreground`}
-								>
-									<LocalRelativeTime date={entry.createdAt} />
-								</TableCell>
-							</SimpleTableRow>
-						))}
-					</SimpleTable>
-				)}
+				<DashboardPanel>
+					{recentActivity.length === 0 ? (
+						<CardPanelEmpty>Todavía no hay actividad.</CardPanelEmpty>
+					) : (
+						<SimpleTable
+							variant="panel"
+							surface="card"
+							columns={ACTIVITY_COLUMNS}
+						>
+							{recentActivity.map((entry) => (
+								<SimpleTableRow key={entry.id}>
+									<TableCell className={CELL}>
+										<span className="truncate">
+											{entry.subject ?? activityLabel(entry.type)}
+										</span>
+									</TableCell>
+									<TableCell className={`${CELL} ${COMPANY_CELL}`}>
+										{entry.company ? (
+											<RecordLink kind="company" id={entry.company.id}>
+												{entry.company.name}
+											</RecordLink>
+										) : (
+											<EmptyCellValue />
+										)}
+									</TableCell>
+									<TableCell className={`${CELL} ${ACTIVITY_DEAL_CELL}`}>
+										{entry.deal ? (
+											<RecordLink kind="deal" id={entry.deal.id}>
+												{entry.deal.name}
+											</RecordLink>
+										) : (
+											<EmptyCellValue />
+										)}
+									</TableCell>
+									<TableCell
+										className={`${CELL} ${WHO_CELL} truncate text-muted-foreground`}
+									>
+										{entry.createdBy.name}
+									</TableCell>
+									<TableCell
+										className={`${CELL} text-right text-muted-foreground`}
+									>
+										<LocalRelativeTime date={entry.createdAt} />
+									</TableCell>
+								</SimpleTableRow>
+							))}
+						</SimpleTable>
+					)}
+				</DashboardPanel>
 			</Card>
 		</div>
 	);
@@ -351,35 +374,11 @@ function DealCell({
 			/>
 			<span className="flex min-w-0 flex-col">
 				<span className="truncate font-medium">{name}</span>
-				<span className="truncate text-muted-foreground">
-					{meta ? (
-						<>
-							{company.name} · {meta}
-						</>
-					) : (
-						company.name
-					)}
+				<span className="flex min-w-0 items-baseline gap-x-3 text-muted-foreground">
+					<span className="truncate">{company.name}</span>
+					{meta ? <span className="shrink-0">{meta}</span> : null}
 				</span>
 			</span>
-		</span>
-	);
-}
-
-function ValueMeter({ share, color }: { share: number; color: string }) {
-	return (
-		<span
-			className="bloom-low flex h-1.5 w-full overflow-hidden bg-muted"
-			style={{ "--bloom-color": color } as CSSProperties}
-		>
-			<span
-				className="h-full w-(--share)"
-				style={
-					{
-						backgroundColor: color,
-						"--share": `${Math.round(Math.max(Math.min(share, 100), 0))}%`,
-					} as CSSProperties
-				}
-			/>
 		</span>
 	);
 }

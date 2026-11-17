@@ -1,7 +1,5 @@
 "use client";
 
-import ChevronDown from "@carbon/icons-react/es/ChevronDown";
-import type { DealStage } from "@crm/db/enums";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -23,13 +21,19 @@ import { Icon } from "@crm/ui/components/icon";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Textarea } from "@crm/ui/components/textarea";
 import { useMutation } from "@tanstack/react-query";
+import { ChevronDownIcon } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { DEAL_STAGE_OPTIONS, LOSING_STAGES } from "@/lib/deal-stage";
+import {
+	QUALIFICATION_COPY,
+	type QualificationCount,
+	qualificationGate,
+} from "@/lib/qualification";
 import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useStages } from "@/lib/use-stages";
 import { DealStageIndicator } from "./deal-stage";
 
 const closeReasonParams = {
@@ -37,7 +41,17 @@ const closeReasonParams = {
 	[SEARCH_PARAM.dialog.closeStage]: parseAsString,
 };
 
-function useStageMutation(onDone?: () => void) {
+export function useRequestClose() {
+	const [, setCloseParams] = useQueryStates(closeReasonParams);
+
+	return (dealId: string, stage: string) =>
+		void setCloseParams({
+			[SEARCH_PARAM.dialog.closeDeal]: dealId,
+			[SEARCH_PARAM.dialog.closeStage]: stage,
+		});
+}
+
+export function useStageMutation(onDone?: () => void) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
@@ -56,13 +70,16 @@ export function DealStageMenu({
 	dealId,
 	stage,
 	variant = "inline",
+	qualification = null,
 }: {
 	dealId: string;
-	stage: DealStage;
+	stage: string;
+	qualification?: QualificationCount;
 	variant?: "inline" | "control";
 }) {
 	const [, setCloseParams] = useQueryStates(closeReasonParams);
 	const setStage = useStageMutation();
+	const stages = useStages();
 
 	return (
 		<DropdownMenu>
@@ -71,18 +88,24 @@ export function DealStageMenu({
 					<Button
 						variant="outline"
 						size="sm"
-						disabled={setStage.isPending}
-						onClick={(event) => event.stopPropagation()}
+						disabled={setStage.isPending || stages.loading}
+						onClick={(event) => {
+							event.stopPropagation();
+							stages.guard();
+						}}
 					>
 						<DealStageIndicator stage={stage} className="text-foreground" />
-						<Icon icon={ChevronDown} className="text-muted-foreground" />
+						<Icon icon={ChevronDownIcon} className="text-muted-foreground" />
 					</Button>
 				) : (
 					<button
 						type="button"
-						onClick={(event) => event.stopPropagation()}
-						disabled={setStage.isPending}
-						className="flex min-w-0 items-center text-left hover:text-foreground disabled:opacity-50"
+						onClick={(event) => {
+							event.stopPropagation();
+							stages.guard();
+						}}
+						disabled={setStage.isPending || stages.loading}
+						className="flex max-w-full min-w-0 items-center text-left hover:text-foreground disabled:opacity-50"
 					>
 						<DealStageIndicator stage={stage} />
 					</button>
@@ -96,19 +119,22 @@ export function DealStageMenu({
 				<DropdownMenuRadioGroup
 					value={stage}
 					onValueChange={(next) => {
-						const chosen = next as DealStage;
-						if (chosen === stage) return;
-						if (LOSING_STAGES.includes(chosen)) {
+						const chosen = next;
+						if (!stages.guard() || chosen === stage) return;
+						if (stages.isLosing(chosen)) {
 							void setCloseParams({
 								[SEARCH_PARAM.dialog.closeDeal]: dealId,
 								[SEARCH_PARAM.dialog.closeStage]: chosen,
 							});
 							return;
 						}
+						const gate = qualificationGate(chosen, qualification);
+						if (gate.warn)
+							toast.warning(QUALIFICATION_COPY.warning(gate.missing));
 						setStage.mutate({ id: dealId, stage: chosen });
 					}}
 				>
-					{DEAL_STAGE_OPTIONS.map((option) => (
+					{stages.options.map((option) => (
 						<DropdownMenuRadioItem key={option.value} value={option.value}>
 							{option.label}
 						</DropdownMenuRadioItem>
@@ -135,24 +161,21 @@ export function CloseReasonDialog() {
 	};
 
 	const setStage = useStageMutation(() => {
-		toast.success("Deal closed.");
+		toast.success("Oportunidad marcada como perdida.");
 		close();
 	});
 
-	const stage = closingStage as DealStage | null;
+	const stage = closingStage;
 	const open = Boolean(closing && stage);
 
 	return (
 		<Dialog open={open} onOpenChange={(next) => !next && close()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>
-						{stage === "CLOSED_LOST" ? "Close as lost" : "Mark as unqualified"}
-					</DialogTitle>
+					<DialogTitle>Marcar como perdido</DialogTitle>
 					<DialogDescription>
-						{stage === "CLOSED_LOST"
-							? "What did we lose it to? This is the only place that answer gets recorded."
-							: "Why is this not a fit? It goes on the timeline so nobody re-runs the same deal."}
+						¿Por qué se perdió? Es el único lugar donde queda registrado el
+						motivo, y aparece en la línea de tiempo.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -166,12 +189,12 @@ export function CloseReasonDialog() {
 					}}
 				>
 					<Field>
-						<FieldLabel htmlFor={reasonId}>Reason</FieldLabel>
+						<FieldLabel htmlFor={reasonId}>Motivo</FieldLabel>
 						<Textarea
 							id={reasonId}
 							value={reason}
 							onChange={(event) => setReason(event.target.value)}
-							placeholder="Went with an incumbent vendor"
+							placeholder="Eligió a otro proveedor"
 							rows={3}
 						/>
 					</Field>
@@ -184,10 +207,10 @@ export function CloseReasonDialog() {
 						disabled={setStage.isPending || reason.trim() === ""}
 					>
 						{setStage.isPending ? <Spinner /> : null}
-						Save
+						Guardar
 					</Button>
 					<Button variant="outline" onClick={close}>
-						Cancel
+						Cancelar
 					</Button>
 				</DialogFooter>
 			</DialogContent>

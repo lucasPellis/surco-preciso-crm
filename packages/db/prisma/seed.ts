@@ -5,11 +5,11 @@ import { resolveFavicon } from "../src/favicon";
 import { fieldKeyFromLabel } from "../src/fields-shape";
 import {
 	ActivityType,
-	DealStage,
 	type FieldEntity,
 	FieldType,
 	RateSource,
 } from "../src/generated/prisma/enums";
+import { QUALIFICATION } from "../src/qualification";
 import { readReportingCurrency, SETTINGS_ID } from "../src/settings";
 
 function makeRandom(seed: number): () => number {
@@ -249,18 +249,9 @@ const TITLES = [
 	"Chief of Staff",
 ] as const;
 
-const OPEN_STAGES = [
-	DealStage.DEMO_BOOKED,
-	DealStage.QUALIFIED_TO_BUY,
-	DealStage.DECISION_MAKER_BOUGHT_IN,
-	DealStage.CONTRACT_SENT,
-] as const;
+const OPEN_STAGES = ["NEW", "QUALIFIED", "NEGOTIATING", "QUOTED"] as const;
 
-const CLOSED_STAGES = [
-	DealStage.CLOSED_WON,
-	DealStage.CLOSED_LOST,
-	DealStage.UNQUALIFIED_TO_BUY,
-] as const;
+const CLOSED_STAGES = ["WON", "LOST", "LOST"] as const;
 
 const DEAL_DESCRIPTIONS = [
 	"Replacing a spreadsheet-and-Drive evidence process before their first SOC 2 audit. Security owns the decision, finance signs.",
@@ -459,6 +450,7 @@ async function upsertField(
 	type: FieldType,
 	position: number,
 	options: readonly string[] = [],
+	agentFilled: boolean = type !== "USER" && type !== "NUMBER",
 ): Promise<SeededField> {
 	const key = fieldKeyFromLabel(label);
 	const definition = await db.fieldDefinition.upsert({
@@ -470,7 +462,7 @@ async function upsertField(
 			type,
 			showOnTable: false,
 			showOnFilter: false,
-			agentFilled: type !== "USER" && type !== "NUMBER",
+			agentFilled,
 			position,
 			options: {
 				create: options.map((optionLabel, index) => ({
@@ -488,6 +480,19 @@ async function upsertField(
 		key: definition.key,
 		options: definition.options,
 	};
+}
+
+async function seedQualificationFields() {
+	for (const [index, question] of QUALIFICATION.questions.entries()) {
+		await upsertField(
+			"DEAL",
+			question.label,
+			question.type,
+			index,
+			question.options,
+			false,
+		);
+	}
 }
 
 async function seedCompanyFields(): Promise<SeededFieldSet> {
@@ -655,6 +660,7 @@ async function seedContacts(
 ): Promise<SeededContact[]> {
 	const contacts: SeededContact[] = [];
 	const used = new Set<string>();
+	let phoneSerial = 0;
 
 	for (const company of companies) {
 		for (let index = 0; index < integer(2, 4); index++) {
@@ -671,7 +677,7 @@ async function seedContacts(
 					lastName,
 					email,
 					title: pick(TITLES),
-					phone: chance(0.4) ? `+1 415 555 ${integer(1000, 9999)}` : null,
+					phone: chance(0.4) ? `+1415555${1000 + phoneSerial++}` : null,
 					companyId: company.id,
 					ownerId: pick(ownerIds),
 					createdAt: daysFromNow(-integer(10, 300), 12),
@@ -814,14 +820,16 @@ async function seedDeals(
 				create: {
 					id,
 					name:
-						n === 0
-							? `${company.name} — Comp AI`
-							: `${company.name} — expansion`,
+						n === 0 ? `${company.name} Comp AI` : `${company.name} expansion`,
 					description: pick(DEAL_DESCRIPTIONS),
 					companyId: company.id,
 					ownerId,
 					stage,
 					stageChangedAt,
+					firstContactedAt:
+						stage === "NEW" || stage === "LOST"
+							? null
+							: new Date(createdAt.getTime() + 86_400_000),
 					...(() => {
 						const { amount, currency, baseAmount, baseCurrency, fxRate } =
 							money(integer(6, 90) * 1000, pick(DEAL_CURRENCIES));
@@ -840,11 +848,7 @@ async function seedDeals(
 							: -closedDaysAgo + integer(-4, 9),
 					),
 					closedAt: closed ? stageChangedAt : null,
-					closedReason:
-						stage === DealStage.CLOSED_LOST ||
-						stage === DealStage.UNQUALIFIED_TO_BUY
-							? pick(LOST_REASONS)
-							: null,
+					closedReason: stage === "LOST" ? pick(LOST_REASONS) : null,
 					createdAt,
 				},
 				update: {},
@@ -896,7 +900,7 @@ async function seedActivities(
 		dealId: string | null;
 		createdById: string;
 		createdAt: Date;
-		meta?: { from: DealStage; to: DealStage };
+		meta?: { from: string; to: string };
 	};
 
 	const rows: ActivityRow[] = [];
@@ -950,8 +954,8 @@ async function seedActivities(
 			dealId: deal.id,
 			subject: "Stage changed",
 			meta: {
-				from: DealStage.DEMO_BOOKED,
-				to: deal.closed ? DealStage.CLOSED_WON : DealStage.QUALIFIED_TO_BUY,
+				from: "NEW",
+				to: deal.closed ? "WON" : "QUALIFIED",
 			},
 		});
 	}
@@ -999,6 +1003,7 @@ async function main() {
 	const deals = await seedDeals(companies, contacts, ownerIds);
 	const activities = await seedActivities(companies, contacts, deals, ownerIds);
 	const companyFields = await seedCompanyFields();
+	await seedQualificationFields();
 	await seedCompanyFieldValues(companyFields, companies, ownerIds);
 
 	console.log(

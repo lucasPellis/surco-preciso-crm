@@ -6,6 +6,7 @@ export const contactsSearchParams = createListSearchParams({
 	facetIds: [
 		"owner",
 		"company",
+		"leadSource",
 		"title",
 		"seniority",
 		"persona",

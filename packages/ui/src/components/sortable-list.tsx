@@ -1,6 +1,8 @@
 "use client";
 
-import Draggable from "@carbon/icons-react/es/Draggable";
+import { Button } from "@crm/ui/components/button";
+import { Icon } from "@crm/ui/components/icon";
+import { cn } from "@crm/ui/lib/utils";
 import {
 	closestCenter,
 	DndContext,
@@ -22,10 +24,8 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GripVerticalIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "@crm/ui/components/button";
-import { Icon } from "@crm/ui/components/icon";
-import { cn } from "@crm/ui/lib/utils";
 
 export function SortableList({
 	ids,
@@ -108,8 +108,8 @@ export function SortableItem({
 				{...attributes}
 				{...listeners}
 			>
-				<Icon icon={Draggable} />
-				<span className="sr-only">Reorder {label}</span>
+				<Icon icon={GripVerticalIcon} motion="none" />
+				<span className="sr-only">Reordenar {label}</span>
 			</Button>
 			{children}
 		</div>

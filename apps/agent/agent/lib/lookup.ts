@@ -1,5 +1,6 @@
-import { DealStage, db } from "@crm/db";
-import { LOSING_DEAL_STAGES, OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
+import { db } from "@crm/db";
+import { OPEN_STAGE_FILTER } from "@crm/db/deal-stage";
+import { PipelineStageKind } from "@crm/db/enums";
 import { domainOf, normalise } from "./names";
 
 export type RecordKind = "contact" | "company" | "deal";
@@ -66,18 +67,18 @@ export async function listDeals(options: DealListOptions = {}) {
 			: new Date(
 					now.getTime() - Math.max(options.inactiveForDays, 0) * 86_400_000,
 				);
-	const stages =
+	const stageFilter =
 		status === "open"
-			? [...OPEN_DEAL_STAGES]
+			? OPEN_STAGE_FILTER
 			: status === "won"
-				? [DealStage.CLOSED_WON]
+				? { pipelineStage: { kind: PipelineStageKind.WON } }
 				: status === "lost"
-					? [...LOSING_DEAL_STAGES]
-					: null;
+					? { pipelineStage: { kind: PipelineStageKind.LOST } }
+					: {};
 
 	const rows = await db.deal.findMany({
 		where: {
-			stage: stages ? { in: stages } : undefined,
+			...stageFilter,
 			companyId: options.companyId ?? undefined,
 			ownerId: options.ownerId ?? undefined,
 			OR: cutoff

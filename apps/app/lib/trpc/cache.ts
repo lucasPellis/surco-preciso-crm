@@ -36,6 +36,13 @@ export type CrmCache = {
 	microsoft(options?: Options): Promise<void>;
 	settings(options?: Options): Promise<void>;
 	currency(options?: Options): Promise<void>;
+	leadSources(options?: Options): Promise<void>;
+	products(options?: Options): Promise<void>;
+	importProcesses(options?: Options): Promise<void>;
+	importStages(options?: Options): Promise<void>;
+	importOrders(options?: Options): Promise<void>;
+	documentLabels(options?: Options): Promise<void>;
+	stages(options?: Options): Promise<void>;
 	workspace(options?: Options): Promise<void>;
 	slack(options?: Options): Promise<void>;
 	sso(options?: Options): Promise<void>;
@@ -69,12 +76,14 @@ export function useCrmCache(): CrmCache {
 		trpc.activities.timeline.pathKey(),
 		trpc.activities.timelineCounts.queryKey(),
 		trpc.activities.myTasks.queryKey(),
+		trpc.activities.tasks.queryKey(),
 	];
 
 	const listKeys = () => [
 		trpc.companies.list.queryKey(),
 		trpc.contacts.list.queryKey(),
 		trpc.deals.list.queryKey(),
+		trpc.deals.board.queryKey(),
 		trpc.search.quick.queryKey(),
 	];
 
@@ -193,6 +202,7 @@ export function useCrmCache(): CrmCache {
 					trpc.companies.byId.queryKey(),
 					trpc.deals.byId.queryKey(),
 					trpc.deals.contactOptions.queryKey(),
+					trpc.dashboard.summary.queryKey(),
 				],
 				options,
 			),
@@ -289,6 +299,72 @@ export function useCrmCache(): CrmCache {
 					...listKeys(),
 					trpc.deals.byId.queryKey(),
 					trpc.companies.byId.queryKey(),
+					trpc.dashboard.summary.queryKey(),
+				],
+				options,
+			),
+
+		products: (options) => run([trpc.products.list.queryKey()], [], options),
+
+		importProcesses: (options) =>
+			run(
+				[trpc.importProcesses.list.queryKey()],
+				[
+					trpc.importStages.settings.queryKey(),
+					trpc.importOrders.options.queryKey(),
+				],
+				options,
+			),
+
+		importStages: (options) =>
+			run(
+				[trpc.importStages.settings.queryKey()],
+				[
+					trpc.importOrders.byId.queryKey(),
+					trpc.importProcesses.list.queryKey(),
+				],
+				options,
+			),
+
+		importOrders: (options) =>
+			run(
+				[trpc.importOrders.list.queryKey(), trpc.importOrders.byId.queryKey()],
+				[
+					trpc.importStages.settings.queryKey(),
+					trpc.importProcesses.list.queryKey(),
+					trpc.documentLabels.list.queryKey(),
+				],
+				options,
+			),
+
+		documentLabels: (options) =>
+			run(
+				[trpc.documentLabels.list.queryKey()],
+				[
+					trpc.importStages.settings.queryKey(),
+					trpc.importOrders.byId.queryKey(),
+				],
+				options,
+			),
+
+		leadSources: (options) =>
+			run(
+				[trpc.leadSources.list.queryKey()],
+				[
+					trpc.contacts.list.queryKey(),
+					trpc.contacts.byId.queryKey(),
+					trpc.deals.list.queryKey(),
+				],
+				options,
+			),
+
+		stages: (options) =>
+			run(
+				[trpc.deals.stageList.queryKey(), trpc.deals.stages.queryKey()],
+				[
+					...listKeys(),
+					trpc.deals.byId.queryKey(),
+					trpc.activities.timeline.pathKey(),
 					trpc.dashboard.summary.queryKey(),
 				],
 				options,

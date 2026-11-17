@@ -22,6 +22,21 @@ agent and the API both need it.
 - **Not a frontier model, deliberately** — refusing wrong answers is enforced by the
   tools and evidence model, not model strength.
 
+### Model access and queued research
+
+`lib/capabilities.ts` reports model credentials as `configured`, `unavailable`, or
+`unknown`. A configured credential does not prove model access works. The agent
+checks `AI_GATEWAY_API_KEY` and `VERCEL_OIDC_TOKEN`. A Vercel deployment without
+either reports `unknown` because OIDC can come from the request context.
+
+The research lane pauses before claiming tasks when credentials are unavailable.
+The direct lane continues. Pending research retains its attempts and resumes when
+credentials are configured. Unknown availability does not pause research.
+
+The authenticated `/internal/crm/capabilities` route exposes this state to the
+API. The enrichment queue reports unknown when the bridge is unavailable or its
+response is invalid. It does not expose credentials.
+
 ## Pictures are copied, never linked
 
 `mirror()` copies bytes to Vercel Blob; the record points at our copy. Lives in

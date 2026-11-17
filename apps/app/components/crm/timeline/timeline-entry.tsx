@@ -1,22 +1,27 @@
 "use client";
 
-import { DealStage } from "@crm/db/enums";
+import { Button } from "@crm/ui/components/button";
 import { Checkbox } from "@crm/ui/components/checkbox";
+import { Icon } from "@crm/ui/components/icon";
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
+import { PencilIcon } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
+
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
-import { LocalDateTime, LocalRelativeTime } from "@/components/local-date-time";
+import { LocalDateTime, LocalDay } from "@/components/local-date-time";
 import { activityLabel } from "@/lib/activity-presentation";
-import { dealStageLabel } from "@/lib/deal-stage";
+import { stageMoveLabel } from "@/lib/timeline-groups";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { useStages } from "@/lib/use-stages";
 import { ActivityIcon } from "./activity-icon";
 import { EmailThreadEntry } from "./email-thread-entry";
 import { MeetingEntry } from "./meeting-entry";
+import { TaskEditor } from "./task-editor";
 import type { TimelineAnchor } from "./timeline";
 
 export type TimelineEntryData =
@@ -26,11 +31,6 @@ const TIME_OPTIONS: Intl.DateTimeFormatOptions = {
 	hour: "numeric",
 	minute: "2-digit",
 };
-
-const stageChange = z
-	.object({ from: z.enum(DealStage), to: z.enum(DealStage) })
-	.nullable()
-	.catch(null);
 
 function anchorId(anchor: TimelineAnchor): string {
 	if ("companyId" in anchor) return anchor.companyId;
@@ -47,6 +47,9 @@ export function TimelineEntry({
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const stages = useStages();
+	const [editing, setEditing] = useState(false);
+	const editButton = useRef<HTMLButtonElement>(null);
 
 	const complete = useMutation(
 		trpc.activities.complete.mutationOptions({
@@ -61,10 +64,29 @@ export function TimelineEntry({
 		isTask &&
 		!done &&
 		entry.dueAt !== null &&
-		new Date(entry.dueAt) < new Date();
+		entry.dueAt.slice(0, 10) < new Date().toISOString().slice(0, 10);
+	const closeEditor = () => {
+		setEditing(false);
+		requestAnimationFrame(() => editButton.current?.focus());
+	};
+
+	if (editing) {
+		return (
+			<li className="flex gap-2.5 py-3">
+				<span className="mt-0.5 shrink-0 text-muted-foreground">
+					<Checkbox checked={done} disabled aria-label="Estado de la tarea" />
+				</span>
+				<div className="min-w-0 flex-1">
+					<TaskEditor task={entry} onClose={closeEditor} />
+				</div>
+			</li>
+		);
+	}
 
 	const change =
-		entry.type === "STAGE_CHANGE" ? stageChange.parse(entry.meta) : null;
+		entry.type === "STAGE_CHANGE"
+			? stageMoveLabel(entry.meta, stages.label)
+			: null;
 	const when = entry.occurredAt ?? entry.createdAt;
 
 	const synced = entry.meta?.synced === true;
@@ -74,9 +96,7 @@ export function TimelineEntry({
 			: "via Calendar"
 		: entry.createdBy.name;
 
-	const headline = change
-		? `${dealStageLabel(change.from)} → ${dealStageLabel(change.to)}`
-		: entry.subject;
+	const headline = change ?? entry.subject;
 
 	const here = anchorId(anchor);
 	const deal = entry.deal && entry.deal.id !== here ? entry.deal : null;
@@ -88,13 +108,13 @@ export function TimelineEntry({
 	);
 
 	return (
-		<li className="flex gap-2.5 py-2">
+		<li className="flex gap-2.5 py-3">
 			<span className="mt-0.5 shrink-0 text-muted-foreground">
 				{isTask ? (
 					<Checkbox
 						checked={done}
 						disabled={complete.isPending}
-						aria-label={done ? "Mark as not done" : "Mark as done"}
+						aria-label={done ? "Marcar como pendiente" : "Marcar como hecha"}
 						onCheckedChange={(checked) =>
 							complete.mutate({ id: entry.id, completed: checked === true })
 						}
@@ -138,12 +158,26 @@ export function TimelineEntry({
 						) : null}
 					</div>
 
-					<span className="shrink-0 text-muted-foreground">
-						<span className="hidden sm:inline">{author} · </span>
+					<span className="flex shrink-0 gap-x-3 text-muted-foreground">
+						<span className="hidden sm:inline">{author}</span>
 						<span className="tabular-nums">
 							<LocalDateTime date={when} options={TIME_OPTIONS} />
 						</span>
 					</span>
+
+					{isTask ? (
+						<Button
+							ref={editButton}
+							type="button"
+							variant="ghost"
+							size="icon-xs"
+							disabled={complete.isPending}
+							onClick={() => setEditing(true)}
+						>
+							<Icon icon={PencilIcon} />
+							<span className="sr-only">Editar tarea</span>
+						</Button>
+					) : null}
 				</div>
 
 				{entry.calendarEvent ? (
@@ -171,8 +205,8 @@ export function TimelineEntry({
 								tone={overdue ? "error" : "info"}
 								label={
 									<>
-										{overdue ? "Overdue" : "Due"}{" "}
-										<LocalRelativeTime date={entry.dueAt} />
+										{overdue ? "Vencida" : "Vence"}{" "}
+										<LocalDay date={entry.dueAt} />
 									</>
 								}
 							/>

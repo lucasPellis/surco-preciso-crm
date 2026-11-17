@@ -7,6 +7,7 @@ import {
 	it,
 } from "bun:test";
 import { db } from "@crm/db";
+import { writeDefaultLeadOwner } from "@crm/db/settings";
 import {
 	CONTACT_CAP_REASON,
 	CONTACTS_PER_HOUR,
@@ -77,7 +78,16 @@ async function clean() {
 		where: { id: { startsWith: "visitor-" } },
 	});
 	await db.contact.deleteMany({ where: { email: { endsWith: `@${domain}` } } });
+	const free = await db.contact.findUnique({
+		where: { email: `free-${suffix}@gmail.com` },
+		select: { companyId: true },
+	});
 	await db.contact.deleteMany({ where: { email: `free-${suffix}@gmail.com` } });
+	if (free?.companyId) {
+		await db.company.deleteMany({
+			where: { id: free.companyId, domain: null },
+		});
+	}
 	await db.company.deleteMany({ where: { domain } });
 	await db.suppressedContact.deleteMany({
 		where: { email: { endsWith: `@${domain}` } },
@@ -153,7 +163,7 @@ describe("filing a form submission", () => {
 		await db.suppressedDomain.deleteMany({ where: { domain } });
 	});
 
-	it("files a free-mail address as a contact with no company", async () => {
+	it("files a free-mail address under a company named after the person", async () => {
 		const { outcome, stored } = await submit(`free-${suffix}@gmail.com`);
 
 		expect(outcome.filed).toBe(true);
@@ -161,10 +171,17 @@ describe("filing a form submission", () => {
 
 		const contact = await db.contact.findUnique({
 			where: { email: `free-${suffix}@gmail.com` },
-			select: { companyId: true, source: true },
+			select: {
+				source: true,
+				company: {
+					select: { name: true, domain: true, enrichmentStatus: true },
+				},
+			},
 		});
 
-		expect(contact?.companyId).toBeNull();
+		expect(contact?.company?.name).toBe("Dana Reed");
+		expect(contact?.company?.domain).toBeNull();
+		expect(contact?.company?.enrichmentStatus).toBe("SKIPPED");
 		expect(contact?.source).toBe("TRACKING");
 	});
 
@@ -183,6 +200,51 @@ describe("filing a form submission", () => {
 
 		expect(contact?.companyId).toBeTruthy();
 		expect(contact?.firstName).toBe("Dana");
+	});
+
+	it("gives a web lead to the default owner and opens a deal", async () => {
+		await writeDefaultLeadOwner(db, userId);
+		try {
+			const email = `owned@${domain}`;
+			await submit(email);
+
+			const contact = await db.contact.findUniqueOrThrow({
+				where: { email },
+				select: {
+					ownerId: true,
+					leadSource: { select: { key: true } },
+					deals: {
+						select: {
+							deal: {
+								select: { stage: true, ownerId: true, leadSourceId: true },
+							},
+						},
+					},
+				},
+			});
+
+			expect(contact.ownerId).toBe(userId);
+			expect(contact.leadSource?.key).toBe("web");
+			expect(contact.deals).toHaveLength(1);
+			expect(contact.deals[0]?.deal.stage).toBe("NEW");
+			expect(contact.deals[0]?.deal.ownerId).toBe(userId);
+		} finally {
+			await writeDefaultLeadOwner(db, null);
+		}
+	});
+
+	it("opens no deal for a web lead when there is no default owner", async () => {
+		await writeDefaultLeadOwner(db, null);
+		const email = `unowned@${domain}`;
+		await submit(email);
+
+		const contact = await db.contact.findUniqueOrThrow({
+			where: { email },
+			select: { ownerId: true, deals: { select: { dealId: true } } },
+		});
+
+		expect(contact.ownerId).toBeNull();
+		expect(contact.deals).toHaveLength(0);
 	});
 
 	it("writes one note when the same submission is filed twice at once", async () => {

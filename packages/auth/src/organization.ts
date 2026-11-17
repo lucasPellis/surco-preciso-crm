@@ -29,11 +29,23 @@ export function canManageCurrency(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
 
+export function canManageLeadSources(role: WorkspaceRole | null): boolean {
+	return isWorkspaceAdmin(role);
+}
+
+export function canManageStages(role: WorkspaceRole | null): boolean {
+	return isWorkspaceAdmin(role);
+}
+
 export function canManageConnections(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
 
 export function canManageTracking(role: WorkspaceRole | null): boolean {
+	return isWorkspaceAdmin(role);
+}
+
+export function canManageInventory(role: WorkspaceRole | null): boolean {
 	return isWorkspaceAdmin(role);
 }
 

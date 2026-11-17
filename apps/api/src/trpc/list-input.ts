@@ -85,6 +85,26 @@ export function ownerFilter<
 	return { OR: [{ ownerId: { in: ids } }, { ownerId: null }] } as TWhere;
 }
 
+export const FACET_NO_LEAD_SOURCE = "none";
+
+export function leadSourceFilter<
+	TWhere =
+		| { leadSourceId: { in: string[] } }
+		| { leadSourceId: null }
+		| { OR: unknown[] },
+>(values: string[]): TWhere | undefined {
+	if (values.length === 0) return undefined;
+
+	const { ids, includesSentinel } = splitSentinel(values, FACET_NO_LEAD_SOURCE);
+	if (includesSentinel && ids.length === 0) {
+		return { leadSourceId: null } as TWhere;
+	}
+	if (!includesSentinel) return { leadSourceId: { in: ids } } as TWhere;
+	return {
+		OR: [{ leadSourceId: { in: ids } }, { leadSourceId: null }],
+	} as TWhere;
+}
+
 export function archivedFilter(archived: boolean) {
 	return { archivedAt: archived ? { not: null } : null };
 }

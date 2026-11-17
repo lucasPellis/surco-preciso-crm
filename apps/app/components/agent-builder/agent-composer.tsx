@@ -1,23 +1,12 @@
 "use client";
 
-import Add from "@carbon/icons-react/es/Add";
-import Application from "@carbon/icons-react/es/Application";
-import ArrowUp from "@carbon/icons-react/es/ArrowUp";
-import AttachmentIcon from "@carbon/icons-react/es/Attachment";
-import Building from "@carbon/icons-react/es/Building";
-import Calendar from "@carbon/icons-react/es/Calendar";
-import Email from "@carbon/icons-react/es/Email";
-import Partnership from "@carbon/icons-react/es/Partnership";
-import Search from "@carbon/icons-react/es/Search";
-import StopFilled from "@carbon/icons-react/es/StopFilled";
-import User from "@carbon/icons-react/es/User";
 import {
 	AsyncButtonContent,
 	useAsyncAction,
 } from "@crm/ui/components/async-action";
 import { Button } from "@crm/ui/components/button";
 import { CHAT_COMPOSER_SURFACE_CLASS_NAME } from "@crm/ui/components/chat-composer";
-import { type CarbonIcon, Icon } from "@crm/ui/components/icon";
+import { Icon, type IconComponent } from "@crm/ui/components/icon";
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -30,9 +19,22 @@ import {
 } from "@crm/ui/components/popover";
 import { Skeleton } from "@crm/ui/components/skeleton";
 import { SkeletonSwap } from "@crm/ui/components/skeleton-swap";
-import { TokenField } from "@crm/ui/components/token-field";
+import { TokenField, TokenFieldEditable } from "@crm/ui/components/token-field";
 import { cn } from "@crm/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
+import {
+	AppWindowIcon,
+	ArrowUpIcon,
+	Building2Icon,
+	CalendarIcon,
+	HandshakeIcon,
+	MailIcon,
+	PaperclipIcon,
+	PlusIcon,
+	SearchIcon,
+	SquareIcon,
+	UserIcon,
+} from "lucide-react";
 import { type ReactNode, useReducer, useRef } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
@@ -85,7 +87,7 @@ type PendingSubmission = {
 const CREATE_AGENT_COMMAND = {
 	commandType: "CREATE_AGENT" as const,
 	invocation: "/Create agent",
-	label: "Create agent",
+	label: "Crear agente",
 };
 
 type ComposerCommand = typeof CREATE_AGENT_COMMAND;
@@ -446,8 +448,9 @@ export function AgentComposer({
 		action: async () => {
 			await onStop?.();
 		},
-		onSuccess: () => toast.success("Stop requested."),
-		onError: () => toast.error("The agent could not be stopped. Try again."),
+		onSuccess: () => toast.success("Se solicitó detener el agente."),
+		onError: () =>
+			toast.error("No se pudo detener el agente. Inténtalo de nuevo."),
 	});
 	const locked = disabled || submitAction.pending;
 	const canSend =
@@ -518,7 +521,8 @@ export function AgentComposer({
 				composingRef={composing}
 				mode={mode}
 				state={state}
-				disabled={locked}
+				disabled={disabled}
+				loading={submitAction.pending}
 				onChanged={updateEditor}
 				onSelectionChanged={(offset) => {
 					selectionOffset.current = offset;
@@ -550,17 +554,22 @@ export function AgentComposer({
 						size="icon-sm"
 						disabled={stopAction.pending}
 						aria-busy={stopAction.pending}
-						aria-label="Stop reply"
+						aria-label="Detener la respuesta"
 						onClick={() => stopAction.run()}
 						className="rounded-full"
 					>
 						<AsyncButtonContent
 							status={stopAction.status}
-							pendingLabel={<span className="sr-only">Stopping</span>}
-							successLabel={<span className="sr-only">Stopping</span>}
-							errorLabel={<span className="sr-only">Stop failed</span>}
+							pendingLabel={<span className="sr-only">Deteniendo</span>}
+							successLabel={<span className="sr-only">Deteniendo</span>}
+							errorLabel={<span className="sr-only">Error al detener</span>}
 						>
-							<Icon icon={StopFilled} motion="none" />
+							<Icon
+								icon={SquareIcon}
+								motion="none"
+								size="xs"
+								className="fill-current"
+							/>
 						</AsyncButtonContent>
 					</Button>
 				) : (
@@ -571,8 +580,8 @@ export function AgentComposer({
 						aria-busy={submitAction.pending || state.attachmentsReading}
 						aria-label={
 							state.attachmentsReading
-								? "Preparing attachments"
-								: "Send message"
+								? "Preparando adjuntos"
+								: "Enviar mensaje"
 						}
 						onClick={submit}
 						className="rounded-full"
@@ -584,14 +593,14 @@ export function AgentComposer({
 							pendingLabel={
 								<span className="sr-only">
 									{state.attachmentsReading
-										? "Preparing attachments"
-										: "Sending"}
+										? "Preparando adjuntos"
+										: "Enviando"}
 								</span>
 							}
-							successLabel={<span className="sr-only">Sent</span>}
-							errorLabel={<span className="sr-only">Send failed</span>}
+							successLabel={<span className="sr-only">Enviado</span>}
+							errorLabel={<span className="sr-only">Error al enviar</span>}
 						>
-							<Icon icon={ArrowUp} />
+							<Icon icon={ArrowUpIcon} size="md" />
 						</AsyncButtonContent>
 					</Button>
 				)}
@@ -616,6 +625,7 @@ function ComposerEditor({
 	mode,
 	state,
 	disabled,
+	loading,
 	onChanged,
 	onSelectionChanged,
 	onRemoveContext,
@@ -626,16 +636,18 @@ function ComposerEditor({
 	mode: "home" | "chat";
 	state: ComposerState;
 	disabled: boolean;
+	loading: boolean;
 	onChanged: (snapshot: ComposerEditorSnapshot) => void;
 	onSelectionChanged: (offset: number) => void;
 	onRemoveContext: (key: string) => void;
 	onSubmit: () => void;
 }) {
+	const inactive = disabled || loading;
 	const parts = composerEditorParts(state);
 	const placeholder =
 		mode === "home"
-			? "Ask about your CRM or automate a task…"
-			: "Send a message";
+			? "Pregunta sobre tu CRM o automatiza una tarea…"
+			: "Enviar un mensaje";
 	const commit = () => {
 		const root = editorRef.current;
 		if (!root || composingRef.current) return;
@@ -651,10 +663,12 @@ function ComposerEditor({
 		<TokenField
 			ref={editorRef}
 			role="textbox"
-			tabIndex={disabled ? -1 : 0}
-			aria-label="Message the agent builder"
+			tabIndex={0}
+			aria-label="Escribir al constructor de agentes"
 			aria-multiline="true"
-			aria-disabled={disabled}
+			disabled={disabled}
+			loading={loading}
+			loadingLabel="Enviando mensaje"
 			data-empty={state.draft.length === 0 && state.anchors.length === 0}
 			data-placeholder={placeholder}
 			spellCheck
@@ -731,7 +745,6 @@ function ComposerEditor({
 						key={part.key}
 						start={part.start}
 						value={part.value}
-						disabled={disabled}
 						detectedIntent={state.detectedCommandLabel}
 						intentStart={
 							state.detectedCommandLabel
@@ -744,7 +757,7 @@ function ComposerEditor({
 						key={part.anchor.key}
 						anchor={part.anchor}
 						state={state}
-						disabled={disabled}
+						disabled={inactive}
 						onRemove={onRemoveContext}
 					/>
 				),
@@ -756,13 +769,11 @@ function ComposerEditor({
 function ComposerEditorText({
 	start,
 	value,
-	disabled,
 	detectedIntent,
 	intentStart,
 }: {
 	start: number;
 	value: string;
-	disabled: boolean;
 	detectedIntent: string | null;
 	intentStart: number;
 }) {
@@ -773,10 +784,7 @@ function ComposerEditorText({
 		localIntentStart + detectedIntent.length <= value.length;
 
 	return (
-		<span
-			contentEditable={!disabled}
-			suppressContentEditableWarning
-			tabIndex={-1}
+		<TokenFieldEditable
 			role="none"
 			data-composer-text
 			data-composer-text-start={start}
@@ -797,7 +805,7 @@ function ComposerEditorText({
 			) : (
 				value || EDITOR_SENTINEL
 			)}
-		</span>
+		</TokenFieldEditable>
 	);
 }
 
@@ -818,7 +826,7 @@ function ComposerContextToken({
 		content = (
 			<ChatCommandChip
 				label={state.command.label}
-				icon={Application}
+				icon={AppWindowIcon}
 				variant="composer"
 				onRemove={remove}
 			/>
@@ -858,7 +866,7 @@ function ComposerContextToken({
 			contentEditable={false}
 			data-composer-token-key={anchor.key}
 			data-composer-token-order={anchor.order}
-			className="inline-flex align-middle"
+			className="inline-flex max-w-full align-middle"
 		>
 			{content}
 		</span>
@@ -980,6 +988,7 @@ function composerEditableText(node: Node): string {
 		return (node.textContent ?? "").replaceAll(EDITOR_SENTINEL, "");
 	}
 	if (node instanceof HTMLElement) {
+		if (node.contentEditable === "false") return "";
 		if (
 			node.dataset.composerTokenKey ||
 			node.dataset.intentAccent !== undefined
@@ -1295,10 +1304,10 @@ function ResourcePicker({
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					aria-label="Tag CRM records and integrations"
+					aria-label="Mencionar registros del CRM e integraciones"
 					disabled={disabled}
 				>
-					<Icon icon={Add} />
+					<Icon icon={PlusIcon} />
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent size="fit" align="start" side="top" className="w-80">
@@ -1312,12 +1321,12 @@ function ResourcePicker({
 									value: event.target.value,
 								})
 							}
-							placeholder="Search CRM"
-							aria-label="Search CRM"
+							placeholder="Buscar en el CRM"
+							aria-label="Buscar en el CRM"
 							disabled={disabled}
 						/>
 						<InputGroupAddon>
-							<Icon icon={Search} className="size-3.5" />
+							<Icon icon={SearchIcon} className="size-3.5" />
 						</InputGroupAddon>
 					</InputGroup>
 				</div>
@@ -1328,7 +1337,7 @@ function ResourcePicker({
 						return (
 							<ResourceButton
 								key={source.source}
-								icon={calendar ? Calendar : Email}
+								icon={calendar ? CalendarIcon : MailIcon}
 								label={label}
 								disabled={disabled}
 								onSelect={() =>
@@ -1345,7 +1354,7 @@ function ResourcePicker({
 					})}
 					<SkeletonSwap
 						loading={loading}
-						label="CRM records"
+						label="Registros del CRM"
 						skeleton={<ResourceResultsSkeleton />}
 					>
 						{resources.map((resource) => (
@@ -1360,7 +1369,7 @@ function ResourcePicker({
 						))}
 						{ready && connectedGoogle.length === 0 && resources.length === 0 ? (
 							<p className="px-3 py-5 text-center text-muted-foreground text-xs">
-								No matching records.
+								No hay registros coincidentes.
 							</p>
 						) : null}
 					</SkeletonSwap>
@@ -1400,7 +1409,7 @@ function AttachmentPicker({
 				onPicked(attachmentContextKey(lastAccepted));
 			}
 		} catch {
-			toast.error("Those files could not be attached. Try again.");
+			toast.error("No se pudieron adjuntar esos archivos. Inténtalo de nuevo.");
 		} finally {
 			dispatch({ type: "attachments.reading.finished" });
 		}
@@ -1422,11 +1431,11 @@ function AttachmentPicker({
 			<Button
 				variant="ghost"
 				size="icon-sm"
-				aria-label="Attach files"
+				aria-label="Adjuntar archivos"
 				disabled={disabled}
 				onClick={() => input.current?.click()}
 			>
-				<Icon icon={AttachmentIcon} />
+				<Icon icon={PaperclipIcon} />
 			</Button>
 		</>
 	);
@@ -1456,7 +1465,7 @@ function CommandPicker({
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					aria-label="Open slash commands"
+					aria-label="Abrir comandos con barra"
 					disabled={disabled}
 					className="font-mono text-sm"
 				>
@@ -1476,7 +1485,7 @@ function CommandPicker({
 					className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none hover:bg-muted focus-visible:bg-muted"
 					disabled={disabled}
 				>
-					<Icon icon={Application} className="size-4 text-muted-foreground" />
+					<Icon icon={AppWindowIcon} className="size-4 text-muted-foreground" />
 					<span className="font-medium text-xs">
 						/{CREATE_AGENT_COMMAND.label}
 					</span>
@@ -1500,11 +1509,11 @@ function ResourceResultsSkeleton() {
 }
 
 const RESOURCE_ICONS = {
-	integration: Application,
-	company: Building,
-	contact: User,
-	deal: Partnership,
-} satisfies Record<BuilderResource["kind"], CarbonIcon>;
+	integration: AppWindowIcon,
+	company: Building2Icon,
+	contact: UserIcon,
+	deal: HandshakeIcon,
+} satisfies Record<BuilderResource["kind"], IconComponent>;
 
 function ResourceButton({
 	icon,
@@ -1513,7 +1522,7 @@ function ResourceButton({
 	disabled,
 	onSelect,
 }: {
-	icon: CarbonIcon;
+	icon: IconComponent;
 	label: string;
 	imageUrl?: string | null;
 	disabled: boolean;
@@ -1549,19 +1558,19 @@ async function readFiles(
 
 	for (const file of Array.from(files).slice(0, 5)) {
 		if (file.size === 0) {
-			toast.error(`${file.name} is empty.`);
+			toast.error(`${file.name} está vacío.`);
 			continue;
 		}
 		if (file.size > 2_000_000) {
-			toast.error(`${file.name} is larger than 2 MB.`);
+			toast.error(`${file.name} supera los 2 MB.`);
 			continue;
 		}
 		if (file.name.length > 180) {
-			toast.error("That file name is too long.");
+			toast.error("El nombre de ese archivo es demasiado largo.");
 			continue;
 		}
 		if (file.type.length > 120) {
-			toast.error(`${file.name} has an unsupported file type.`);
+			toast.error(`${file.name} tiene un tipo de archivo no admitido.`);
 			continue;
 		}
 		acceptedFiles.push(file);
@@ -1579,7 +1588,7 @@ async function readFiles(
 					),
 				};
 			} catch {
-				toast.error(`${file.name} could not be read.`);
+				toast.error(`No se pudo leer ${file.name}.`);
 				return null;
 			}
 		}),

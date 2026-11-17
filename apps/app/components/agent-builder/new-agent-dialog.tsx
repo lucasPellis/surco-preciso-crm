@@ -1,6 +1,5 @@
 "use client";
 
-import Checkmark from "@carbon/icons-react/es/Checkmark";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -24,6 +23,7 @@ import {
 import { Textarea } from "@crm/ui/components/textarea";
 import { InvalidInput, type Permission, parse, schemas } from "@crm/validation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CheckIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -95,7 +95,7 @@ export function NewAgentDialog({ children }: { children: React.ReactNode }) {
 			toast.error(
 				error instanceof InvalidInput
 					? error.message
-					: "Could not hand this to the builder.",
+					: "No se pudo enviar esto al constructor.",
 			);
 		}
 	};
@@ -106,40 +106,40 @@ export function NewAgentDialog({ children }: { children: React.ReactNode }) {
 
 			<DialogContent className="sm:max-w-(--container-sheet)">
 				<DialogHeader>
-					<DialogTitle>New agent</DialogTitle>
+					<DialogTitle>Nuevo agente</DialogTitle>
 					<DialogDescription>
-						Say what it is and where it lives. The builder writes the rest. You
-						can change all of this later.
+						Indica qué es y dónde vive. El constructor escribe el resto. Puedes
+						cambiar todo esto después.
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="flex flex-col gap-4">
 					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="agent-name">Name</Label>
+						<Label htmlFor="agent-name">Nombre</Label>
 						<Input
 							id="agent-name"
 							onChange={(event) => setName(event.target.value)}
-							placeholder="Renewal prep brief"
+							placeholder="Resumen de preparación de renovación"
 							value={name}
 						/>
 					</div>
 
 					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="agent-job">What it should do</Label>
+						<Label htmlFor="agent-job">Qué debe hacer</Label>
 						<Textarea
 							id="agent-job"
 							onChange={(event) => setJob(event.target.value)}
-							placeholder="A week before a renewal, gather the account history and post a short brief for whoever owns the deal."
+							placeholder="Una semana antes de una renovación, reúne el historial de la cuenta y publica un resumen breve para quien lleva la oportunidad."
 							rows={3}
 							value={job}
 						/>
 					</div>
 
 					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="agent-channel">Lives in</Label>
+						<Label htmlFor="agent-channel">Dónde vive</Label>
 						<Select onValueChange={setChannelId} value={channelId}>
 							<SelectTrigger id="agent-channel">
-								<SelectValue placeholder="Pick a Slack channel" />
+								<SelectValue placeholder="Elige un canal de Slack" />
 							</SelectTrigger>
 							<SelectContent>
 								{rows.map((row) => (
@@ -152,14 +152,14 @@ export function NewAgentDialog({ children }: { children: React.ReactNode }) {
 						<p className="text-muted-foreground text-xs">
 							{channel
 								? channel.isMember
-									? `Comp AI is already in #${channel.name}.`
-									: `Comp AI is not in #${channel.name} yet. It joins when you create this.`
-								: "Leave this empty and the builder will ask."}
+									? `Comp AI ya está en #${channel.name}.`
+									: `Comp AI aún no está en #${channel.name}. Se une cuando lo crees.`
+								: "Déjalo vacío y el constructor te preguntará."}
 						</p>
 					</div>
 
 					<div className="flex flex-col gap-1.5">
-						<Label>Allowed to</Label>
+						<Label>Permitido para</Label>
 						<div className="flex flex-wrap gap-2">
 							{schemas.agents.permissions.map((entry) => {
 								const on = allowed.includes(entry.id);
@@ -181,7 +181,7 @@ export function NewAgentDialog({ children }: { children: React.ReactNode }) {
 										{on ? (
 											<Icon
 												className="size-3.5 text-primary"
-												icon={Checkmark}
+												icon={CheckIcon}
 												motion="none"
 											/>
 										) : null}
@@ -195,17 +195,17 @@ export function NewAgentDialog({ children }: { children: React.ReactNode }) {
 
 				<DialogFooter className="items-center">
 					<p className="mr-auto text-muted-foreground text-xs">
-						Nothing sends until you turn it on.
+						No se envía nada hasta que lo actives.
 					</p>
 					<Button
 						disabled={create.isPending}
 						onClick={() => setOpen(false)}
 						variant="outline"
 					>
-						Cancel
+						Cancelar
 					</Button>
 					<Button disabled={!ready || create.isPending} onClick={hand}>
-						{create.isPending ? "Handing over…" : "Hand to the builder"}
+						{create.isPending ? "Enviando…" : "Enviar al constructor"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -14,7 +14,10 @@ export function bridge(): Bridge | null {
 	const secret = process.env.AGENT_BRIDGE_SECRET?.trim();
 	if (!secret) return null;
 
-	const base = process.env.AGENT_URL?.trim() || DEFAULT_AGENT_URL;
+	const base =
+		process.env.INTERNAL_AGENT_URL?.trim() ||
+		process.env.AGENT_URL?.trim() ||
+		DEFAULT_AGENT_URL;
 
 	return { url: (path) => new URL(path, base), secret };
 }

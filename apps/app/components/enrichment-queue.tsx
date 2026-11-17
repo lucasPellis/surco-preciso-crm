@@ -1,6 +1,5 @@
 "use client";
 
-import ChevronRight from "@carbon/icons-react/es/ChevronRight";
 import { Button } from "@crm/ui/components/button";
 import {
 	Collapsible,
@@ -28,9 +27,14 @@ import {
 	ENRICHMENT_PAGE_MAX,
 } from "@crm/validation/enrichment-queue";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
-import { elapsedLabel, queueFooter } from "@/lib/enrichment-queue";
+import {
+	elapsedLabel,
+	queueFooter,
+	showEnrichmentQueue,
+} from "@/lib/enrichment-queue";
 import {
 	ENRICHMENT_IDLE_POLL_MS,
 	ENRICHMENT_POLL_MS,
@@ -49,6 +53,7 @@ const STATE_TONE = {
 	running: "primary",
 	queued: "neutral",
 	failed: "error",
+	paused: "warning",
 } satisfies Record<QueueRow["state"], StatusTone>;
 
 export function EnrichmentQueue() {
@@ -72,6 +77,8 @@ export function EnrichmentQueue() {
 	const scheduled = queue.data?.scheduled ?? [];
 	const scheduledTotal = queue.data?.scheduledTotal ?? 0;
 	const visible = expanded ? rows : rows.slice(0, VISIBLE_ROWS);
+	const triggerLabel =
+		total > 0 ? `Tareas de investigación ${total}` : "Investigación";
 	const footer = queueFooter({
 		total,
 		fetched: rows.length,
@@ -90,17 +97,19 @@ export function EnrichmentQueue() {
 		openRecord({ kind: subject.kind, id: subject.id });
 	};
 
+	if (!showEnrichmentQueue(queue.data?.model)) return null;
+
 	return (
 		<Popover
 			open={open}
 			onOpenChange={(next) => (next ? setOpen(true) : close())}
 		>
 			<PopoverTrigger asChild>
-				<Button variant="outline" size="sm">
+				<Button variant="outline" size="sm" aria-label={triggerLabel}>
 					<StatusIndicator
-						tone={total > 0 ? "primary" : "neutral"}
-						busy={total > 0}
-						label={total > 0 ? `Enriching ${total}` : "Enrichment"}
+						tone="neutral"
+						label={triggerLabel}
+						iconOnlyBelowSm
 					/>
 				</Button>
 			</PopoverTrigger>
@@ -108,7 +117,7 @@ export function EnrichmentQueue() {
 			<PopoverContent align="end" size="panel">
 				<div className="flex items-center justify-between border-b px-4 py-3">
 					<span className="font-semibold text-popover-foreground text-sm">
-						Enriching now
+						Tareas de investigación
 					</span>
 					<span className="font-mono text-muted-foreground text-xs">
 						{total}
@@ -118,11 +127,11 @@ export function EnrichmentQueue() {
 				{visible.length === 0 ? (
 					<div className="flex flex-col gap-1 px-6 py-8 text-center">
 						<span className="font-medium text-popover-foreground text-sm">
-							Nothing right now
+							Nada por ahora
 						</span>
 						<span className="text-muted-foreground text-xs">
-							New companies and contacts show up here while your agents look
-							them up.
+							Las empresas y contactos nuevos aparecen aquí mientras tus agentes
+							los investigan.
 						</span>
 					</div>
 				) : (
@@ -136,7 +145,7 @@ export function EnrichmentQueue() {
 				{footer.more > 0 ? (
 					<div className="flex items-center justify-between px-4 py-3 text-xs">
 						<span className="text-muted-foreground">
-							{footer.more} more queued
+							{footer.more} más en cola
 						</span>
 						{footer.action === "show-all" ? (
 							<button
@@ -144,7 +153,7 @@ export function EnrichmentQueue() {
 								className="cursor-pointer text-primary"
 								onClick={() => setExpanded(true)}
 							>
-								Show all
+								Mostrar todo
 							</button>
 						) : null}
 						{footer.action === "load-more" ? (
@@ -157,7 +166,7 @@ export function EnrichmentQueue() {
 									)
 								}
 							>
-								Load more
+								Cargar más
 							</button>
 						) : null}
 					</div>
@@ -237,7 +246,7 @@ function QueueRowButton({
 				<span className="font-mono text-muted-foreground text-xs group-hover:hidden">
 					{elapsedLabel(row.state, row.startedAt, now)}
 				</span>
-				<ChevronRight
+				<ChevronRightIcon
 					className="hidden size-3.5 text-muted-foreground group-hover:block"
 					aria-hidden="true"
 				/>
@@ -285,10 +294,10 @@ function ScheduledSection({
 			<CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-xs hover:bg-muted">
 				<span className="text-muted-foreground">
 					{total === 1
-						? "1 record is booked for a later look"
-						: `${total} records are booked for a later look`}
+						? "1 registro está programado para más tarde"
+						: `${total} registros están programados para más tarde`}
 				</span>
-				<span className="text-primary">{shown ? "Hide" : "Show"}</span>
+				<span className="text-primary">{shown ? "Ocultar" : "Mostrar"}</span>
 			</CollapsibleTrigger>
 
 			<CollapsibleContent className="max-h-60 overflow-y-auto border-t">
@@ -311,7 +320,7 @@ function ScheduledSection({
 
 				{total > rows.length ? (
 					<div className="px-4 py-3 text-muted-foreground text-xs">
-						{total - rows.length} more are booked but not listed here
+						{total - rows.length} más están programados pero no se listan aquí
 					</div>
 				) : null}
 			</CollapsibleContent>

@@ -1,4 +1,5 @@
 import { ActivityType, db, EmailDirection } from "@crm/db";
+import { PipelineStageKind } from "@crm/db/enums";
 import { z } from "zod";
 import { isDerivedName } from "./names";
 
@@ -158,6 +159,7 @@ export async function readCompanyHistory(
 					id: true,
 					name: true,
 					stage: true,
+					pipelineStage: { select: { kind: true } },
 					amount: true,
 					currency: true,
 					expectedCloseDate: true,
@@ -281,7 +283,7 @@ export async function readCompanyHistory(
 		notes,
 		stats: {
 			people: peopleCount,
-			openDeals: deals.filter((deal) => isOpen(deal.stage)).length,
+			openDeals: deals.filter((deal) => isOpen(deal.pipelineStage.kind)).length,
 			emails: emailCount,
 			meetings: meetingCount,
 			theyReplied: lastInbound !== null,
@@ -353,6 +355,7 @@ export async function readDealHistory(
 			name: true,
 			description: true,
 			stage: true,
+			pipelineStage: { select: { kind: true } },
 			stageChangedAt: true,
 			amount: true,
 			currency: true,
@@ -475,7 +478,7 @@ export async function readDealHistory(
 			name: deal.name,
 			description: deal.description,
 			stage: deal.stage,
-			open: isOpen(deal.stage),
+			open: isOpen(deal.pipelineStage.kind),
 			daysInStage: daysSince(deal.stageChangedAt, now),
 			stageChangedAt: deal.stageChangedAt.toISOString(),
 			amount: deal.amount === null ? null : Number(deal.amount),
@@ -529,12 +532,8 @@ export async function readDealHistory(
 	};
 }
 
-function isOpen(stage: string): boolean {
-	return (
-		stage !== "CLOSED_WON" &&
-		stage !== "CLOSED_LOST" &&
-		stage !== "UNQUALIFIED_TO_BUY"
-	);
+function isOpen(kind: PipelineStageKind): boolean {
+	return kind === PipelineStageKind.OPEN;
 }
 
 async function recentNotes(
@@ -622,6 +621,7 @@ function toCompanyDeal(deal: {
 	id: string;
 	name: string;
 	stage: string;
+	pipelineStage: { kind: PipelineStageKind };
 	amount: unknown;
 	currency: string;
 	expectedCloseDate: Date | null;
@@ -635,7 +635,7 @@ function toCompanyDeal(deal: {
 		id: deal.id,
 		name: deal.name,
 		stage: deal.stage,
-		open: isOpen(deal.stage),
+		open: isOpen(deal.pipelineStage.kind),
 		amount: deal.amount === null ? null : Number(deal.amount),
 		currency: deal.currency,
 		expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,

@@ -20,6 +20,10 @@
 		{
 			"path": "/internal/archive/prune",
 			"schedule": "0 5 * * *"
+		},
+		{
+			"path": "/internal/deals/lose-paused",
+			"schedule": "30 5 * * *"
 		}
 	]
 }

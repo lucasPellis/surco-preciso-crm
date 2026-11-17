@@ -9,7 +9,10 @@ const tokenReply = z.object({
 export async function mcpConnectionToken(connectionId: string) {
 	const secret = process.env.AGENT_BRIDGE_SECRET?.trim();
 	if (!secret) throw new Error("MCP token brokering is not configured.");
-	const baseUrl = process.env.API_URL?.trim() || MCP.api.baseUrl;
+	const baseUrl =
+		process.env.INTERNAL_API_URL?.trim() ||
+		process.env.API_URL?.trim() ||
+		MCP.api.baseUrl;
 	const url = new URL(
 		`/internal/mcp/connections/${encodeURIComponent(connectionId)}/token`,
 		baseUrl,

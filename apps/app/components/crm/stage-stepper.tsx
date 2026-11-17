@@ -1,23 +1,28 @@
 "use client";
 
-import { DealStage } from "@crm/db/enums";
+import { IndicatorDot } from "@crm/ui/components/status-indicator";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { DealStageIndicator } from "@/components/crm/deal-stage";
-import { dealStageLabel, isClosedStage, OPEN_STAGES } from "@/lib/deal-stage";
+import { daysInStageLabel } from "@/lib/deal-sheet";
+import { type StageCatalog, stepperSteps } from "@/lib/deal-stage";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
-
-const RAIL = [...OPEN_STAGES, DealStage.CLOSED_WON] as readonly DealStage[];
+import { useStages } from "@/lib/use-stages";
 
 export function StageStepper({
 	dealId,
 	stage,
+	stageChangedAt,
 }: {
 	dealId: string;
-	stage: DealStage;
+	stage: string;
+	stageChangedAt?: string;
 }) {
+	const sinceLabel = stageChangedAt
+		? daysInStageLabel(stageChangedAt, new Date())
+		: null;
+	const stages = useStages();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
@@ -25,21 +30,20 @@ export function StageStepper({
 		trpc.deals.setStage.mutationOptions({
 			onSuccess: async (result) => {
 				await cache.deal(dealId);
-				if (result.changed) toast.success("Stage updated.");
+				if (result.changed) toast.success("Etapa actualizada.");
 			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
 
-	const exited = isClosedStage(stage) && stage !== DealStage.CLOSED_WON;
-	const steps = exited ? OPEN_STAGES : RAIL;
+	const { steps, trailing } = stepperSteps(stages, stage);
 	const currentIndex = steps.indexOf(stage);
 
 	return (
 		<ol className="flex w-full gap-1">
 			{steps.map((option, index) => {
-				const reached = !exited && index <= currentIndex;
-				const current = !exited && option === stage;
+				const reached = !trailing && index <= currentIndex;
+				const current = !trailing && option === stage;
 				return (
 					<li key={option} className="flex min-w-0 flex-1">
 						<button
@@ -48,32 +52,72 @@ export function StageStepper({
 							disabled={setStage.isPending}
 							onClick={() => setStage.mutate({ id: dealId, stage: option })}
 							className={cn(
-								"min-w-0 flex-1 border-t-2 pt-2 text-left text-xs transition-colors disabled:pointer-events-none disabled:opacity-50",
+								"group/step flex min-w-0 flex-1 flex-col gap-2 rounded-xs text-left text-xs outline-none transition-colors focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-50",
 								reached
-									? "border-foreground text-foreground"
-									: "border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground",
+									? "text-foreground"
+									: "text-muted-foreground hover:text-foreground",
 								current && "font-medium",
 							)}
 						>
-							<span className="block truncate">
-								{current && option === DealStage.CLOSED_WON ? (
-									<DealStageIndicator stage={stage} className="text-xs" />
+							<span
+								aria-hidden
+								className={cn(
+									"h-1.5 rounded-full transition-colors",
+									reached
+										? "bg-foreground"
+										: "bg-foreground/10 group-hover/step:bg-foreground/30",
+								)}
+							/>
+							<span className="text-pretty wrap-break-word leading-4">
+								{current && stages.isWon(option) ? (
+									<StageOutcome stage={stage} stages={stages} />
 								) : (
-									dealStageLabel(option)
+									stages.label(option)
 								)}
 							</span>
+							{current && sinceLabel ? (
+								<span className="font-normal text-13 text-muted-foreground">
+									{sinceLabel}
+								</span>
+							) : null}
 						</button>
 					</li>
 				);
 			})}
 
-			{exited ? (
+			{trailing ? (
 				<li className="flex min-w-0 flex-1">
-					<div className="min-w-0 flex-1 border-foreground border-t-2 pt-2">
-						<DealStageIndicator stage={stage} className="text-xs" />
+					<div
+						aria-current="step"
+						className="flex min-w-0 flex-1 flex-col gap-2 text-xs leading-4"
+					>
+						<span aria-hidden className="h-1.5 rounded-full bg-foreground" />
+						<StageOutcome stage={stage} stages={stages} />
+						{sinceLabel ? (
+							<span className="text-13 text-muted-foreground">
+								{sinceLabel}
+							</span>
+						) : null}
 					</div>
 				</li>
 			) : null}
 		</ol>
+	);
+}
+
+function StageOutcome({
+	stage,
+	stages,
+}: {
+	stage: string;
+	stages: StageCatalog;
+}) {
+	const label = stages.label(stage);
+	const tone = stages.tone(stage);
+	return (
+		<span className="flex min-w-0 items-baseline gap-1.5">
+			<IndicatorDot tone={tone} aria-hidden="true" className="translate-y-px" />
+			<span className="text-pretty wrap-break-word">{label}</span>
+		</span>
 	);
 }

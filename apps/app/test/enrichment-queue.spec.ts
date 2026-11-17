@@ -4,6 +4,7 @@ import {
 	formatElapsed,
 	NO_ELAPSED,
 	queueFooter,
+	showEnrichmentQueue,
 } from "../lib/enrichment-queue";
 
 describe("how long a lookup has been going", () => {
@@ -97,4 +98,21 @@ describe("what the queue footer offers", () => {
 			action: "none",
 		});
 	});
+});
+
+it("does not show elapsed time for paused research", () => {
+	expect(
+		elapsedLabel(
+			"paused",
+			"2026-01-01T00:00:00Z",
+			Date.parse("2026-01-01T01:00:00Z"),
+		),
+	).toBe(NO_ELAPSED);
+});
+
+it("shows the queue only when model access is configured", () => {
+	expect(showEnrichmentQueue("unavailable")).toBe(false);
+	expect(showEnrichmentQueue("configured")).toBe(true);
+	expect(showEnrichmentQueue("unknown")).toBe(false);
+	expect(showEnrichmentQueue(undefined)).toBe(false);
 });

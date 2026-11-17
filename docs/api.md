@@ -257,6 +257,14 @@ row is still there, just filtered out of every list.
 the ordinary `runBulk`. Settings → General has the day count
 (`settings.archiveRetention` / `setArchiveRetention`).
 
+**Pause timeout**: `PausedDealsController` (`internal/deals/lose-paused`, same
+`CRON_SECRET` gate, `apps/api/vercel.json`) calls `DealsService.losePaused`. A deal in a
+`PAUSED` stage whose `stageChangedAt` is older than the stage's `autoLoseAfterDays` moves
+to the `LOST` stage through `moveInTx`, with the reason `PAUSED_SWEEP.lostReason`
+(`deals/deals-config.ts`) and the deal owner as the actor. `null` means never. Each deal
+is its own transaction and re-checks the rule under `FOR UPDATE`, so a second run moves
+nothing.
+
 Below is `purge`'s contract — everything that used to be `delete`'s:
 
 - **A purged contact is suppressed by address**, or the sync recreates them from the
@@ -282,6 +290,41 @@ Below is `purge`'s contract — everything that used to be `delete`'s:
   `recomputeAll()` is for a purge only.
 - **Recompute after commit, logging rather than throwing** — the row is already gone,
   and a raised error makes the browser skip invalidation and retry into a 404.
+
+## A lead has a source and an owner, and a person never has to type either
+
+Every contact carries a `LeadSource` (*Origen*) and every lead opens a `Deal` in `NEW`.
+The rules live in `docs/plan/surco-preciso-flow.md`. The ones that bite:
+
+- **`null` is the only way to say *unknown*.** There is no *Desconocido* row, because
+  two ways to say it split the statistics. The list filters use the value `none` for
+  it (`FACET_NO_LEAD_SOURCE`, `leadSourceFilter` in `trpc/list-input.ts`). Use that
+  helper. Do not write a third copy.
+- **A source is archived, never deleted, and its `key` never changes.** Hooks join on
+  `key`. A rename changes `name` only. An archived source cannot be chosen for a new
+  contact, but contacts that already have it keep it.
+- **`Deal.leadSourceId` is copied from the contact at creation and never rewritten.**
+  Editing the contact later does not change a deal's source, so a closed quarter does
+  not move.
+- **Phone is stored normalized (`normalizePhone`, `@crm/db/phone`) and is unique among
+  active contacts.** Normalize at the boundary, in the service, before any compare. The
+  agent writes `Company.phone` through the same function.
+- **A lead needs a phone or an email.** `contactCreateInput` refuses both empty. Direct
+  service callers, such as the tracker, are not bound by it.
+- **A duplicate is a `CONFLICT` with a sentence, and nothing more.** `DomainErrorMiddleware`
+  carries `code` and `message` only. A client that must open the existing record calls
+  `contacts.findDuplicate({ phone, email })` after the conflict. Do not add a payload to
+  the error formatter for this.
+- **Company resolution is exact matching only** (`CompanyDirectoryService.resolveForContact`):
+  work-email domain, then one company with that phone, then a new company named after
+  the person. No scoring, no guessing. This is what keeps it out of the intelligence rule
+  above.
+- **`contacts.create` opens the deal in the same transaction as the contact.** The owner
+  is the user who picked one, else the creator. A lead with no human creator (a tracker
+  form) takes `AppSetting.defaultLeadOwnerId`, set in Settings → Orígenes. With no owner
+  at all the contact is filed and no deal opens, because `Deal.ownerId` is required.
+- **Both paths emit `contact.created` and `deal.created` through `withCrmEvents`.** A new
+  writer of contacts or deals must do the same, or the agent never sees the record.
 
 ## Money
 

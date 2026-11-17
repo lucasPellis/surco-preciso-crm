@@ -1,10 +1,5 @@
 "use client";
 
-import Add from "@carbon/icons-react/es/Add";
-import Partnership from "@carbon/icons-react/es/Partnership";
-import Star from "@carbon/icons-react/es/Star";
-import StarFilled from "@carbon/icons-react/es/StarFilled";
-import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import type { FieldValueJson } from "@crm/db/fields";
 import { Button } from "@crm/ui/components/button";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
@@ -14,6 +9,11 @@ import {
 } from "@crm/ui/components/entity-logo";
 import { Icon } from "@crm/ui/components/icon";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
+import {
+	RecordFigure,
+	RecordSection,
+	type RecordSheetTab,
+} from "@crm/ui/components/record-sheet";
 import { SimpleTable, SimpleTableRow } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@crm/ui/components/tooltip";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { HandshakeIcon, PlusIcon, StarIcon, UsersIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AgentPanel } from "@/components/crm/agent-panel";
 import { EnrichmentActions } from "@/components/crm/enrichment-actions";
@@ -39,23 +40,17 @@ import { DealStageMenu } from "@/components/crm/stage-change";
 import { Timeline } from "@/components/crm/timeline/timeline";
 import { WebsiteActivity } from "@/components/crm/website-activity";
 import {
-	DetailSheetBody,
 	DetailSheetEmpty,
-	DetailSheetMain,
+	DetailSheetLoaded,
 	DetailSheetPending,
 	DetailSheetProperties,
 	DetailSheetProse,
-	DetailSheetRail,
 	DetailSheetSection,
-	DetailSheetSplit,
-	DetailSheetStat,
-	DetailSheetStats,
-	type DetailSheetTab,
 } from "@/components/detail-sheet";
 import { LocalDay } from "@/components/local-date-time";
-import { OPEN_STAGES } from "@/lib/deal-stage";
 import { ENRICHMENT_POLL_MS, isEnriching } from "@/lib/enrichment-status";
 import { savingField } from "@/lib/pending-field";
+import { entityLogoTone } from "@/lib/recent-records";
 import { hasCompanyLinks } from "@/lib/social-links";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -72,15 +67,14 @@ import {
 import { useOpenRecord, useRecordSheetView } from "./record-stack";
 
 type Company = RouterOutputs["companies"]["byId"];
-type CompanyDeal = Company["deals"][number];
 
 const UNASSIGNED = "unassigned";
 
 function pendingFields(company: Company): string[] {
 	const missing: string[] = [];
-	if (!company.industry) missing.push("industry");
-	if (!company.description) missing.push("description");
-	if (!hasCompanyLinks(company)) missing.push("social links");
+	if (!company.industry) missing.push("sector");
+	if (!company.description) missing.push("descripción");
+	if (!hasCompanyLinks(company)) missing.push("redes sociales");
 	return missing;
 }
 
@@ -90,45 +84,37 @@ function companyConsequence(company: Company): string {
 
 	const gone =
 		deals > 0
-			? `${deals === 1 ? "Its one deal" : `All ${deals} of its deals`} and everything filed against the account go too.`
-			: "Everything filed against the account goes too.";
+			? `${deals === 1 ? "Su única oportunidad" : `Sus ${deals} oportunidades`} y todo lo archivado en la cuenta se eliminan también.`
+			: "Todo lo archivado en la cuenta se elimina también.";
 
 	const kept =
 		contacts > 0
-			? ` ${contacts === 1 ? "The one person" : `The ${contacts} people`} who work there stay in the CRM, without a company.`
+			? ` ${contacts === 1 ? "La persona que trabaja ahí sigue" : `Las ${contacts} personas que trabajan ahí siguen`} en el CRM, sin empresa.`
 			: "";
 
 	return gone + kept;
 }
 
 const CONTACT_COLUMNS = [
-	{ id: "primary", srLabel: "Primary", width: "w-10", className: "pl-5" },
-	{ id: "name", header: "Name", width: "w-[28%]" },
-	{ id: "title", header: "Title", width: "w-[24%]" },
+	{ id: "primary", srLabel: "Principal", width: "w-10", className: "pl-0" },
+	{ id: "name", header: "Nombre", width: "w-[28%]" },
+	{ id: "title", header: "Cargo", width: "w-[24%]" },
 	{ id: "email", header: "Email", width: "w-[26%]" },
-	{ id: "owner", header: "Owner", width: "w-[22%]" },
+	{ id: "owner", header: "Responsable", width: "w-[22%]" },
 ];
 
 const DEAL_COLUMNS = [
-	{ id: "deal", header: "Deal", width: "w-[32%]", className: "pl-5" },
-	{ id: "stage", header: "Stage", width: "w-[24%]" },
+	{ id: "deal", header: "Oportunidad", width: "w-[32%]", className: "pl-0" },
+	{ id: "stage", header: "Etapa", width: "w-[24%]" },
 	{
 		id: "amount",
-		header: "Amount",
+		header: "Monto",
 		width: "w-[16%]",
 		align: "right" as const,
 	},
-	{ id: "close-date", header: "Close date", width: "w-[14%]" },
-	{ id: "owner", header: "Owner", width: "w-[14%]" },
+	{ id: "close-date", header: "Fecha de cierre", width: "w-[14%]" },
+	{ id: "owner", header: "Responsable", width: "w-[14%]" },
 ];
-
-function nextClose(deals: CompanyDeal[]): string | null {
-	const dates = deals
-		.map((deal) => deal.expectedCloseDate)
-		.filter((date): date is string => date !== null)
-		.sort();
-	return dates[0] ?? null;
-}
 
 export function CompanySheet({ companyId }: { companyId: string }) {
 	const trpc = useTRPC();
@@ -157,147 +143,188 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 				.join(", ")
 		: null;
 
-	const openDeals =
-		company?.deals.filter((deal) => OPEN_STAGES.includes(deal.stage)) ?? [];
-	const openValueCents = openDeals.reduce(
-		(total, deal) => total + (deal.baseAmountCents ?? 0),
-		0,
-	);
-	const openUncounted = openDeals.filter(
-		(deal) => deal.amountCents !== null && deal.baseAmountCents === null,
-	).length;
-	const closing = nextClose(openDeals);
-
-	const tabs: DetailSheetTab[] = company
-		? [
-				{
-					value: "overview",
-					label: "Overview",
-					content: <CompanyOverview company={company} />,
-				},
-				{
-					value: "contacts",
-					label: "Contacts",
-					count: company.contacts.length,
-					content: (
-						<CompanyContacts
-							company={company}
-							adding={adding === "contact"}
-							onAdd={() => setAdding("contact")}
-							onDone={() => setAdding(null)}
-						/>
-					),
-				},
-				{
-					value: "deals",
-					label: "Deals",
-					count: company.deals.length,
-					content: (
-						<CompanyDeals
-							company={company}
-							adding={adding === "deal"}
-							onAdd={() => setAdding("deal")}
-							onDone={() => setAdding(null)}
-						/>
-					),
-				},
-				{
-					value: "activity",
-					label: "Activity",
-					content: <Timeline anchor={{ companyId: company.id }} />,
-				},
-				{
-					value: "agent",
-					label: "Agent",
-					content: <AgentPanel record={{ kind: "company", id: company.id }} />,
-					keepMounted: true,
-				},
-			]
-		: [];
+	const tabs: RecordSheetTab[] = [
+		{
+			value: "overview",
+			label: "Resumen",
+			content: company ? <CompanyOverview company={company} /> : null,
+		},
+		{
+			value: "contacts",
+			label: "Contactos",
+			count: company?.contacts.length,
+			fills: true,
+			content: company ? (
+				<CompanyContacts
+					company={company}
+					adding={adding === "contact"}
+					onAdd={() => setAdding("contact")}
+					onDone={() => setAdding(null)}
+				/>
+			) : null,
+		},
+		{
+			value: "deals",
+			label: "Oportunidades",
+			count: company?.deals.length,
+			fills: true,
+			content: company ? (
+				<CompanyDeals
+					company={company}
+					adding={adding === "deal"}
+					onAdd={() => setAdding("deal")}
+					onDone={() => setAdding(null)}
+				/>
+			) : null,
+		},
+		{
+			value: "activity",
+			label: "Actividad",
+			fills: true,
+			content: company ? <Timeline anchor={{ companyId: company.id }} /> : null,
+		},
+		{
+			value: "agent",
+			label: "Agente",
+			fills: true,
+			content: company ? (
+				<AgentPanel record={{ kind: "company", id: company.id }} />
+			) : null,
+			keepMounted: true,
+		},
+	];
 
 	return (
-		<RecordSheetFrame
-			loading={query.isPending}
-			error={query.error?.message ?? null}
-			title={company?.name ?? "Company"}
-			description={
-				company ? (
-					<MetaLine
-						lead={
-							<DomainLink domain={company.domain} website={company.website} />
+		<DetailSheetLoaded
+			record={
+				company
+					? {
+							kind: "company",
+							id: company.id,
+							label: company.name,
+							detail: company.domain,
+							iconUrl: company.iconUrl ?? company.logoUrl,
+							iconDarkUrl: company.iconDarkUrl,
+							iconTone: entityLogoTone.nullable().parse(company.iconTone),
+							imageUrl: null,
 						}
-						parts={[location, company.industry]}
-					/>
-				) : undefined
+					: null
 			}
-			note={
-				company && company.enrichmentStatus !== "COMPLETE" ? (
-					<EnrichmentIndicator
-						status={company.enrichmentStatus}
-						queued={company.queued}
-						title={company.enrichmentError}
-					/>
-				) : null
-			}
-			media={
-				<EntityLogo
-					src={company?.iconUrl ?? company?.logoUrl}
-					darkSrc={company?.iconDarkUrl}
-					tone={company?.iconTone as EntityLogoTone | null | undefined}
-					name={company?.name ?? "?"}
-					size="lg"
-				/>
-			}
-			actions={
-				company ? (
-					<>
-						<EnrichmentActions
-							companyId={company.id}
-							hasDomain={company.domain !== null}
-						/>
-						<RecordActions
-							record={{ kind: "company", id: company.id }}
+		>
+			<RecordSheetFrame
+				kind="company"
+				loading={query.isPending}
+				error={query.error?.message ?? null}
+				title={company?.name ?? "Empresa"}
+				media={
+					company ? (
+						<EntityLogo
+							src={company.iconUrl ?? company.logoUrl}
+							darkSrc={company.iconDarkUrl}
+							tone={company.iconTone as EntityLogoTone | null | undefined}
 							name={company.name}
-							consequence={companyConsequence(company)}
-							archivedAt={company.archivedAt}
+							size="sm"
 						/>
-					</>
-				) : null
-			}
-			stats={
-				company ? (
-					<DetailSheetStats>
-						<DetailSheetStat label="Open pipeline">
-							<span className="tabular-nums">
-								{formatMoney(openValueCents, company.reportingCurrency)}
-							</span>
-							{openUncounted > 0 ? (
-								<span className="text-muted-foreground">
-									{" "}
-									+{openUncounted} unconverted
-								</span>
+					) : null
+				}
+				pills={
+					company ? (
+						<>
+							<MetaLine
+								lead={
+									<DomainLink
+										domain={company.domain}
+										website={company.website}
+									/>
+								}
+								parts={[location, company.industry]}
+							/>
+							{company.enrichmentStatus !== "COMPLETE" ? (
+								<EnrichmentIndicator
+									status={company.enrichmentStatus}
+									queued={company.queued}
+									title={company.enrichmentError}
+								/>
 							) : null}
-						</DetailSheetStat>
-						<DetailSheetStat label="Open deals">
-							<span className="tabular-nums">{openDeals.length}</span>
-						</DetailSheetStat>
-						<DetailSheetStat label="Next close">
-							{closing ? <LocalDay date={closing} /> : <EmptyCellValue />}
-						</DetailSheetStat>
-						<DetailSheetStat label="Owner">
-							<OwnerCell owner={company.owner} />
-						</DetailSheetStat>
-					</DetailSheetStats>
-				) : null
-			}
-			tabs={tabs}
-			tab={tab}
-			onTabChange={setTab}
-		/>
+						</>
+					) : null
+				}
+				actions={
+					company ? (
+						<>
+							<EnrichmentActions
+								companyId={company.id}
+								hasDomain={company.domain !== null}
+							/>
+							<RecordActions
+								record={{ kind: "company", id: company.id }}
+								name={company.name}
+								consequence={companyConsequence(company)}
+								archivedAt={company.archivedAt}
+							/>
+						</>
+					) : null
+				}
+				rail={company ? <CompanyRail company={company} /> : null}
+				tabs={tabs}
+				tab={tab}
+				onTabChange={setTab}
+			/>
+		</DetailSheetLoaded>
 	);
 }
 
 function CompanyOverview({ company }: { company: Company }) {
+	const {
+		count: openDeals,
+		totalCents: openValueCents,
+		unconverted: openUncounted,
+		nextClose: closing,
+	} = company.openPipeline;
+	return (
+		<>
+			<RecordSection label="Funnel abierto">
+				<RecordFigure
+					value={
+						openValueCents === null
+							? "Todavía nada"
+							: formatMoney(openValueCents, company.reportingCurrency)
+					}
+				>
+					<span>
+						{openDeals === 0
+							? "Sin oportunidades abiertas"
+							: openDeals === 1
+								? "1 oportunidad abierta"
+								: `${openDeals} oportunidades abiertas`}
+					</span>
+					{closing ? (
+						<span>
+							Próximo cierre <LocalDay date={closing} />
+						</span>
+					) : null}
+					{openUncounted > 0 ? (
+						<span>
+							{openUncounted === 1
+								? "1 oportunidad sin cotización queda fuera"
+								: `${openUncounted} oportunidades sin cotización quedan fuera`}
+						</span>
+					) : null}
+				</RecordFigure>
+			</RecordSection>
+
+			{company.description ? (
+				<DetailSheetSection title="Acerca de">
+					<DetailSheetProse>{company.description}</DetailSheetProse>
+				</DetailSheetSection>
+			) : null}
+
+			<WebsiteActivity companyId={company.id} />
+		</>
+	);
+}
+
+function CompanyRail({ company }: { company: Company }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
@@ -320,107 +347,93 @@ function CompanyOverview({ company }: { company: Company }) {
 	const isSavingField = savingValue(update);
 
 	return (
-		<DetailSheetBody>
-			<DetailSheetSplit>
-				<DetailSheetMain>
-					{company.description ? (
-						<DetailSheetSection title="About">
-							<DetailSheetProse>{company.description}</DetailSheetProse>
-						</DetailSheetSection>
-					) : null}
-
-					<WebsiteActivity companyId={company.id} />
-				</DetailSheetMain>
-
-				<DetailSheetRail>
-					<DetailSheetSection
-						title="Details"
-						action={<FieldsCog kind="company" />}
-					>
-						<DetailSheetProperties columns={1}>
-							<InlineField
-								label="Name"
-								value={company.name}
-								saving={isSaving("name")}
-								onSave={(name) => name && save({ name })}
-							/>
-							<InlineField
-								label="Domain"
-								value={company.domain}
-								type="url"
-								placeholder="stripe.com"
-								saving={isSaving("domain")}
-								onSave={(domain) => save({ domain })}
-							/>
-							<InlineField
-								label="Website"
-								value={company.website}
-								type="url"
-								placeholder="https://stripe.com"
-								saving={isSaving("website")}
-								onSave={(website) => save({ website })}
-							/>
-							<InlineField
-								label="Phone"
-								value={company.phone}
-								type="tel"
-								saving={isSaving("phone")}
-								onSave={(phone) => save({ phone })}
-							/>
-							<InlineField
-								label="Email"
-								value={company.email}
-								type="email"
-								saving={isSaving("email")}
-								onSave={(email) => save({ email })}
-							/>
-							<InlineField
-								label="City"
-								value={company.city}
-								saving={isSaving("city")}
-								onSave={(city) => save({ city })}
-							/>
-							<InlineField
-								label="Country"
-								value={company.country}
-								saving={isSaving("country")}
-								onSave={(country) => save({ country })}
-							/>
-							<InlineSelectField
-								label="Owner"
-								value={company.owner?.id ?? UNASSIGNED}
-								options={[
-									{ value: UNASSIGNED, label: "Unassigned" },
-									...(users.data ?? []).map((user) => ({
-										value: user.id,
-										label: user.name,
-									})),
-								]}
-								onSave={(ownerId) =>
-									save({ ownerId: ownerId === UNASSIGNED ? null : ownerId })
-								}
-							/>
-							<RecordFields
-								fields={company.fields}
-								saving={isSavingField}
-								onSave={saveFields}
-							/>
-						</DetailSheetProperties>
-					</DetailSheetSection>
-
-					<DetailSheetPending
-						fields={pendingFields(company)}
-						running={isEnriching(company.enrichmentStatus, company.queued)}
+		<>
+			<DetailSheetSection
+				title="Detalles"
+				action={<FieldsCog kind="company" />}
+			>
+				<DetailSheetProperties columns={1}>
+					<InlineField
+						label="Nombre"
+						value={company.name}
+						saving={isSaving("name")}
+						onSave={(name) => name && save({ name })}
 					/>
+					<InlineField
+						label="Dominio"
+						value={company.domain}
+						type="url"
+						placeholder="agroejemplo.com"
+						saving={isSaving("domain")}
+						onSave={(domain) => save({ domain })}
+					/>
+					<InlineField
+						label="Sitio web"
+						value={company.website}
+						type="url"
+						placeholder="https://agroejemplo.com"
+						saving={isSaving("website")}
+						onSave={(website) => save({ website })}
+					/>
+					<InlineField
+						label="Teléfono"
+						value={company.phone}
+						type="tel"
+						saving={isSaving("phone")}
+						onSave={(phone) => save({ phone })}
+					/>
+					<InlineField
+						label="Email"
+						value={company.email}
+						type="email"
+						saving={isSaving("email")}
+						onSave={(email) => save({ email })}
+					/>
+					<InlineField
+						label="Ciudad"
+						value={company.city}
+						saving={isSaving("city")}
+						onSave={(city) => save({ city })}
+					/>
+					<InlineField
+						label="País"
+						value={company.country}
+						saving={isSaving("country")}
+						onSave={(country) => save({ country })}
+					/>
+					<InlineSelectField
+						label="Responsable"
+						value={company.owner?.id ?? UNASSIGNED}
+						options={[
+							{ value: UNASSIGNED, label: "Sin asignar" },
+							...(users.data ?? []).map((user) => ({
+								value: user.id,
+								label: user.name,
+							})),
+						]}
+						onSave={(ownerId) =>
+							save({ ownerId: ownerId === UNASSIGNED ? null : ownerId })
+						}
+					/>
+					<RecordFields
+						fields={company.fields}
+						saving={isSavingField}
+						onSave={saveFields}
+					/>
+				</DetailSheetProperties>
+			</DetailSheetSection>
 
-					{hasCompanyLinks(company) ? (
-						<DetailSheetSection title="Links">
-							<CompanySocials company={company} />
-						</DetailSheetSection>
-					) : null}
-				</DetailSheetRail>
-			</DetailSheetSplit>
-		</DetailSheetBody>
+			<DetailSheetPending
+				fields={pendingFields(company)}
+				running={isEnriching(company.enrichmentStatus, company.queued)}
+			/>
+
+			{hasCompanyLinks(company) ? (
+				<DetailSheetSection title="Enlaces">
+					<CompanySocials company={company} />
+				</DetailSheetSection>
+			) : null}
+		</>
 	);
 }
 
@@ -460,13 +473,13 @@ function CompanyContacts({
 				{form}
 				{adding ? null : (
 					<DetailSheetEmpty
-						icon={UserMultiple}
-						title="No contacts yet"
-						description={`Everyone you talk to at ${company.name} lives here — add the first person and their calls, emails and notes hang off them.`}
+						icon={UsersIcon}
+						title="Todavía no hay contactos"
+						description={`Todas las personas con las que hablas en ${company.name} viven aquí. Agrega a la primera y sus llamadas, emails y notas quedan asociados a ella.`}
 						action={
 							<Button variant="outline" size="sm" onClick={onAdd}>
-								<Icon icon={Add} data-icon="inline-start" />
-								Add contact
+								<Icon icon={PlusIcon} data-icon="inline-start" />
+								Agregar contacto
 							</Button>
 						}
 					/>
@@ -485,9 +498,17 @@ function CompanyContacts({
 						<SimpleTableRow
 							key={contact.id}
 							clickable
-							onClick={() => openRecord({ kind: "contact", id: contact.id })}
+							onClick={() =>
+								openRecord(
+									{ kind: "contact", id: contact.id },
+									company.contacts.map((entry) => ({
+										kind: "contact",
+										id: entry.id,
+									})),
+								)
+							}
 						>
-							<TableCell className="w-10 py-2.5 pl-5">
+							<TableCell className="w-10 py-2.5 pl-0">
 								<Tooltip>
 									<TooltipTrigger asChild>
 										<Button
@@ -503,14 +524,17 @@ function CompanyContacts({
 												});
 											}}
 										>
-											<Icon icon={isPrimary ? StarFilled : Star} />
+											<Icon
+												icon={StarIcon}
+												className={isPrimary ? "fill-current" : undefined}
+											/>
 											<span className="sr-only">
-												{isPrimary ? "Primary contact" : "Make primary"}
+												{isPrimary ? "Contacto principal" : "Hacer principal"}
 											</span>
 										</Button>
 									</TooltipTrigger>
 									<TooltipContent>
-										{isPrimary ? "Primary contact" : "Make primary"}
+										{isPrimary ? "Contacto principal" : "Hacer principal"}
 									</TooltipContent>
 								</Tooltip>
 							</TableCell>
@@ -545,7 +569,7 @@ function CompanyContacts({
 				})}
 
 				<AddRow
-					label="Add contact"
+					label="Agregar contacto"
 					columns={CONTACT_COLUMNS.length}
 					onClick={onAdd}
 				/>
@@ -582,13 +606,13 @@ function CompanyDeals({
 				{form}
 				{adding ? null : (
 					<DetailSheetEmpty
-						icon={Partnership}
-						title="No deals yet"
-						description={`Nothing is being sold to ${company.name} right now. Open one and it joins the pipeline and the forecast.`}
+						icon={HandshakeIcon}
+						title="Todavía no hay oportunidades"
+						description={`Por ahora no se le vende nada a ${company.name}. Abre una oportunidad y entra al funnel y a la proyección.`}
 						action={
 							<Button variant="outline" size="sm" onClick={onAdd}>
-								<Icon icon={Add} data-icon="inline-start" />
-								New deal
+								<Icon icon={PlusIcon} data-icon="inline-start" />
+								Nueva oportunidad
 							</Button>
 						}
 					/>
@@ -605,9 +629,14 @@ function CompanyDeals({
 					<SimpleTableRow
 						key={deal.id}
 						clickable
-						onClick={() => openRecord({ kind: "deal", id: deal.id })}
+						onClick={() =>
+							openRecord(
+								{ kind: "deal", id: deal.id },
+								company.deals.map((entry) => ({ kind: "deal", id: entry.id })),
+							)
+						}
 					>
-						<TableCell className="truncate py-2.5 pr-3 pl-5 font-medium">
+						<TableCell className="truncate py-2.5 pr-3 pl-0 font-medium">
 							{deal.name}
 						</TableCell>
 						<TableCell className="px-3 py-2.5">
@@ -633,7 +662,7 @@ function CompanyDeals({
 				))}
 
 				<AddRow
-					label="New deal"
+					label="Nueva oportunidad"
 					columns={DEAL_COLUMNS.length}
 					onClick={onAdd}
 				/>

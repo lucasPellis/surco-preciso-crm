@@ -15,21 +15,21 @@ import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { LocalDay } from "@/components/local-date-time";
 import type { DealListItem, DealListResult } from "@/lib/agent-transcript";
-import { DEAL_STAGE_OPTIONS } from "@/lib/deal-stage";
+import { useStages } from "@/lib/use-stages";
 
 const COLUMNS: SimpleTableColumn[] = [
-	{ id: "deal", header: "Deal", width: "w-[20%]" },
-	{ id: "company", header: "Company", width: "w-[18%]" },
-	{ id: "stage", header: "Stage", width: "w-[18%]" },
+	{ id: "deal", header: "Oportunidad", width: "w-[20%]" },
+	{ id: "company", header: "Empresa", width: "w-[18%]" },
+	{ id: "stage", header: "Etapa", width: "w-[18%]" },
 	{
 		id: "amount",
-		header: "Amount",
+		header: "Monto",
 		width: "w-[12%]",
 		align: "right",
 	},
-	{ id: "owner", header: "Owner", width: "w-[14%]" },
-	{ id: "close", header: "Close date", width: "w-[12%]" },
-	{ id: "idle", header: "Idle", width: "w-[8%]", align: "right" },
+	{ id: "owner", header: "Responsable", width: "w-[14%]" },
+	{ id: "close", header: "Cierre", width: "w-[12%]" },
+	{ id: "idle", header: "Inactividad", width: "w-[8%]", align: "right" },
 ];
 
 export function DealListResultTable({ result }: { result: DealListResult }) {
@@ -51,7 +51,7 @@ export function DealListResultTable({ result }: { result: DealListResult }) {
 							colSpan={COLUMNS.length}
 							className="h-32 whitespace-normal py-8 text-center align-middle text-muted-foreground"
 						>
-							No deals met these pipeline filters.
+							Ninguna oportunidad cumple estos filtros del pipeline.
 						</TableCell>
 					</SimpleTableRow>
 				) : (
@@ -62,7 +62,15 @@ export function DealListResultTable({ result }: { result: DealListResult }) {
 							<SimpleTableRow
 								key={deal.id}
 								clickable
-								onClick={() => openRecord(record)}
+								onClick={() =>
+									openRecord(
+										record,
+										result.deals.map((entry) => ({
+											kind: "deal",
+											id: entry.id,
+										})),
+									)
+								}
 								onFocus={() => prefetchRecord(record)}
 								onMouseEnter={() => prefetchRecord(record)}
 							>
@@ -104,9 +112,7 @@ export function DealListResultTable({ result }: { result: DealListResult }) {
 								<TableCell
 									className="overflow-hidden px-3 py-3 text-right text-muted-foreground tabular-nums"
 									title={
-										deal.neverActive
-											? "No activity has ever been recorded"
-											: undefined
+										deal.neverActive ? "Nunca se registró actividad" : undefined
 									}
 								>
 									{deal.daysSinceLastActivity}d
@@ -117,9 +123,13 @@ export function DealListResultTable({ result }: { result: DealListResult }) {
 				)}
 			</SimpleTable>
 			<div className="flex flex-wrap items-center justify-between gap-3 text-muted-foreground text-xs">
-				<span>{tableMeta(result)}</span>
+				<span className="flex flex-wrap gap-x-3">
+					{tableMeta(result).map((detail) => (
+						<span key={detail}>{detail}</span>
+					))}
+				</span>
 				<span>
-					As of <LocalDay date={result.asOf} />
+					Al <LocalDay date={result.asOf} />
 				</span>
 			</div>
 		</section>
@@ -127,9 +137,8 @@ export function DealListResultTable({ result }: { result: DealListResult }) {
 }
 
 function Stage({ stage }: { stage: string }) {
-	const option = DEAL_STAGE_OPTIONS.find(
-		(candidate) => candidate.value === stage,
-	);
+	const stages = useStages();
+	const option = stages.options.find((candidate) => candidate.value === stage);
 	return option ? (
 		<DealStageIndicator stage={option.value} />
 	) : (
@@ -137,27 +146,37 @@ function Stage({ stage }: { stage: string }) {
 	);
 }
 
+const STATUS_ADJECTIVES = new Map([
+	["open", "abierta"],
+	["won", "ganada"],
+	["lost", "perdida"],
+]);
+
 function tableTitle(result: DealListResult): string {
 	const count = result.deals.length;
-	const status =
-		result.criteria.status === "all" ? "" : `${result.criteria.status} `;
-	const stale = result.criteria.inactiveForDays === null ? "" : "stale ";
-	return count === 0
-		? "No matching deals"
-		: `${count} ${stale}${status}deal${count === 1 ? "" : "s"}`;
+	if (count === 0) return "Sin oportunidades coincidentes";
+	const plural = count === 1 ? "" : "s";
+	const noun = count === 1 ? "oportunidad" : "oportunidades";
+	const adjectives = [
+		result.criteria.inactiveForDays === null ? null : "inactiva",
+		STATUS_ADJECTIVES.get(result.criteria.status) ?? null,
+	]
+		.filter((word): word is string => word !== null)
+		.map((word) => `${word}${plural}`);
+	return [`${count} ${noun}`, ...adjectives].join(" ");
 }
 
-function tableMeta(result: DealListResult): string {
+function tableMeta(result: DealListResult): string[] {
 	const details = [
-		`${result.deals.length} deal${result.deals.length === 1 ? "" : "s"}`,
+		`${result.deals.length} ${result.deals.length === 1 ? "oportunidad" : "oportunidades"}`,
 		pipelineTotal(result.deals),
 		result.criteria.inactiveForDays === null
 			? null
-			: `${result.criteria.inactiveForDays}+ days inactive`,
-		result.hasMore ? "More results available" : null,
+			: `${result.criteria.inactiveForDays}+ días de inactividad`,
+		result.hasMore ? "Hay más resultados" : null,
 	].filter((detail): detail is string => Boolean(detail));
 
-	return details.join(" · ");
+	return details;
 }
 
 function humaniseStage(stage: string): string {
@@ -176,5 +195,5 @@ function pipelineTotal(deals: readonly DealListItem[]): string | null {
 	if (!currency) return null;
 
 	const amount = deals.reduce((sum, deal) => sum + (deal.amount ?? 0), 0);
-	return `${formatMoney(Math.round(amount * 100), currency)} pipeline`;
+	return `${formatMoney(Math.round(amount * 100), currency)} en el pipeline`;
 }

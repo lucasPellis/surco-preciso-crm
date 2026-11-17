@@ -1,10 +1,5 @@
 "use client";
 
-import ChevronDown from "@carbon/icons-react/es/ChevronDown";
-import ChevronUp from "@carbon/icons-react/es/ChevronUp";
-import Download from "@carbon/icons-react/es/Download";
-import Renew from "@carbon/icons-react/es/Renew";
-import WarningAlt from "@carbon/icons-react/es/WarningAlt";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,6 +13,13 @@ import {
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
 import { cn } from "@crm/ui/lib/utils";
+import {
+	ChevronDownIcon,
+	ChevronUpIcon,
+	DownloadIcon,
+	RefreshCwIcon,
+	TriangleAlertIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 import { runFailureReason } from "@/lib/agent-run-failure";
@@ -47,7 +49,17 @@ const eventSummary = z
 
 const auditChange = z.object({ before: z.json(), after: z.json() });
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+const STATUS_LABELS = new Map([
+	["QUEUED", "En cola"],
+	["RUNNING", "En ejecución"],
+	["WAITING_FOR_APPROVAL", "Esperando aprobación"],
+	["SUCCEEDED", "Exitosa"],
+	["FAILED", "Fallida"],
+	["CANCELLED", "Cancelada"],
+	["PLANNED", "Planificada"],
+]);
+
+const DATE_FORMATTER = new Intl.DateTimeFormat("es", {
 	month: "short",
 	day: "numeric",
 	hour: "numeric",
@@ -56,7 +68,7 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 	timeZone: "UTC",
 	timeZoneName: "short",
 });
-const TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+const TIME_FORMATTER = new Intl.DateTimeFormat("es", {
 	hour: "2-digit",
 	minute: "2-digit",
 	second: "2-digit",
@@ -93,16 +105,16 @@ export function AgentRuns({
 				<select
 					value={outcome}
 					onChange={(event) => setOutcome(event.target.value)}
-					aria-label="Filter run outcomes"
+					aria-label="Filtrar resultados de ejecuciones"
 					className="h-7 rounded-md border bg-muted px-2.5 font-medium text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
 				>
-					<option value="ALL">All outcomes</option>
-					<option value="SUCCEEDED">Succeeded</option>
-					<option value="FAILED">Failed</option>
-					<option value="RUNNING">Running</option>
-					<option value="QUEUED">Queued</option>
-					<option value="WAITING_FOR_APPROVAL">Waiting for approval</option>
-					<option value="CANCELLED">Cancelled</option>
+					<option value="ALL">Todos los resultados</option>
+					<option value="SUCCEEDED">Exitosa</option>
+					<option value="FAILED">Fallida</option>
+					<option value="RUNNING">En ejecución</option>
+					<option value="QUEUED">En cola</option>
+					<option value="WAITING_FOR_APPROVAL">Esperando aprobación</option>
+					<option value="CANCELLED">Cancelada</option>
 				</select>
 			</div>
 
@@ -133,14 +145,15 @@ export function AgentRuns({
 										{humanStatus(run.status)}
 									</span>
 								</span>
-								<span className="mt-1 block wrap-break-word font-mono text-muted-foreground text-xs leading-5 sm:mt-0">
-									{humanStatus(run.triggerType)} · {formatDate(run.createdAt)} ·
-									Version {run.version.number}
+								<span className="mt-1 flex flex-wrap gap-x-3 font-mono text-muted-foreground text-xs leading-5 sm:mt-0">
+									<span>{humanStatus(run.triggerType)}</span>
+									<span>{formatDate(run.createdAt)}</span>
+									<span>Versión {run.version.number}</span>
 								</span>
 								{run.status === "FAILED" || run.status === "CANCELLED" ? (
 									<span className="mt-1.5 flex min-w-0 items-start gap-2 rounded-md bg-destructive/10 px-2.5 py-1.5">
 										<Icon
-											icon={WarningAlt}
+											icon={TriangleAlertIcon}
 											className="mt-px size-3.5 shrink-0 text-destructive"
 										/>
 										<span className="min-w-0 wrap-break-word text-destructive text-xs leading-5">
@@ -156,7 +169,7 @@ export function AgentRuns({
 									{run.actions.length === 1 ? "action" : "actions"}
 								</span>
 								<Icon
-									icon={expanded === run.id ? ChevronUp : ChevronDown}
+									icon={expanded === run.id ? ChevronUpIcon : ChevronDownIcon}
 									className="size-3.5"
 								/>
 							</span>
@@ -170,8 +183,8 @@ export function AgentRuns({
 									disabled={retryingRunId === run.id}
 									onClick={() => onRetry(run.id)}
 								>
-									<Icon icon={Renew} data-icon="inline-start" />
-									Retry
+									<Icon icon={RefreshCwIcon} data-icon="inline-start" />
+									Reintentar
 								</Button>
 							</span>
 						) : null}
@@ -200,16 +213,16 @@ export function AgentRuns({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Stop this run?</AlertDialogTitle>
+						<AlertDialogTitle>¿Detener esta ejecución?</AlertDialogTitle>
 						<AlertDialogDescription>
-							The agent stops where it is and the run is recorded as cancelled.
-							Anything it has already done — a note, a task, a Slack message —
-							stays done.
+							El agente se detiene donde está y la ejecución se registra como
+							cancelada. Lo que ya hizo, incluidas notas, tareas y mensajes de
+							Slack, se conserva.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 
 					<AlertDialogFooter>
-						<AlertDialogCancel>Keep running</AlertDialogCancel>
+						<AlertDialogCancel>Seguir ejecutando</AlertDialogCancel>
 						<AlertDialogAction
 							variant="destructive"
 							onClick={() => {
@@ -217,7 +230,7 @@ export function AgentRuns({
 								setConfirming(null);
 							}}
 						>
-							Stop run
+							Detener ejecución
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -225,7 +238,7 @@ export function AgentRuns({
 
 			{visible.length === 0 ? (
 				<p className="py-12 text-center text-muted-foreground text-sm">
-					No runs match this outcome.
+					Ninguna ejecución coincide con este resultado.
 				</p>
 			) : null}
 		</div>
@@ -250,13 +263,16 @@ function ExpandedRun({ run }: { run: RunRow }) {
 	return (
 		<div className="min-w-0 border-t">
 			<div className="grid grid-cols-2 gap-x-4 gap-y-3 border-b bg-background px-4 py-3 sm:min-h-[58px] sm:grid-cols-4 sm:items-center sm:gap-0 sm:px-5 sm:py-2">
-				<RunMeta label="Trigger" value={humanStatus(run.triggerType)} />
+				<RunMeta label="Disparador" value={humanStatus(run.triggerType)} />
 				<RunMeta
-					label="Initiated by"
-					value={run.initiatedBy?.name ?? "Eve scheduler"}
+					label="Iniciada por"
+					value={run.initiatedBy?.name ?? "Programador de Eve"}
 				/>
-				<RunMeta label="Model" value={run.modelId ?? "Gateway default"} />
-				<RunMeta label="Version" value={String(run.version.number)} last />
+				<RunMeta
+					label="Modelo"
+					value={run.modelId ?? "Predeterminado del gateway"}
+				/>
+				<RunMeta label="Versión" value={String(run.version.number)} last />
 			</div>
 
 			<div>
@@ -288,11 +304,12 @@ function ExpandedRun({ run }: { run: RunRow }) {
 								<span className="block wrap-break-word text-sm">
 									{entry.action.summary}
 								</span>
-								<span className="block wrap-break-word text-muted-foreground text-xs">
-									{entry.action.provider} · {humanStatus(entry.action.status)}
-									{entry.action.targetLabel
-										? ` · ${entry.action.targetLabel}`
-										: ""}
+								<span className="flex flex-wrap gap-x-3 wrap-break-word text-muted-foreground text-xs">
+									<span>{entry.action.provider}</span>
+									<span>{humanStatus(entry.action.status)}</span>
+									{entry.action.targetLabel ? (
+										<span>{entry.action.targetLabel}</span>
+									) : null}
 								</span>
 							</span>
 							<span className="col-start-2 min-w-0 wrap-break-word font-mono text-muted-foreground text-xs sm:col-auto sm:shrink-0">
@@ -303,8 +320,8 @@ function ExpandedRun({ run }: { run: RunRow }) {
 				)}
 				{run.eventsTruncated ? (
 					<div className="flex min-h-9 items-center border-t px-4 py-2 text-warning text-xs sm:px-5">
-						Showing the first {events.length} of {run.totalEvents} steps. This
-						run is too long to display in full.
+						Se muestran los primeros {events.length} de {run.totalEvents} pasos.
+						Esta ejecución es demasiado larga para mostrarla completa.
 					</div>
 				) : null}
 			</div>
@@ -346,29 +363,29 @@ export function AgentActivity({ activity }: { activity: Activity }) {
 				<select
 					value={kind}
 					onChange={(event) => setKind(event.target.value)}
-					aria-label="Filter activity"
+					aria-label="Filtrar actividad"
 					className="h-7 rounded-md border bg-muted px-2.5 font-medium text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
 				>
-					<option value="ALL">All changes</option>
-					<option value="agent.">Agent changes</option>
-					<option value="run.">Run requests</option>
+					<option value="ALL">Todos los cambios</option>
+					<option value="agent.">Cambios del agente</option>
+					<option value="run.">Solicitudes de ejecución</option>
 				</select>
 				<Button
 					variant="outline"
 					size="sm"
 					onClick={() => exportJson("agent-activity.json", visible)}
 				>
-					<Icon icon={Download} data-icon="inline-start" />
-					Export
+					<Icon icon={DownloadIcon} data-icon="inline-start" />
+					Exportar
 				</Button>
 			</div>
 
 			<div className="min-w-0 overflow-hidden rounded-lg border bg-card">
 				<div className="hidden h-9 items-center border-b bg-background px-5 text-muted-foreground text-xs sm:flex">
-					<span className="w-[166px] shrink-0">Time</span>
-					<span className="min-w-0 flex-1">Change</span>
-					<span className="w-[140px] shrink-0">Actor</span>
-					<span className="w-[118px] shrink-0 text-right">Request</span>
+					<span className="w-[166px] shrink-0">Hora</span>
+					<span className="min-w-0 flex-1">Cambio</span>
+					<span className="w-[140px] shrink-0">Autor</span>
+					<span className="w-[118px] shrink-0 text-right">Solicitud</span>
 				</div>
 				{visible.map((event) => (
 					<div
@@ -388,19 +405,19 @@ export function AgentActivity({ activity }: { activity: Activity }) {
 								</span>
 							) : null}
 						</span>
-						<span className="min-w-0 wrap-break-word text-xs sm:w-[140px] sm:shrink-0 sm:text-sm">
-							<span className="text-muted-foreground sm:hidden">Actor · </span>
+						<span className="flex min-w-0 flex-col wrap-break-word text-xs sm:block sm:w-[140px] sm:shrink-0 sm:text-sm">
+							<span className="text-muted-foreground sm:hidden">Autor</span>
 							{event.actorUser?.name ?? event.actorId ?? event.actorType}
 						</span>
-						<span className="min-w-0 wrap-break-word font-mono text-muted-foreground text-xs sm:w-[118px] sm:shrink-0 sm:text-right">
-							<span className="font-sans sm:hidden">Request · </span>
-							{event.requestId?.slice(0, 12) ?? "—"}
+						<span className="flex min-w-0 flex-col wrap-break-word font-mono text-muted-foreground text-xs sm:block sm:w-[118px] sm:shrink-0 sm:text-right">
+							<span className="font-sans sm:hidden">Solicitud</span>
+							{event.requestId?.slice(0, 12) ?? ""}
 						</span>
 					</div>
 				))}
 				{visible.length === 0 ? (
 					<p className="px-5 py-12 text-center text-muted-foreground text-sm">
-						No changes match this filter.
+						Ningún cambio coincide con este filtro.
 					</p>
 				) : null}
 			</div>
@@ -409,10 +426,13 @@ export function AgentActivity({ activity }: { activity: Activity }) {
 }
 
 function humanStatus(value: string): string {
-	return value
-		.toLowerCase()
-		.replace(/_/g, " ")
-		.replace(/^./, (character) => character.toUpperCase());
+	return (
+		STATUS_LABELS.get(value) ??
+		value
+			.toLowerCase()
+			.replace(/_/g, " ")
+			.replace(/^./, (character) => character.toUpperCase())
+	);
 }
 
 function formatDate(value: string): string {
@@ -424,8 +444,8 @@ function formatTime(value: string): string {
 }
 
 function duration(startedAt: string | null, finishedAt: string | null): string {
-	if (!startedAt) return "—";
-	if (!finishedAt) return "In progress";
+	if (!startedAt) return "";
+	if (!finishedAt) return "En curso";
 
 	const milliseconds =
 		new Date(finishedAt).getTime() - new Date(startedAt).getTime();

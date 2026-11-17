@@ -1,6 +1,7 @@
-import { MAX_ATTEMPTS, type TaskKind } from "@crm/db/agent-tasks";
+import { isDirectKind, MAX_ATTEMPTS, type TaskKind } from "@crm/db/agent-tasks";
+import type { ModelCapability } from "@crm/validation/enrichment-queue";
 
-export type EnrichmentQueueState = "running" | "queued" | "failed";
+export type EnrichmentQueueState = "running" | "queued" | "failed" | "paused";
 
 const STEPS = {
 	brand: "Fetching the logo",
@@ -42,12 +43,16 @@ export function enrichmentQueueState(
 	attempts: number,
 	leasedUntil: Date | null,
 	now: Date,
+	kind = "",
+	model: ModelCapability = "unknown",
 ): EnrichmentQueueState {
 	if (leasedUntil !== null && leasedUntil.getTime() > now.getTime()) {
 		return "running";
 	}
 
-	return attempts >= MAX_ATTEMPTS ? "failed" : "queued";
+	if (attempts >= MAX_ATTEMPTS) return "failed";
+	if (model === "unavailable" && !isDirectKind(kind)) return "paused";
+	return "queued";
 }
 
 export function enrichmentQueueLine(
@@ -56,6 +61,8 @@ export function enrichmentQueueLine(
 ): string {
 	if (state === "queued") return WAITING;
 	if (state === "failed") return GAVE_UP;
+	if (state === "paused")
+		return "Investigación pausada: configura el acceso al modelo";
 
 	return enrichmentStep(kind);
 }

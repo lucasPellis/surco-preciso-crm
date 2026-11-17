@@ -1,7 +1,13 @@
 import type { Db, Prisma } from "@crm/db";
-import { ENRICHMENT_PAGE, pageSize } from "@crm/validation/enrichment-queue";
+import {
+	ENRICHMENT_PAGE,
+	type ModelCapability,
+	pageSize,
+} from "@crm/validation/enrichment-queue";
 import { Injectable } from "@nestjs/common";
+import { bridge } from "../agent/bridge";
 import { InjectDatabase } from "../database/database.constants";
+import { readAgentCapabilities } from "./agent-capabilities";
 import {
 	type EnrichmentQueueState,
 	enrichmentDueLabel,
@@ -41,6 +47,7 @@ type EnrichmentScheduledRow = {
 };
 
 export type EnrichmentQueue = {
+	model: ModelCapability;
 	rows: EnrichmentQueueRow[];
 	total: number;
 	scheduled: EnrichmentScheduledRow[];
@@ -92,22 +99,24 @@ export class EnrichmentService {
 			dueAt: { gt: now },
 		};
 
-		const [tasks, total, booked, scheduledTotal] = await Promise.all([
-			this.db.agentTask.findMany({
-				where: dueWhere,
-				orderBy: [{ priority: "desc" }, { dueAt: "asc" }],
-				take,
-				select: TASK_SELECT,
-			}),
-			this.db.agentTask.count({ where: dueWhere }),
-			this.db.agentTask.findMany({
-				where: scheduledWhere,
-				orderBy: [{ dueAt: "asc" }],
-				take,
-				select: TASK_SELECT,
-			}),
-			this.db.agentTask.count({ where: scheduledWhere }),
-		]);
+		const [tasks, total, booked, scheduledTotal, capabilities] =
+			await Promise.all([
+				this.db.agentTask.findMany({
+					where: dueWhere,
+					orderBy: [{ priority: "desc" }, { dueAt: "asc" }],
+					take,
+					select: TASK_SELECT,
+				}),
+				this.db.agentTask.count({ where: dueWhere }),
+				this.db.agentTask.findMany({
+					where: scheduledWhere,
+					orderBy: [{ dueAt: "asc" }],
+					take,
+					select: TASK_SELECT,
+				}),
+				this.db.agentTask.count({ where: scheduledWhere }),
+				readAgentCapabilities(bridge()),
+			]);
 
 		const everyTask: QueuedTask[] = [...tasks, ...booked];
 		const contactIds = unique(everyTask.map((task) => task.contactId));
@@ -185,7 +194,13 @@ export class EnrichmentService {
 			const subject = subjectOf(task);
 			if (!subject) continue;
 
-			const state = enrichmentQueueState(task.attempts, task.leasedUntil, now);
+			const state = enrichmentQueueState(
+				task.attempts,
+				task.leasedUntil,
+				now,
+				task.kind,
+				capabilities.model,
+			);
 
 			rows.push({
 				id: task.id,
@@ -209,7 +224,13 @@ export class EnrichmentService {
 			});
 		}
 
-		return { rows, total, scheduled, scheduledTotal };
+		return {
+			rows,
+			total,
+			scheduled,
+			scheduledTotal,
+			model: capabilities.model,
+		};
 	}
 }
 

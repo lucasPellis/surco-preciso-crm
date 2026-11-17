@@ -1,4 +1,7 @@
-import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
+import {
+	enrichmentQueueInput,
+	modelCapabilitySchema,
+} from "@crm/validation/enrichment-queue";
 import { Inject } from "@nestjs/common";
 import { Input, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import { z } from "zod";
@@ -30,7 +33,7 @@ const enrichmentQueueSubjectOutput = z.discriminatedUnion("kind", [
 
 const enrichmentQueueRowOutput = z.object({
 	id: z.string(),
-	state: z.enum(["running", "queued", "failed"]),
+	state: z.enum(["running", "queued", "failed", "paused"]),
 	line: z.string(),
 	startedAt: z.string().nullable(),
 	subject: enrichmentQueueSubjectOutput,
@@ -43,6 +46,7 @@ const enrichmentScheduledRowOutput = z.object({
 });
 
 const enrichmentQueueOutput = z.object({
+	model: modelCapabilitySchema,
 	rows: z.array(enrichmentQueueRowOutput),
 	total: z.number(),
 	scheduled: z.array(enrichmentScheduledRowOutput),

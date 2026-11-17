@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { ActivityType, DealStage, db, EmailDirection } from "@crm/db";
+import { ActivityType, db, EmailDirection } from "@crm/db";
 import { readCompanyHistory, readDealHistory } from "../agent/lib/accounts";
+import { listDeals } from "../agent/lib/lookup";
 
 const suffix = process.env.TEST_RUN_ID ?? "accounts-spec";
 const domain = `fernhill-${suffix}.test`;
@@ -69,7 +70,7 @@ beforeAll(async () => {
 			name: `Fernhill platform ${suffix}`,
 			companyId,
 			ownerId: userId,
-			stage: DealStage.CONTRACT_SENT,
+			stage: "QUOTED",
 			stageChangedAt: daysAgo(42),
 			amount: 48_000,
 			currency: "USD",
@@ -90,7 +91,7 @@ beforeAll(async () => {
 				dealId,
 				createdById: userId,
 				createdAt: daysAgo(60),
-				meta: { from: "DEMO_BOOKED", to: "QUALIFIED_TO_BUY" },
+				meta: { from: "NEW", to: "QUALIFIED" },
 			},
 			{
 				type: ActivityType.STAGE_CHANGE,
@@ -99,7 +100,7 @@ beforeAll(async () => {
 				dealId,
 				createdById: userId,
 				createdAt: daysAgo(42),
-				meta: { from: "QUALIFIED_TO_BUY", to: "CONTRACT_SENT" },
+				meta: { from: "QUALIFIED", to: "QUOTED" },
 			},
 			{
 				type: ActivityType.NOTE,
@@ -227,7 +228,7 @@ describe("readCompanyHistory", () => {
 		const history = await readCompanyHistory(companyId);
 		const deal = history?.deals.find((row) => row.id === dealId);
 
-		expect(deal?.stage).toBe("CONTRACT_SENT");
+		expect(deal?.stage).toBe("QUOTED");
 		expect(deal?.open).toBe(true);
 		expect(deal?.amount).toBe(48_000);
 		expect(deal?.contacts).toEqual([
@@ -285,7 +286,7 @@ describe("readDealHistory", () => {
 	it("reports the stage clock, not just the stage", async () => {
 		const history = await readDealHistory(dealId);
 
-		expect(history?.deal.stage).toBe("CONTRACT_SENT");
+		expect(history?.deal.stage).toBe("QUOTED");
 		expect(history?.deal.open).toBe(true);
 		expect(history?.deal.daysInStage).toBeGreaterThanOrEqual(41);
 	});
@@ -294,8 +295,8 @@ describe("readDealHistory", () => {
 		const history = await readDealHistory(dealId);
 
 		expect(history?.stageHistory.map((change) => change.to)).toEqual([
-			"QUALIFIED_TO_BUY",
-			"CONTRACT_SENT",
+			"QUALIFIED",
+			"QUOTED",
 		]);
 	});
 
@@ -337,5 +338,35 @@ describe("readDealHistory", () => {
 
 	it("returns null for a deal that does not exist", async () => {
 		expect(await readDealHistory("nope")).toBeNull();
+	});
+});
+
+describe("a paused deal", () => {
+	it("is not open in the company history, the deal history or the deal list", async () => {
+		const paused = await db.deal.create({
+			data: {
+				name: `Paused ${suffix}`,
+				companyId,
+				ownerId: userId,
+				stage: "NO_RESPONSE",
+			},
+			select: { id: true },
+		});
+
+		try {
+			const company = await readCompanyHistory(companyId);
+			const deal = await readDealHistory(paused.id);
+			const listed = await listDeals({ status: "open", companyId });
+
+			expect(company?.deals.find((row) => row.id === paused.id)?.open).toBe(
+				false,
+			);
+			expect(company?.stats.openDeals).toBe(1);
+			expect(deal?.deal.open).toBe(false);
+			expect(listed.deals.some((row) => row.id === paused.id)).toBe(false);
+			expect(listed.deals.some((row) => row.id === dealId)).toBe(true);
+		} finally {
+			await db.deal.delete({ where: { id: paused.id } });
+		}
 	});
 });

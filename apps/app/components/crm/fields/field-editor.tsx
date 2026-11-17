@@ -1,7 +1,5 @@
 "use client";
 
-import Add from "@carbon/icons-react/es/Add";
-import Close from "@carbon/icons-react/es/Close";
 import {
 	FIELD_TYPES,
 	fieldKeyFromLabel,
@@ -39,6 +37,7 @@ import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { Switch } from "@crm/ui/components/switch";
 import { Textarea } from "@crm/ui/components/textarea";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { PlusIcon, XIcon } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -88,16 +87,16 @@ type Draft = {
 };
 
 const TYPE_HINTS = {
-	TEXT: "Text — a short line",
-	LONG_TEXT: "Long text — a paragraph",
-	NUMBER: "Number",
-	DATE: "Date",
-	CHECKBOX: "Checkbox — yes or no",
-	SELECT: "Select — one of a fixed list",
+	TEXT: "Texto: una línea corta",
+	LONG_TEXT: "Texto largo: un párrafo",
+	NUMBER: "Número",
+	DATE: "Fecha",
+	CHECKBOX: "Casilla: sí o no",
+	SELECT: "Selección: una opción de una lista fija",
 	URL: "URL",
-	EMAIL: "Email",
-	PHONE: "Phone",
-	USER: "User — someone in the workspace",
+	EMAIL: "Correo",
+	PHONE: "Teléfono",
+	USER: "Usuario: alguien del espacio de trabajo",
 } satisfies Record<(typeof FIELD_TYPES)[number], string>;
 
 function optionId(option: { id?: string }, index: number): string {
@@ -133,7 +132,7 @@ function Coverage({ field }: { field: FieldRecord }) {
 	const backfill = useMutation(
 		trpc.fields.backfill.mutationOptions({
 			onSuccess: async () => {
-				toast.success("Your agents will pick this up.");
+				toast.success("Tus agentes lo tomarán en cuenta.");
 				await cache.fieldCoverage(field.id);
 			},
 			onError: (error) => toast.error(error.message),
@@ -262,7 +261,7 @@ export function FieldEditor({
 						<div className="flex items-baseline justify-between gap-2">
 							<FieldTitle>{KEY_LABEL}</FieldTitle>
 							<span className="font-mono text-muted-foreground text-xs">
-								{key || "—"}
+								{key || ""}
 							</span>
 						</div>
 						<FieldDescription>{KEY_HELP}</FieldDescription>
@@ -364,7 +363,7 @@ export function FieldEditor({
 													})
 												}
 											>
-												<Icon icon={Close} />
+												<Icon icon={XIcon} />
 												<span className="sr-only">
 													Remove {optionLabel(index)}
 												</span>
@@ -381,7 +380,7 @@ export function FieldEditor({
 									patch({ options: [...draft.options, { label: "" }] })
 								}
 							>
-								<Icon icon={Add} data-icon="inline-start" />
+								<Icon icon={PlusIcon} data-icon="inline-start" />
 								{ADD_OPTION}
 							</Button>
 						</Field>

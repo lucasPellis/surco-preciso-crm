@@ -1366,3 +1366,9 @@ pipeline is the honest version of what you actually run.
 
 Each of these is a HubSpot feature we are choosing not to rebuild. If sales
 asks for one, it is a new plan, not a phase.
+
+**Surco Preciso fork.** This fork sells agricultural technology and needs some of
+these objects. Orders, Quotes (the `QUOTED` stage), Payments and invoices, and
+Products are in scope, planned in `docs/plan/surco-preciso-flow.md`. The deal stages
+are no longer the SaaS set in §6; they are Nuevo, Contactado, Calificado, Cotizado,
+Negociando, Ganado and Perdido. Everything else in this section stays out.

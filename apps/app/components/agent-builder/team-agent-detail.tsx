@@ -1,9 +1,5 @@
 "use client";
 
-import OverflowMenuVertical from "@carbon/icons-react/es/OverflowMenuVertical";
-import Pause from "@carbon/icons-react/es/Pause";
-import Play from "@carbon/icons-react/es/Play";
-import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
 	AlertDialog,
 	AlertDialogCancel,
@@ -25,12 +21,6 @@ import {
 	DropdownMenuTrigger,
 } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
-import { SaveBarViewport } from "@crm/ui/components/save-bar";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { type ReactNode, useState } from "react";
-import { toast } from "sonner";
 import {
 	PageShell,
 	PageShellActions,
@@ -39,7 +29,19 @@ import {
 	PageShellHeader,
 	PageShellHeading,
 	PageShellTitle,
-} from "@/components/page-shell";
+} from "@crm/ui/components/page-shell";
+import { SaveBarViewport } from "@crm/ui/components/save-bar";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	EllipsisVerticalIcon,
+	PauseIcon,
+	PlayIcon,
+	Trash2Icon,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { type ReactNode, useState } from "react";
+import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -51,7 +53,7 @@ type AgentDetail = RouterOutputs["agents"]["byId"];
 type ReviewVersion = AgentDetail["reviewVersion"];
 type Runs = RouterOutputs["agents"]["history"];
 type Activity = RouterOutputs["agents"]["activity"];
-const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+const DATE_FORMATTER = new Intl.DateTimeFormat("es", {
 	month: "short",
 	day: "numeric",
 	hour: "numeric",
@@ -60,7 +62,7 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 	timeZone: "UTC",
 	timeZoneName: "short",
 });
-const _TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+const _TIME_FORMATTER = new Intl.DateTimeFormat("es", {
 	hour: "2-digit",
 	minute: "2-digit",
 	second: "2-digit",
@@ -117,7 +119,7 @@ export function TeamAgentDetail({
 			onSuccess: async () => {
 				await invalidate();
 				setRunsOpen(true);
-				toast.success("Agent run queued.");
+				toast.success("Ejecución del agente en cola.");
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -138,7 +140,7 @@ export function TeamAgentDetail({
 		trpc.agents.retryRun.mutationOptions({
 			onSuccess: async () => {
 				await invalidate();
-				toast.success("Run queued again.");
+				toast.success("Ejecución puesta en cola otra vez.");
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -148,7 +150,9 @@ export function TeamAgentDetail({
 			onSuccess: async (result) => {
 				await invalidate();
 				toast.success(
-					result.cancelled ? "Run stopped." : "That run had already finished.",
+					result.cancelled
+						? "Ejecución detenida."
+						: "Esa ejecución ya había terminado.",
 				);
 			},
 			onError: (error) => toast.error(error.message),
@@ -173,7 +177,7 @@ export function TeamAgentDetail({
 			<PageShell>
 				<PageShellHeader>
 					<PageShellHeading>
-						<PageShellTitle>Agent unavailable</PageShellTitle>
+						<PageShellTitle>Agente no disponible</PageShellTitle>
 						<PageShellDescription>{agent.error.message}</PageShellDescription>
 					</PageShellHeading>
 				</PageShellHeader>
@@ -184,7 +188,8 @@ export function TeamAgentDetail({
 	const data = agent.data ?? initialAgent;
 	const isDraft = data.status === "DRAFT";
 	const reviewManifest = data.reviewVersion?.manifest;
-	const fallbackDescription = data.description ?? "A durable team automation.";
+	const fallbackDescription =
+		data.description ?? "Una automatización de equipo duradera.";
 	const displayedName = isDraft
 		? textOf(reviewManifest?.name, data.name)
 		: data.name;
@@ -200,7 +205,7 @@ export function TeamAgentDetail({
 	const nextRun =
 		enabledTriggers.length === 1 ? enabledTriggers[0]?.nextRunAt : null;
 	const triggerSummary =
-		enabledTriggers.map((trigger) => trigger.name).join(" · ") || "Manual only";
+		enabledTriggers.map((trigger) => trigger.name).join(", ") || "Solo manual";
 
 	return (
 		<PageShell className="min-h-0" contained>
@@ -211,34 +216,34 @@ export function TeamAgentDetail({
 					</PageShellTitle>
 					<PageShellDescription className="wrap-break-word leading-6">
 						<span className="block">{displayedDescription}</span>
-						<span className="mt-2 block text-xs">
-							Created by {data.createdBy.name} ·{" "}
-							{isDraft ? "Private draft" : "Team agent"} · Version{" "}
-							{displayedVersionNumber ?? "—"}
+						<span className="mt-2 flex flex-wrap gap-x-3 text-xs">
+							<span>Creado por {data.createdBy.name}</span>
+							<span>{isDraft ? "Borrador privado" : "Agente de equipo"}</span>
+							<span>Versión {displayedVersionNumber ?? ""}</span>
 						</span>
 					</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions className="col-start-1 row-start-3 justify-self-start sm:col-start-2 sm:row-start-1 sm:justify-self-end">
 					<div className="flex min-w-0 flex-col items-start gap-2 sm:items-end">
 						<span className="text-muted-foreground text-xs">
-							{isDraft ? "Visibility" : "Trigger"}
+							{isDraft ? "Visibilidad" : "Disparador"}
 						</span>
 						<span className="font-mono text-sm">
 							{isDraft
-								? "Private draft"
+								? "Borrador privado"
 								: nextRun
 									? formatDate(nextRun)
 									: triggerSummary}
 						</span>
 						<div className="mt-1 flex flex-wrap gap-2">
 							<Button onClick={() => setRunsOpen(true)} variant="outline">
-								Runs
+								Ejecuciones
 								<span className="font-mono text-muted-foreground">
 									{data.runCount}
 								</span>
 							</Button>
 							<Button asChild variant="outline">
-								<Link href={workspaceUrl("/chat")}>Open in chat</Link>
+								<Link href={workspaceUrl("/chat")}>Abrir en chat</Link>
 							</Button>
 							{isDraft && data.canManage ? (
 								<DraftAgentActions
@@ -255,12 +260,12 @@ export function TeamAgentDetail({
 								>
 									<AsyncButtonContent
 										status={runAction.status}
-										pendingLabel="Queueing"
-										successLabel="Queued"
-										errorLabel="Try again"
+										pendingLabel="Poniendo en cola"
+										successLabel="En cola"
+										errorLabel="Reintentar"
 									>
-										<Icon icon={Play} data-icon="inline-start" />
-										Run now
+										<Icon icon={PlayIcon} data-icon="inline-start" />
+										Ejecutar ahora
 									</AsyncButtonContent>
 								</Button>
 							) : null}
@@ -273,12 +278,12 @@ export function TeamAgentDetail({
 								>
 									<AsyncButtonContent
 										status={pauseAction.status}
-										pendingLabel="Pausing"
-										successLabel="Paused"
-										errorLabel="Try again"
+										pendingLabel="Pausando"
+										successLabel="Pausado"
+										errorLabel="Reintentar"
 									>
-										<Icon icon={Pause} data-icon="inline-start" />
-										Pause
+										<Icon icon={PauseIcon} data-icon="inline-start" />
+										Pausar
 									</AsyncButtonContent>
 								</Button>
 							) : null}
@@ -291,12 +296,12 @@ export function TeamAgentDetail({
 								>
 									<AsyncButtonContent
 										status={resumeAction.status}
-										pendingLabel="Resuming"
-										successLabel="Resumed"
-										errorLabel="Try again"
+										pendingLabel="Reanudando"
+										successLabel="Reanudado"
+										errorLabel="Reintentar"
 									>
-										<Icon icon={Play} data-icon="inline-start" />
-										Resume
+										<Icon icon={PlayIcon} data-icon="inline-start" />
+										Reanudar
 									</AsyncButtonContent>
 								</Button>
 							) : null}
@@ -373,7 +378,7 @@ function DraftAgentActions({
 						queryKey: trpc.conversations.builderList.pathKey(),
 					}),
 				]);
-				toast.success("Agent deployed to the team.");
+				toast.success("Agente desplegado al equipo.");
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -397,7 +402,7 @@ function DraftAgentActions({
 						href={workspaceUrl(`/chat/${version.sourceConversationId}`)}
 						transitionTypes={["nav-back"]}
 					>
-						Change details
+						Cambiar detalles
 					</Link>
 				</Button>
 			) : null}
@@ -408,11 +413,11 @@ function DraftAgentActions({
 			>
 				<AsyncButtonContent
 					status={deployAction.status}
-					pendingLabel="Deploying"
-					successLabel="Deployed"
-					errorLabel="Try again"
+					pendingLabel="Desplegando"
+					successLabel="Desplegado"
+					errorLabel="Reintentar"
 				>
-					Deploy agent
+					Desplegar agente
 				</AsyncButtonContent>
 			</Button>
 			<DeleteAgentAction agentId={agentId} name={name} />
@@ -445,7 +450,7 @@ function DeleteAgentAction({
 					}),
 				]);
 				setConfirming(false);
-				toast.success(`${name} was deleted.`);
+				toast.success(`${name} se eliminó.`);
 				router.replace(workspaceUrl("/agents"));
 			},
 			onError: (error) => toast.error(error.message),
@@ -464,8 +469,8 @@ function DeleteAgentAction({
 						size="icon-sm"
 						disabled={removeAction.pending}
 					>
-						<Icon icon={OverflowMenuVertical} />
-						<span className="sr-only">More agent actions</span>
+						<Icon icon={EllipsisVerticalIcon} />
+						<span className="sr-only">Más acciones del agente</span>
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
@@ -473,8 +478,8 @@ function DeleteAgentAction({
 						variant="destructive"
 						onSelect={() => setConfirming(true)}
 					>
-						<Icon icon={TrashCan} />
-						Delete agent
+						<Icon icon={Trash2Icon} />
+						Eliminar agente
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
@@ -487,17 +492,18 @@ function DeleteAgentAction({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+						<AlertDialogTitle>¿Eliminar {name}?</AlertDialogTitle>
 						<AlertDialogDescription>
-							This removes it from the team agent list, disables its triggers,
-							and cancels queued runs. Its run and action history stays in the
-							audit log. A run already in progress may finish.
+							Esto lo quita de la lista de agentes de equipo, desactiva sus
+							disparadores y cancela las ejecuciones en cola. Su historial de
+							ejecuciones y acciones se conserva en el registro de auditoría.
+							Una ejecución en curso puede terminar.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 
 					<AlertDialogFooter>
 						<AlertDialogCancel disabled={removeAction.pending}>
-							Cancel
+							Cancelar
 						</AlertDialogCancel>
 						<Button
 							variant="destructive"
@@ -507,11 +513,11 @@ function DeleteAgentAction({
 						>
 							<AsyncButtonContent
 								status={removeAction.status}
-								pendingLabel="Deleting"
-								successLabel="Deleted"
-								errorLabel="Try again"
+								pendingLabel="Eliminando"
+								successLabel="Eliminado"
+								errorLabel="Reintentar"
 							>
-								Delete agent
+								Eliminar agente
 							</AsyncButtonContent>
 						</Button>
 					</AlertDialogFooter>
@@ -529,7 +535,7 @@ function AgentOverview({ agent }: { agent: AgentDetail }) {
 	if (!capabilities) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				This agent has no deployed version yet.
+				Este agente aún no tiene una versión desplegada.
 			</p>
 		);
 	}
@@ -539,8 +545,8 @@ function AgentOverview({ agent }: { agent: AgentDetail }) {
 			<div className="flex flex-col gap-9">
 				{deployed ? null : (
 					<p className="text-muted-foreground text-sm">
-						This is a draft. Deploy it to the team before you change what it can
-						do.
+						Esto es un borrador. Despliégalo al equipo antes de cambiar lo que
+						puede hacer.
 					</p>
 				)}
 				<AgentCapabilities

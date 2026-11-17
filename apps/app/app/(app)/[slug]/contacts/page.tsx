@@ -1,5 +1,3 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
 import {
 	PageShell,
 	PageShellActions,
@@ -9,16 +7,18 @@ import {
 	PageShellHeading,
 	PageShellLoading,
 	PageShellTitle,
-} from "@/components/page-shell";
+} from "@crm/ui/components/page-shell";
+import type { Metadata } from "next";
+import { Suspense } from "react";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { contactsSearchParams } from "./contacts-search-params";
 import { ContactsTable } from "./contacts-table";
-import { CreateContactSheet } from "./create-contact-sheet";
+import { CreateLeadSheet } from "./create-lead-sheet";
 
 export const metadata: Metadata = {
-	title: "Contacts",
+	title: "Contactos",
 };
 
 export default function ContactsPage({
@@ -28,16 +28,18 @@ export default function ContactsPage({
 		<PageShell className="min-h-0">
 			<PageShellHeader>
 				<PageShellHeading>
-					<PageShellTitle>Contacts</PageShellTitle>
-					<PageShellDescription>Everyone in the pipeline.</PageShellDescription>
+					<PageShellTitle>Contactos</PageShellTitle>
+					<PageShellDescription>
+						Todas las personas en el funnel.
+					</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
-					<CreateContactSheet />
+					<CreateLeadSheet />
 				</PageShellActions>
 			</PageShellHeader>
 
 			<PageShellContent className="min-h-0">
-				<Suspense fallback={<PageShellLoading />}>
+				<Suspense fallback={<PageShellLoading shape="table" />}>
 					<Contacts searchParams={searchParams} />
 				</Suspense>
 			</PageShellContent>

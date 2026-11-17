@@ -7,8 +7,11 @@ import {
 	Prisma as PrismaNamespace,
 	type RecordSource,
 } from "@crm/db";
+import { NOT_CLOSED_STAGE_FILTER } from "@crm/db/deal-stage";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
+import { normalizePhone } from "@crm/db/phone";
 import {
+	BadRequestException,
 	ConflictException,
 	Injectable,
 	Logger,
@@ -18,6 +21,7 @@ import { AgentQueueService } from "../agent/agent-queue.service";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { ARCHIVE } from "../archive/archive-config";
 import { CompanyDirectoryService } from "../companies/company-directory.service";
+import { claimPrimaryContact } from "../companies/primary-contact";
 import {
 	ActivityStampService,
 	type StampTargets,
@@ -25,14 +29,17 @@ import {
 import { type BulkResult, requireOwner, runBulk } from "../crm/bulk";
 import { blankToNull, normalizeEmail, toCents } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
+import { openLeadDeal } from "../deals/open-lead-deal";
 import { FieldsService } from "../fields/fields.service";
 import {
 	activityFacetCounts,
 	activityFilter,
 	archivedFilter,
 	countsByKey,
+	FACET_NO_LEAD_SOURCE,
 	FACET_UNASSIGNED,
 	type ListResult,
+	leadSourceFilter,
 	type OrderByColumns,
 	ownerFilter,
 	paginate,
@@ -43,11 +50,13 @@ import type {
 	ContactBulkCompanyInput,
 	ContactBulkOwnerInput,
 	ContactCreateInput,
+	ContactDuplicateInput,
 	ContactListInput,
 	ContactRow,
 	ContactUpdateInput,
 	FactDecisionInput,
 } from "./contacts.contracts";
+import { CONTACT_SEARCH } from "./contacts-config";
 
 const OWNER_SELECT = {
 	id: true,
@@ -68,6 +77,8 @@ const COMPANY_SELECT = {
 
 const NO_COMPANY = "none";
 
+const LEAD_SOURCE_SELECT = { id: true, name: true, icon: true } as const;
+
 type FactColumns = Record<string, string | undefined>;
 
 const FACT_COLUMNS: FactColumns = {
@@ -82,8 +93,10 @@ const FACT_COLUMNS: FactColumns = {
 const SORTABLE: OrderByColumns<Prisma.ContactOrderByWithRelationInput[]> = {
 	name: (dir) => [{ lastName: dir }, { firstName: dir }],
 	email: (dir) => [{ email: dir }],
+	phone: (dir) => [{ phone: { sort: dir, nulls: "last" } }],
 	title: (dir) => [{ title: dir }, { lastName: "asc" }],
 	company: (dir) => [{ company: { name: dir } }, { lastName: "asc" }],
+	leadSource: (dir) => [{ leadSource: { name: dir } }, { lastName: "asc" }],
 	createdAt: (dir) => [{ createdAt: dir }],
 	owner: (dir) => [{ owner: { name: dir } }, { lastName: "asc" }],
 	lastActivity: (dir) => [{ lastActivityAt: { sort: dir, nulls: "last" } }],
@@ -119,11 +132,14 @@ export class ContactsService {
 					firstName: true,
 					lastName: true,
 					email: true,
+					phone: true,
 					title: true,
 					imageUrl: true,
 					source: true,
 					company: { select: COMPANY_SELECT },
 					owner: { select: OWNER_SELECT },
+					leadSource: { select: LEAD_SOURCE_SELECT },
+					originDetail: true,
 					lastActivityAt: true,
 					createdAt: true,
 					archivedAt: true,
@@ -198,6 +214,8 @@ export class ContactsService {
 					select: { ...COMPANY_SELECT, industry: true, primaryContactId: true },
 				},
 				owner: { select: OWNER_SELECT },
+				leadSource: { select: LEAD_SOURCE_SELECT },
+				originDetail: true,
 				deals: {
 					select: {
 						role: true,
@@ -260,7 +278,7 @@ export class ContactsService {
 		};
 	}
 
-	async create(input: ContactCreateInput) {
+	async create(input: ContactCreateInput, actorId?: string) {
 		const email = normalizeEmail(input.email ?? "");
 
 		if (email) {
@@ -278,13 +296,24 @@ export class ContactsService {
 			}
 		}
 
+		const ownerId = input.ownerId ?? actorId ?? null;
+		const phone = normalizePhone(input.phone ?? "");
+		if (phone) await this.assertPhoneFree(phone);
+		if (input.leadSourceId) await this.assertSourceActive(input.leadSourceId);
+
 		const companyId =
 			input.companyId ??
-			(email
-				? await this.companies.companyForEmail(email, {
-						ownerId: input.ownerId,
-					})
-				: null);
+			(await this.companies.resolveForContact({
+				email,
+				phone,
+				name: nameOf({
+					firstName: input.firstName.trim(),
+					lastName: blankToNull(input.lastName ?? ""),
+				}),
+				ownerId,
+			}));
+
+		let dealId: string | null = null;
 
 		const contact = await this.agent.withCrmEvents(async (tx, emit) => {
 			await this.allowAgain(tx, email);
@@ -294,10 +323,12 @@ export class ContactsService {
 					firstName: input.firstName.trim(),
 					lastName: blankToNull(input.lastName ?? ""),
 					email,
-					phone: blankToNull(input.phone ?? ""),
+					phone,
 					title: blankToNull(input.title ?? ""),
 					companyId,
-					ownerId: input.ownerId ?? null,
+					ownerId,
+					leadSourceId: input.leadSourceId ?? null,
+					originDetail: blankToNull(input.originDetail ?? ""),
 				},
 				select: {
 					id: true,
@@ -308,6 +339,24 @@ export class ContactsService {
 					createdAt: true,
 				},
 			});
+			await claimPrimaryContact(tx, companyId, created.id);
+			if (ownerId) {
+				const opened = await openLeadDeal(tx, {
+					name: nameOf(created),
+					companyId,
+					contactId: created.id,
+					ownerId,
+					leadSourceId: input.leadSourceId ?? null,
+					now: created.createdAt,
+				});
+				dealId = opened.id;
+				await emit({
+					type: "deal.created",
+					record: { kind: "deal", id: opened.id },
+					occurredAt: created.createdAt,
+					data: { companyId, stage: opened.stage },
+				});
+			}
 			await emit({
 				type: "contact.created",
 				record: { kind: "contact", id: created.id },
@@ -344,6 +393,44 @@ export class ContactsService {
 			id: contact.id,
 			firstName: contact.firstName,
 			lastName: contact.lastName,
+			dealId,
+		};
+	}
+
+	async findDuplicate(input: ContactDuplicateInput) {
+		const email = normalizeEmail(input.email ?? "");
+		const phone = normalizePhone(input.phone ?? "");
+
+		const matches: Prisma.ContactWhereInput[] = [];
+		if (email) matches.push({ email: { equals: email, mode: "insensitive" } });
+		if (phone) matches.push({ phone });
+		if (matches.length === 0) return null;
+
+		const existing = await this.db.contact.findFirst({
+			where: { archivedAt: null, OR: matches },
+			select: {
+				id: true,
+				firstName: true,
+				lastName: true,
+				deals: {
+					where: {
+						deal: {
+							archivedAt: null,
+							...NOT_CLOSED_STAGE_FILTER,
+						},
+					},
+					orderBy: { deal: { createdAt: "desc" } },
+					take: 1,
+					select: { dealId: true },
+				},
+			},
+		});
+		if (!existing) return null;
+
+		return {
+			contactId: existing.id,
+			name: nameOf(existing),
+			dealId: existing.deals[0]?.dealId ?? null,
 		};
 	}
 
@@ -476,7 +563,9 @@ export class ContactsService {
 		const email =
 			input.email === undefined ? null : normalizeEmail(input.email);
 		if (input.email !== undefined) data.email = email;
-		if (input.phone !== undefined) data.phone = blankToNull(input.phone);
+		const phone =
+			input.phone === undefined ? undefined : normalizePhone(input.phone);
+		if (phone !== undefined) data.phone = phone;
 		if (input.title !== undefined) data.title = blankToNull(input.title);
 		if (input.linkedinUrl !== undefined) {
 			data.linkedinUrl = blankToNull(input.linkedinUrl);
@@ -497,6 +586,17 @@ export class ContactsService {
 				? { connect: { id: input.ownerId } }
 				: { disconnect: true };
 		}
+		if (input.leadSourceId !== undefined) {
+			data.leadSource = input.leadSourceId
+				? { connect: { id: input.leadSourceId } }
+				: { disconnect: true };
+		}
+		if (input.originDetail !== undefined) {
+			data.originDetail = blankToNull(input.originDetail);
+		}
+
+		if (phone) await this.assertPhoneFree(phone, id);
+		if (input.leadSourceId) await this.assertSourceActive(input.leadSourceId);
 
 		try {
 			return await this.db.$transaction(async (tx) => {
@@ -684,7 +784,7 @@ export class ContactsService {
 		const queued = await this.agent.contactCreated(
 			id,
 			contact.linkedinUrl && !contact.imageUrl
-				? "A rep asked for a fresh look — they have a LinkedIn profile on file but no picture"
+				? "A rep asked for a fresh look. They have a LinkedIn profile on file but no picture"
 				: "A rep asked for a fresh look",
 			true,
 		);
@@ -783,14 +883,19 @@ export class ContactsService {
 		const term = q.trim();
 		if (!term) return {};
 
-		return {
-			OR: [
-				{ firstName: { contains: term, mode: "insensitive" } },
-				{ lastName: { contains: term, mode: "insensitive" } },
-				{ email: { contains: term, mode: "insensitive" } },
-				{ company: { name: { contains: term, mode: "insensitive" } } },
-			],
-		};
+		const clauses: Prisma.ContactWhereInput[] = [
+			{ firstName: { contains: term, mode: "insensitive" } },
+			{ lastName: { contains: term, mode: "insensitive" } },
+			{ email: { contains: term, mode: "insensitive" } },
+			{ company: { name: { contains: term, mode: "insensitive" } } },
+		];
+
+		const digits = term.replace(/\D/g, "");
+		if (digits.length >= CONTACT_SEARCH.phoneMinDigits) {
+			clauses.push({ phone: { contains: digits } });
+		}
+
+		return { OR: clauses };
 	}
 
 	private companyFilter(
@@ -820,6 +925,11 @@ export class ContactsService {
 		const company = this.companyFilter(input.company);
 		if (company) and.push(company);
 
+		const leadSource = leadSourceFilter<Prisma.ContactWhereInput>(
+			input.leadSource,
+		);
+		if (leadSource) and.push(leadSource);
+
 		if (input.source.length > 0) {
 			and.push({ source: { in: input.source as RecordSource[] } });
 		}
@@ -846,6 +956,7 @@ export class ContactsService {
 		const [
 			owners,
 			companies,
+			leadSources,
 			sources,
 			titles,
 			seniorities,
@@ -860,6 +971,11 @@ export class ContactsService {
 			}),
 			this.db.contact.groupBy({
 				by: ["companyId"],
+				where,
+				_count: { _all: true },
+			}),
+			this.db.contact.groupBy({
+				by: ["leadSourceId"],
 				where,
 				_count: { _all: true },
 			}),
@@ -892,6 +1008,11 @@ export class ContactsService {
 		return {
 			owner: countsByKey(owners, "ownerId", FACET_UNASSIGNED),
 			company: countsByKey(companies, "companyId", NO_COMPANY),
+			leadSource: countsByKey(
+				leadSources,
+				"leadSourceId",
+				FACET_NO_LEAD_SOURCE,
+			),
 			source: countsByKey(sources, "source"),
 			title: countsByKey(titles, "title"),
 			seniority: countsByKey(seniorities, "seniority"),
@@ -906,6 +1027,30 @@ export class ContactsService {
 		};
 	}
 
+	private async assertPhoneFree(phone: string, exceptId?: string) {
+		const existing = await this.db.contact.findFirst({
+			where: {
+				phone,
+				archivedAt: null,
+				id: exceptId ? { not: exceptId } : undefined,
+			},
+			select: { firstName: true, lastName: true },
+		});
+		if (existing) {
+			throw new ConflictException(`${nameOf(existing)} already uses ${phone}.`);
+		}
+	}
+
+	private async assertSourceActive(leadSourceId: string) {
+		const source = await this.db.leadSource.findFirst({
+			where: { id: leadSourceId, archivedAt: null },
+			select: { id: true },
+		});
+		if (!source) {
+			throw new BadRequestException("That lead source is not available.");
+		}
+	}
+
 	private translate(cause: unknown, id: string): never {
 		if (cause instanceof PrismaNamespace.PrismaClientKnownRequestError) {
 			if (cause.code === "P2025") {
@@ -913,7 +1058,7 @@ export class ContactsService {
 			}
 			if (cause.code === "P2002") {
 				throw new ConflictException(
-					"Another contact already uses that email address.",
+					"Another contact already uses that email address or phone number.",
 				);
 			}
 		}

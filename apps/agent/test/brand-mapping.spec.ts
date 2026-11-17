@@ -92,7 +92,7 @@ describe("brandToUpdate", () => {
 			stateCode: "CA",
 			country: "United States",
 			countryCode: "US",
-			phone: "+1 888 963 8955",
+			phone: "+18889638955",
 			email: "support@stripe.com",
 			linkedinUrl: "https://linkedin.com/company/stripe",
 			twitterUrl: "https://x.com/stripe",
@@ -160,7 +160,7 @@ describe("stillFillable", () => {
 		);
 
 		expect(data.description).toBeUndefined();
-		expect(data.phone).toBe("+1 888 963 8955");
+		expect(data.phone).toBe("+18889638955");
 	});
 
 	it("keeps the icon, which the agent owns rather than shares", () => {

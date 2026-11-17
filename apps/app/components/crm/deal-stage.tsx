@@ -1,14 +1,21 @@
-import type { DealStage } from "@crm/db/enums";
+"use client";
+
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
-import { dealStagePresentation } from "@/lib/deal-stage";
+import { useStages } from "@/lib/use-stages";
 
 export function DealStageIndicator({
 	stage,
 	className,
 }: {
-	stage: DealStage;
+	stage: string;
 	className?: string;
 }) {
-	const { label, tone } = dealStagePresentation(stage);
-	return <StatusIndicator tone={tone} label={label} className={className} />;
+	const stages = useStages();
+	return (
+		<StatusIndicator
+			tone={stages.tone(stage)}
+			label={stages.label(stage)}
+			className={className}
+		/>
+	);
 }

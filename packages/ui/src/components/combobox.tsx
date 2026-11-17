@@ -32,8 +32,8 @@ function Combobox({
 	selectedOption,
 	value,
 	onValueChange,
-	placeholder = "Select an option",
-	searchPlaceholder = "Search…",
+	placeholder = "Selecciona una opción",
+	searchPlaceholder = "Buscar…",
 	empty = "Nothing matches.",
 	search,
 	onSearchChange,
@@ -118,7 +118,7 @@ function Combobox({
 										{option.label}
 									</span>
 									{option.hint ? (
-										<span className="shrink-0 truncate text-muted-foreground text-xs">
+										<span className="shrink-0 truncate text-muted-foreground text-13">
 											{option.hint}
 										</span>
 									) : null}

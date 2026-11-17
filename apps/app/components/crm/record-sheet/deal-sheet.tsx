@@ -1,8 +1,5 @@
 "use client";
 
-import Add from "@carbon/icons-react/es/Add";
-import Close from "@carbon/icons-react/es/Close";
-import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import { CURRENCIES, normalizeCurrency } from "@crm/db/currency";
 import type { FieldValueJson } from "@crm/db/fields";
 import { Button } from "@crm/ui/components/button";
@@ -13,6 +10,11 @@ import {
 } from "@crm/ui/components/entity-logo";
 import { Icon } from "@crm/ui/components/icon";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
+import {
+	RecordFigure,
+	RecordSection,
+	type RecordSheetTab,
+} from "@crm/ui/components/record-sheet";
 import { SimpleTable, SimpleTableRow } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
 import {
@@ -22,6 +24,7 @@ import {
 } from "@crm/ui/components/tooltip";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { PlusIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AgentPanel } from "@/components/crm/agent-panel";
 import { InlineCompanyField } from "@/components/crm/company-picker";
@@ -35,29 +38,33 @@ import {
 	InlineTextCell,
 	savingValue,
 } from "@/components/crm/inline-field";
-import { OwnerCell } from "@/components/crm/owner-cell";
 import { DealStageMenu } from "@/components/crm/stage-change";
 import { StageStepper } from "@/components/crm/stage-stepper";
 import { Timeline } from "@/components/crm/timeline/timeline";
 import {
-	DetailSheetBody,
 	DetailSheetEmpty,
+	DetailSheetLoaded,
 	DetailSheetProperties,
 	DetailSheetProperty,
 	DetailSheetSection,
-	DetailSheetStat,
-	DetailSheetStats,
-	type DetailSheetTab,
 } from "@/components/detail-sheet";
+import { LocalDay } from "@/components/local-date-time";
 import {
-	LocalDateTime,
-	LocalDay,
-	LocalRelativeTime,
-} from "@/components/local-date-time";
+	type SheetTabId,
+	sheetTabs,
+	splitQualification,
+} from "@/lib/deal-sheet";
+import { DEAL_SHEET } from "@/lib/deal-sheet-config";
 import { savingField } from "@/lib/pending-field";
+import { entityLogoTone } from "@/lib/recent-records";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import {
+	DealContactCard,
+	DealNextStep,
+	DealQualification,
+} from "./deal-overview-blocks";
 import { AttachDealContact } from "./quick-add";
 import { RecordActions } from "./record-actions";
 import { AddRow, RecordSheetFrame } from "./record-parts";
@@ -65,9 +72,11 @@ import { useOpenRecord, useRecordSheetView } from "./record-stack";
 
 type Deal = RouterOutputs["deals"]["byId"];
 
+const NONE = "none";
+
 const CURRENCY_OPTIONS = CURRENCIES.map((entry) => ({
 	value: entry.code,
-	label: `${entry.code} · ${entry.name}`,
+	label: `${entry.code} (${entry.name})`,
 }));
 
 function dealCurrency(currency: string) {
@@ -80,7 +89,7 @@ function currencyOptions(currency: string) {
 	}
 
 	return [
-		{ value: currency, label: `${currency} — no longer supported` },
+		{ value: currency, label: `${currency} (ya no se admite)` },
 		...CURRENCY_OPTIONS,
 	];
 }
@@ -92,10 +101,10 @@ function ReportedValue({ deal }: { deal: Deal }) {
 	if (deal.amountCents === null) return null;
 
 	return (
-		<DetailSheetProperty label={`In ${deal.reportingCurrency}`}>
+		<DetailSheetProperty label={`En ${deal.reportingCurrency}`}>
 			{deal.baseAmountCents === null ? (
 				<span className="text-muted-foreground">
-					No {currency} rate — left out of totals
+					Sin cotización de {currency}, queda fuera de los totales
 				</span>
 			) : (
 				<span className="tabular-nums text-muted-foreground">
@@ -107,18 +116,12 @@ function ReportedValue({ deal }: { deal: Deal }) {
 }
 
 const CONTACT_COLUMNS = [
-	{ id: "name", header: "Name", width: "w-[28%]", className: "pl-5" },
-	{ id: "role", header: "Role", width: "w-[20%]" },
-	{ id: "title", header: "Title", width: "w-[22%]" },
+	{ id: "name", header: "Nombre", width: "w-[28%]", className: "pl-0" },
+	{ id: "role", header: "Rol", width: "w-[20%]" },
+	{ id: "title", header: "Cargo", width: "w-[22%]" },
 	{ id: "email", header: "Email", width: "w-[22%]" },
-	{ id: "remove", srLabel: "Remove", width: "w-10" },
+	{ id: "remove", srLabel: "Quitar", width: "w-10" },
 ];
-
-const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-};
 
 export function DealSheet({ dealId }: { dealId: string }) {
 	const trpc = useTRPC();
@@ -133,116 +136,169 @@ export function DealSheet({ dealId }: { dealId: string }) {
 	const query = useQuery(trpc.deals.byId.queryOptions({ id: dealId }));
 	const deal = query.data;
 
-	const tabs: DetailSheetTab[] = deal
-		? [
-				{
-					value: "overview",
-					label: "Overview",
-					content: <DealOverview deal={deal} />,
-				},
-				{
-					value: "contacts",
-					label: "Contacts",
-					count: deal.contacts.length,
-					content: (
-						<DealContacts
-							deal={deal}
-							adding={adding === "contact"}
-							onAdd={() => setAdding("contact")}
-							onDone={() => setAdding(null)}
-						/>
-					),
-				},
-				{
-					value: "activity",
-					label: "Activity",
-					content: <Timeline anchor={{ dealId: deal.id }} />,
-				},
-				{
-					value: "agent",
-					label: "Agent",
-					content: <AgentPanel record={{ kind: "deal", id: deal.id }} />,
-					keepMounted: true,
-				},
-			]
-		: [];
+	const allTabs = {
+		overview: {
+			value: "overview",
+			label: "Resumen",
+			content: deal ? <DealOverview deal={deal} /> : null,
+		},
+		contacts: {
+			value: "contacts",
+			label: "Contactos",
+			count: deal?.contacts.length,
+			fills: true,
+			content: deal ? (
+				<DealContacts
+					deal={deal}
+					adding={adding === "contact"}
+					onAdd={() => setAdding("contact")}
+					onDone={() => setAdding(null)}
+				/>
+			) : null,
+		},
+		activity: {
+			value: "activity",
+			label: "Actividad",
+			fills: true,
+			content: deal ? <Timeline anchor={{ dealId: deal.id }} /> : null,
+		},
+		agent: {
+			value: "agent",
+			label: "Agente",
+			fills: true,
+			content: deal ? (
+				<AgentPanel record={{ kind: "deal", id: deal.id }} />
+			) : null,
+			keepMounted: true,
+		},
+	} satisfies Record<SheetTabId, RecordSheetTab>;
+	const visibleTabs = sheetTabs(deal?.contacts.length ?? 0);
+	const tabs = visibleTabs.map((id) => allTabs[id]);
+	const activeTab = visibleTabs.some((id) => id === tab) ? tab : "overview";
 
 	return (
-		<RecordSheetFrame
-			loading={query.isPending}
-			error={query.error?.message ?? null}
-			title={deal?.name ?? "Deal"}
-			description={
-				deal ? (
-					<button
-						type="button"
-						onClick={() => openRecord({ kind: "company", id: deal.company.id })}
-						className="text-foreground underline-offset-2 hover:underline"
-					>
-						{deal.company.name}
-					</button>
-				) : undefined
+		<DetailSheetLoaded
+			record={
+				deal
+					? {
+							kind: "deal",
+							id: deal.id,
+							label: deal.name,
+							detail: deal.company.name,
+							iconUrl: deal.company.iconUrl,
+							iconDarkUrl: deal.company.iconDarkUrl,
+							iconTone: entityLogoTone.nullable().parse(deal.company.iconTone),
+							imageUrl: null,
+						}
+					: null
 			}
-			media={
-				deal ? (
-					<EntityLogo
-						src={deal.company.iconUrl}
-						darkSrc={deal.company.iconDarkUrl}
-						tone={deal.company.iconTone as EntityLogoTone | null | undefined}
-						name={deal.company.name}
-						size="lg"
-					/>
-				) : null
-			}
-			actions={
-				deal ? (
-					<>
-						<DealStageMenu
-							dealId={deal.id}
-							stage={deal.stage}
-							variant="control"
+		>
+			<RecordSheetFrame
+				kind="deal"
+				loading={query.isPending}
+				error={query.error?.message ?? null}
+				title={deal?.name ?? "Oportunidad"}
+				media={
+					deal ? (
+						<EntityLogo
+							src={deal.company.iconUrl}
+							darkSrc={deal.company.iconDarkUrl}
+							tone={deal.company.iconTone as EntityLogoTone | null | undefined}
+							name={deal.company.name}
+							size="sm"
 						/>
-						<RecordActions
-							record={{ kind: "deal", id: deal.id }}
-							name={deal.name}
-							consequence={`Its stage history, notes and agent conversations go too. ${deal.company.name} and the ${deal.contacts.length === 1 ? "person" : "people"} on it stay in the CRM.`}
-							archivedAt={deal.archivedAt}
-						/>
-					</>
-				) : null
-			}
-			stats={
-				deal ? (
-					<DetailSheetStats>
-						<DetailSheetStat label="Amount">
-							{deal.amountCents === null ? (
-								<EmptyCellValue />
-							) : (
-								<span className="tabular-nums">
-									{formatMoney(deal.amountCents, dealCurrency(deal.currency))}
-								</span>
-							)}
-						</DetailSheetStat>
-						<DetailSheetStat label="Expected close">
+					) : null
+				}
+				pills={
+					deal ? (
+						<>
+							<button
+								type="button"
+								onClick={() =>
+									openRecord({ kind: "company", id: deal.company.id })
+								}
+								className="rounded-sm text-foreground underline-offset-2 outline-none hover:underline focus-visible:shadow-focus"
+							>
+								{deal.company.name}
+							</button>
+							<span className="text-muted-foreground">
+								{DEAL_SHEET.copy.header.opened}{" "}
+								<LocalDay date={deal.createdAt} />
+							</span>
 							{deal.expectedCloseDate ? (
-								<LocalDay date={deal.expectedCloseDate} />
-							) : (
-								<EmptyCellValue />
-							)}
-						</DetailSheetStat>
-						<DetailSheetStat label="In stage">
-							<LocalRelativeTime date={deal.stageChangedAt} />
-						</DetailSheetStat>
-						<DetailSheetStat label="Owner">
-							<OwnerCell owner={deal.owner} />
-						</DetailSheetStat>
-					</DetailSheetStats>
-				) : null
-			}
-			tabs={tabs}
-			tab={tab}
-			onTabChange={setTab}
-		/>
+								<span className="text-muted-foreground">
+									Cierra <LocalDay date={deal.expectedCloseDate} />
+								</span>
+							) : null}
+						</>
+					) : null
+				}
+				actions={
+					deal ? (
+						<>
+							<DealStageMenu
+								dealId={deal.id}
+								stage={deal.stage}
+								variant="control"
+							/>
+							<RecordActions
+								record={{ kind: "deal", id: deal.id }}
+								name={deal.name}
+								consequence={`Se eliminan también su historial de etapas, sus notas y las conversaciones con el agente. ${deal.company.name} y ${deal.contacts.length === 1 ? "la persona" : "las personas"} de la oportunidad siguen en el CRM.`}
+								archivedAt={deal.archivedAt}
+							/>
+						</>
+					) : null
+				}
+				rail={deal ? <DealRail deal={deal} /> : null}
+				tabs={tabs}
+				tab={activeTab}
+				onTabChange={setTab}
+			/>
+		</DetailSheetLoaded>
+	);
+}
+
+function DealValue({ deal }: { deal: Deal }) {
+	const currency = dealCurrency(deal.currency);
+	const converted =
+		currency !== deal.reportingCurrency && deal.amountCents !== null;
+
+	return (
+		<RecordSection label="Valor">
+			<RecordFigure
+				value={
+					deal.amountCents === null ? (
+						<span className="text-muted-foreground">Sin monto</span>
+					) : (
+						formatMoney(deal.amountCents, currency)
+					)
+				}
+			>
+				{converted ? (
+					deal.baseAmountCents === null ? (
+						<span>
+							Sin cotización de {currency}, queda fuera de los totales
+						</span>
+					) : (
+						<span className="tabular-nums">
+							Unos {formatMoney(deal.baseAmountCents, deal.reportingCurrency)}{" "}
+							en {deal.reportingCurrency}
+						</span>
+					)
+				) : null}
+				{deal.closedAt ? (
+					<span>
+						{DEAL_SHEET.copy.header.closed} <LocalDay date={deal.closedAt} />
+					</span>
+				) : null}
+				{deal.closedReason ? (
+					<span>
+						{DEAL_SHEET.copy.header.reason}: {deal.closedReason}
+					</span>
+				) : null}
+			</RecordFigure>
+		</RecordSection>
 	);
 }
 
@@ -250,7 +306,61 @@ function DealOverview({ deal }: { deal: Deal }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
+	const update = useMutation(
+		trpc.deals.update.mutationOptions({
+			onSuccess: () => cache.deal(deal.id, { settle: "record" }),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const isSaving = savingField(update);
+
+	const saveFields = (fields: Record<string, FieldValueJson>) =>
+		update.mutate({ id: deal.id, data: { fields } });
+
+	return (
+		<>
+			<DealValue deal={deal} />
+
+			<DetailSheetSection title="Etapa">
+				<StageStepper
+					dealId={deal.id}
+					stage={deal.stage}
+					stageChangedAt={deal.stageChangedAt}
+				/>
+			</DetailSheetSection>
+
+			<DetailSheetSection title="Descripción">
+				<InlineTextArea
+					label="Descripción"
+					value={deal.description}
+					placeholder={DEAL_SHEET.copy.descriptionPlaceholder}
+					saving={isSaving("description")}
+					onSave={(description) =>
+						update.mutate({ id: deal.id, data: { description } })
+					}
+				/>
+			</DetailSheetSection>
+
+			<DealNextStep deal={deal} />
+
+			<DealQualification
+				deal={deal}
+				saving={savingValue(update)}
+				onSave={saveFields}
+			/>
+
+			<DealContactCard deal={deal} />
+		</>
+	);
+}
+
+function DealRail({ deal }: { deal: Deal }) {
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+
 	const users = useQuery(trpc.users.list.queryOptions());
+	const leadSources = useQuery(trpc.leadSources.list.queryOptions());
 
 	const update = useMutation(
 		trpc.deals.update.mutationOptions({
@@ -272,159 +382,83 @@ function DealOverview({ deal }: { deal: Deal }) {
 	const isSaving = savingField(update);
 
 	return (
-		<DetailSheetBody>
-			<DetailSheetSection title="Stage">
-				<StageStepper dealId={deal.id} stage={deal.stage} />
-
-				{deal.closedReason ? (
-					<DetailSheetProperties>
-						<DetailSheetProperty label="Closed">
-							{deal.closedAt ? (
-								<LocalDateTime date={deal.closedAt} options={DATE_OPTIONS} />
-							) : (
-								<EmptyCellValue />
-							)}
-						</DetailSheetProperty>
-						<DetailSheetProperty label="Reason" wide>
-							{deal.closedReason}
-						</DetailSheetProperty>
-					</DetailSheetProperties>
-				) : null}
-			</DetailSheetSection>
-
-			<DetailSheetSection title="Details" action={<FieldsCog kind="deal" />}>
-				<DetailSheetProperties>
-					<InlineField
-						label="Name"
-						value={deal.name}
-						saving={isSaving("name")}
-						onSave={(name) => name && save({ name })}
-					/>
-					<InlineField
-						label="Amount"
-						value={
-							deal.amountCents === null ? null : String(deal.amountCents / 100)
-						}
-						placeholder="24000"
-						saving={isSaving("amountCents")}
-						onSave={(next) => {
-							if (next === "") return save({ amountCents: null });
-							const parsed = Number.parseFloat(next);
-							if (!Number.isFinite(parsed) || parsed < 0) {
-								toast.error("Amount has to be a number.");
-								return;
-							}
-							save({ amountCents: Math.round(parsed * 100) });
-						}}
-						render={(value) =>
-							formatMoney(Math.round(Number(value) * 100), currency)
-						}
-					/>
-					<InlineSelectField
-						label="Currency"
-						value={currency}
-						options={currencyOptions(currency)}
-						onSave={(currency) => save({ currency })}
-					/>
-					<ReportedValue deal={deal} />
-					<InlineDateField
-						label="Close date"
-						value={deal.expectedCloseDate}
-						saving={isSaving("expectedCloseDate")}
-						onSave={(next) => save({ expectedCloseDate: next || null })}
-					/>
-					<InlineCompanyField
-						value={deal.company.id}
-						company={deal.company}
-						saving={isSaving("companyId")}
-						onSave={(companyId) => save({ companyId })}
-					/>
-					<InlineSelectField
-						label="Owner"
-						value={deal.owner.id}
-						options={(users.data ?? []).map((user) => ({
-							value: user.id,
-							label: user.name,
-						}))}
-						onSave={(ownerId) => save({ ownerId })}
-					/>
-					<RecordFields
-						fields={deal.fields}
-						saving={isSavingField}
-						onSave={saveFields}
-					/>
-				</DetailSheetProperties>
-			</DetailSheetSection>
-
-			<DetailSheetSection title="Description">
-				<InlineTextArea
-					label="Description"
-					value={deal.description}
-					placeholder={`What ${deal.company.name} is buying, why now, and what stands in the way.`}
-					saving={isSaving("description")}
-					onSave={(description) => save({ description })}
+		<DetailSheetSection title="Detalles" action={<FieldsCog kind="deal" />}>
+			<DetailSheetProperties columns={1}>
+				<InlineField
+					label="Nombre"
+					value={deal.name}
+					saving={isSaving("name")}
+					onSave={(name) => name && save({ name })}
 				/>
-			</DetailSheetSection>
-
-			<WhereItStands deal={deal} />
-		</DetailSheetBody>
-	);
-}
-
-function WhereItStands({ deal }: { deal: Deal }) {
-	const openRecord = useOpenRecord();
-
-	return (
-		<DetailSheetSection title="Where it stands">
-			<DetailSheetProperties>
-				<DetailSheetProperty label="Opened">
-					<LocalDateTime date={deal.createdAt} options={DATE_OPTIONS} />
-				</DetailSheetProperty>
-
-				<DetailSheetProperty label="In stage since">
-					<LocalDateTime date={deal.stageChangedAt} options={DATE_OPTIONS} />
-				</DetailSheetProperty>
-
-				{deal.closedAt ? (
-					<DetailSheetProperty label="Closed">
-						<LocalDateTime date={deal.closedAt} options={DATE_OPTIONS} />
-					</DetailSheetProperty>
-				) : null}
-
-				{deal.closedReason ? (
-					<DetailSheetProperty label="Reason" wide>
-						{deal.closedReason}
-					</DetailSheetProperty>
-				) : null}
-
-				<DetailSheetProperty label="On it" wide>
-					{deal.contacts.length === 0 ? (
-						<span className="text-muted-foreground">
-							Nobody from {deal.company.name} is attached yet.
-						</span>
-					) : (
-						<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-							{deal.contacts.map((contact) => {
-								const aside = contact.role ?? contact.title;
-								return (
-									<button
-										key={contact.id}
-										type="button"
-										onClick={() =>
-											openRecord({ kind: "contact", id: contact.id })
-										}
-										className="min-w-0 truncate underline-offset-2 hover:underline"
-									>
-										{contactName(contact)}
-										{aside ? (
-											<span className="text-muted-foreground"> ({aside})</span>
-										) : null}
-									</button>
-								);
-							})}
-						</span>
-					)}
-				</DetailSheetProperty>
+				<InlineField
+					label="Monto"
+					value={
+						deal.amountCents === null ? null : String(deal.amountCents / 100)
+					}
+					placeholder={DEAL_SHEET.copy.amountPlaceholder}
+					saving={isSaving("amountCents")}
+					onSave={(next) => {
+						if (next === "") return save({ amountCents: null });
+						const parsed = Number.parseFloat(next);
+						if (!Number.isFinite(parsed) || parsed < 0) {
+							toast.error("El monto tiene que ser un número.");
+							return;
+						}
+						save({ amountCents: Math.round(parsed * 100) });
+					}}
+					render={(value) =>
+						formatMoney(Math.round(Number(value) * 100), currency)
+					}
+				/>
+				<InlineSelectField
+					label="Moneda"
+					value={currency}
+					options={currencyOptions(currency)}
+					onSave={(currency) => save({ currency })}
+				/>
+				<ReportedValue deal={deal} />
+				<InlineDateField
+					label="Fecha de cierre"
+					value={deal.expectedCloseDate}
+					saving={isSaving("expectedCloseDate")}
+					onSave={(next) => save({ expectedCloseDate: next || null })}
+				/>
+				<InlineCompanyField
+					value={deal.company.id}
+					company={deal.company}
+					saving={isSaving("companyId")}
+					onSave={(companyId) => save({ companyId })}
+				/>
+				<InlineSelectField
+					label="Responsable"
+					value={deal.owner.id}
+					options={(users.data ?? []).map((user) => ({
+						value: user.id,
+						label: user.name,
+					}))}
+					onSave={(ownerId) => save({ ownerId })}
+				/>
+				<InlineSelectField
+					label="Origen"
+					value={deal.leadSource?.id ?? NONE}
+					options={[
+						{ value: NONE, label: "Desconocido" },
+						...(leadSources.data?.sources ?? [])
+							.filter(
+								(source) =>
+									!source.archived || source.id === deal.leadSource?.id,
+							)
+							.map((source) => ({ value: source.id, label: source.name })),
+					]}
+					onSave={(leadSourceId) =>
+						save({ leadSourceId: leadSourceId === NONE ? null : leadSourceId })
+					}
+				/>
+				<RecordFields
+					fields={splitQualification(deal.fields).rest}
+					saving={isSavingField}
+					onSave={saveFields}
+				/>
 			</DetailSheetProperties>
 		</DetailSheetSection>
 	);
@@ -473,13 +507,13 @@ function DealContacts({
 				{form}
 				{adding ? null : (
 					<DetailSheetEmpty
-						icon={UserMultiple}
-						title="No contacts on this deal"
-						description={`Nobody from ${deal.company.name} is attached yet. Bring the people you are selling to onto the deal and it says who to chase.`}
+						icon={UsersIcon}
+						title="Sin contactos en esta oportunidad"
+						description={`Todavía no hay nadie de ${deal.company.name} en la oportunidad. Suma a las personas a las que les vendes y sabrás a quién darle seguimiento.`}
 						action={
 							<Button variant="outline" size="sm" onClick={onAdd}>
-								<Icon icon={Add} data-icon="inline-start" />
-								Add contact
+								<Icon icon={PlusIcon} data-icon="inline-start" />
+								Agregar contacto
 							</Button>
 						}
 					/>
@@ -496,9 +530,17 @@ function DealContacts({
 					<SimpleTableRow
 						key={contact.id}
 						clickable
-						onClick={() => openRecord({ kind: "contact", id: contact.id })}
+						onClick={() =>
+							openRecord(
+								{ kind: "contact", id: contact.id },
+								deal.contacts.map((entry) => ({
+									kind: "contact",
+									id: entry.id,
+								})),
+							)
+						}
 					>
-						<TableCell className="truncate py-2.5 pr-3 pl-5 font-medium">
+						<TableCell className="truncate py-2.5 pr-3 pl-0 font-medium">
 							<span className="flex min-w-0 items-center gap-2">
 								<PersonAvatar
 									src={contact.imageUrl}
@@ -511,9 +553,9 @@ function DealContacts({
 						</TableCell>
 						<TableCell className="truncate px-1 py-2.5">
 							<InlineTextCell
-								label={`Role on this deal for ${contactName(contact)}`}
+								label={`Rol de ${contactName(contact)} en esta oportunidad`}
 								value={contact.role}
-								placeholder="Champion"
+								placeholder="Decisor"
 								saving={
 									setRole.isPending &&
 									setRole.variables?.contactId === contact.id
@@ -548,20 +590,20 @@ function DealContacts({
 											});
 										}}
 									>
-										<Icon icon={Close} />
+										<Icon icon={XIcon} />
 										<span className="sr-only">
-											Take {contactName(contact)} off this deal
+											Quitar a {contactName(contact)} de esta oportunidad
 										</span>
 									</Button>
 								</TooltipTrigger>
-								<TooltipContent>Take off this deal</TooltipContent>
+								<TooltipContent>Quitar de esta oportunidad</TooltipContent>
 							</Tooltip>
 						</TableCell>
 					</SimpleTableRow>
 				))}
 
 				<AddRow
-					label="Add contact"
+					label="Agregar contacto"
 					columns={CONTACT_COLUMNS.length}
 					onClick={onAdd}
 				/>

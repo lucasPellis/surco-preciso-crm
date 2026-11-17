@@ -23,15 +23,16 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  ownedCompanies Company[]           @relation("CompanyOwner")
-  ownedContacts  Contact[]           @relation("ContactOwner")
-  ownedDeals     Deal[]              @relation("DealOwner")
-  activities     Activity[]          @relation("ActivityAuthor")
-  mailboxSyncs   MailboxSync[]
-  factDecisions  ContactFact[]       @relation("FactDecider")
-  conversations  AgentConversation[] @relation("ConversationOwner")
-  fieldValues    FieldValue[]        @relation("FieldValueUser")
-  savedViews     SavedView[]         @relation("SavedViewOwner")
+  ownedCompanies     Company[]           @relation("CompanyOwner")
+  ownedContacts      Contact[]           @relation("ContactOwner")
+  ownedDeals         Deal[]              @relation("DealOwner")
+  defaultLeadOwnerOf AppSetting[]        @relation("DefaultLeadOwner")
+  activities         Activity[]          @relation("ActivityAuthor")
+  mailboxSyncs       MailboxSync[]
+  factDecisions      ContactFact[]       @relation("FactDecider")
+  conversations      AgentConversation[] @relation("ConversationOwner")
+  fieldValues        FieldValue[]        @relation("FieldValueUser")
+  savedViews         SavedView[]         @relation("SavedViewOwner")
 
   createdAgentDefinitions AgentDefinition[]             @relation("AgentDefinitionCreator")
   createdAgentVersions    AgentVersion[]                @relation("AgentVersionCreator")
@@ -51,6 +52,9 @@ model User {
   ssoproviders SsoProvider[]
 
   apiKeys Apikey[]
+
+  shipmentStageEvents ShipmentStageEvent[] @relation("ShipmentStageEventActor")
+  uploadedAttachments Attachment[]         @relation("AttachmentUploader")
 
   @@unique([email])
   @@map("user")
@@ -290,14 +294,19 @@ model RateLimit {
   @@map("rateLimit")
 }
 
-enum DealStage {
-  DEMO_BOOKED
-  QUALIFIED_TO_BUY
-  UNQUALIFIED_TO_BUY
-  DECISION_MAKER_BOUGHT_IN
-  CONTRACT_SENT
-  CLOSED_WON
-  CLOSED_LOST
+enum PipelineStageTone {
+  NEUTRAL
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
+
+enum PipelineStageKind {
+  OPEN
+  WON
+  LOST
+  PAUSED
 }
 
 enum ActivityType {
@@ -509,6 +518,10 @@ model Contact {
 
   source RecordSource @default(MANUAL)
 
+  leadSourceId String?
+  leadSource   LeadSource? @relation(fields: [leadSourceId], references: [id], onDelete: SetNull)
+  originDetail String?
+
   lastActivityAt DateTime?
   archivedAt     DateTime?
 
@@ -524,11 +537,265 @@ model Contact {
   updatedAt       DateTime           @updatedAt
 
   @@unique([email], map: "contact_email_active_key", where: { archivedAt: null })
+  @@unique([phone], map: "contact_phone_active_key", where: { archivedAt: null })
   @@index([companyId])
   @@index([ownerId])
+  @@index([leadSourceId])
   @@index([lastActivityAt])
   @@index([archivedAt])
   @@map("contact")
+}
+
+model LeadSource {
+  id         String    @id @default(cuid())
+  key        String    @unique
+  name       String
+  icon       String?
+  position   Int       @default(0)
+  archivedAt DateTime?
+
+  contacts  Contact[]
+  deals     Deal[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([archivedAt])
+  @@map("lead_source")
+}
+
+model Product {
+  id               String    @id @default(cuid())
+  sku              String    @unique
+  name             String
+  brand            String?
+  category         String?
+  description      String?
+  referenceCostUsd Decimal?  @db.Decimal(14, 2)
+  archivedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  orderLines PurchaseOrderLine[]
+
+  @@index([archivedAt])
+  @@map("product")
+}
+
+enum ImportStageKind {
+  IN_PROGRESS
+  RECEIVED
+  CANCELLED
+}
+
+enum ImportCountry {
+  AR
+  PY
+  BR
+}
+
+model ImportProcess {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  countryCode ImportCountry?
+  archivedAt  DateTime?
+
+  stages    ImportStage[]
+  orders    PurchaseOrder[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([archivedAt])
+  @@map("import_process")
+}
+
+model ImportStage {
+  id         String            @id @default(cuid())
+  key        String            @unique
+  name       String
+  kind       ImportStageKind
+  tone       PipelineStageTone @default(NEUTRAL)
+  position   Int               @default(0)
+  isEntry    Boolean           @default(false)
+  archivedAt DateTime?
+  processId  String
+  process    ImportProcess     @relation(fields: [processId], references: [id])
+
+  shipments Shipment[]
+  events    ShipmentStageEvent[]
+  documents ImportStageDocument[]
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@unique([processId, isEntry], map: "import_stage_entry_key", where: { isEntry: true, archivedAt: null })
+  @@index([archivedAt])
+  @@index([processId, position])
+  @@map("import_stage")
+}
+
+model PurchaseOrder {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  supplierName String
+  orderedAt    DateTime
+  notes        String?
+  archivedAt   DateTime?
+  processId    String
+  process      ImportProcess @relation(fields: [processId], references: [id])
+
+  lines     PurchaseOrderLine[]
+  shipments Shipment[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([archivedAt])
+  @@index([processId])
+  @@map("purchase_order")
+}
+
+model PurchaseOrderLine {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity    Int
+  unitCostUsd Decimal       @db.Decimal(14, 2)
+  dealId      String?
+  deal        Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  shipmentLines ShipmentLine[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([dealId])
+  @@map("purchase_order_line")
+}
+
+model Shipment {
+  id             String        @id @default(cuid())
+  orderId        String
+  order          PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reference      String?
+  trackingNumber String?
+  stageKey       String
+  stage          ImportStage   @relation(fields: [stageKey], references: [key])
+  stageChangedAt DateTime
+
+  lines     ShipmentLine[]
+  events    ShipmentStageEvent[]
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([orderId])
+  @@index([stageKey])
+  @@map("shipment")
+}
+
+model ShipmentLine {
+  id          String            @id @default(cuid())
+  shipmentId  String
+  shipment    Shipment          @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  orderLineId String
+  orderLine   PurchaseOrderLine @relation(fields: [orderLineId], references: [id], onDelete: NoAction)
+  quantity    Int
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([shipmentId, orderLineId])
+  @@index([orderLineId])
+  @@map("shipment_line")
+}
+
+model ShipmentStageEvent {
+  id         String      @id @default(cuid())
+  shipmentId String
+  shipment   Shipment    @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  stageKey   String
+  stage      ImportStage @relation(fields: [stageKey], references: [key])
+  occurredAt DateTime
+  actorId    String?
+  actor      User?       @relation("ShipmentStageEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt  DateTime    @default(now())
+
+  attachments Attachment[]
+
+  @@index([shipmentId, occurredAt])
+  @@index([stageKey])
+  @@map("shipment_stage_event")
+}
+
+enum DocumentDirection {
+  IN
+  OUT
+}
+
+model DocumentLabel {
+  id         String            @id @default(cuid())
+  name       String            @unique
+  direction  DocumentDirection
+  archivedAt DateTime?
+
+  stages      ImportStageDocument[]
+  attachments Attachment[]
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([archivedAt])
+  @@map("document_label")
+}
+
+model ImportStageDocument {
+  stageKey String
+  stage    ImportStage   @relation(fields: [stageKey], references: [key], onDelete: Cascade)
+  labelId  String
+  label    DocumentLabel @relation(fields: [labelId], references: [id], onDelete: Restrict)
+  position Int
+
+  @@id([stageKey, labelId])
+  @@index([labelId])
+  @@map("import_stage_document")
+}
+
+model Attachment {
+  id                   String             @id @default(cuid())
+  pathname             String             @unique
+  filename             String
+  contentType          String
+  size                 Int
+  labelId              String?
+  label                DocumentLabel?     @relation(fields: [labelId], references: [id], onDelete: Restrict)
+  uploadedById         String?
+  uploadedBy           User?              @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  shipmentStageEventId String
+  shipmentStageEvent   ShipmentStageEvent @relation(fields: [shipmentStageEventId], references: [id], onDelete: Cascade)
+  createdAt            DateTime           @default(now())
+
+  @@index([shipmentStageEventId])
+  @@index([labelId])
+  @@map("attachment")
+}
+
+model PipelineStage {
+  id                String            @id @default(cuid())
+  key               String            @unique
+  name              String
+  kind              PipelineStageKind
+  tone              PipelineStageTone @default(NEUTRAL)
+  position          Int               @default(0)
+  isEntry           Boolean           @default(false)
+  idleAfterHours    Int?
+  autoLoseAfterDays Int?
+  archivedAt        DateTime?
+
+  deals     Deal[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([isEntry], map: "pipeline_stage_entry_key", where: { isEntry: true, archivedAt: null })
+  @@index([archivedAt])
+  @@map("pipeline_stage")
 }
 
 enum FactBand {
@@ -638,8 +905,8 @@ model AgentEvent {
 
   emittedAt DateTime
 
-  @@index([sessionId, emittedAt])
   @@unique([sessionId, streamIndex])
+  @@index([sessionId, emittedAt])
   @@index([contactId, emittedAt])
   @@index([conversationId, emittedAt])
   @@map("agentEvent")
@@ -663,10 +930,10 @@ model AgentConversation {
   agentId String?
   agent   AgentDefinition? @relation(fields: [agentId], references: [id], onDelete: SetNull)
 
-  sessionId           String? @unique
-  continuationToken   String?
-  streamIndex         Int     @default(0)
-  pendingInputRequest Json?
+  sessionId            String? @unique
+  continuationToken    String?
+  streamIndex          Int     @default(0)
+  pendingInputRequests Json?
 
   permissionMode AgentConversationPermissionMode @default(MANUAL)
 
@@ -1057,10 +1324,15 @@ model Deal {
   ownerId       String
   owner         User                @relation("DealOwner", fields: [ownerId], references: [id])
 
-  stage             DealStage @default(DEMO_BOOKED)
-  stageChangedAt    DateTime  @default(now())
-  amount            Decimal?  @db.Decimal(14, 2)
-  currency          String    @default("USD")
+  leadSourceId String?
+  leadSource   LeadSource? @relation(fields: [leadSourceId], references: [id], onDelete: SetNull)
+
+  stage             String        @default("NEW")
+  pipelineStage     PipelineStage @relation(fields: [stage], references: [key])
+  stageChangedAt    DateTime      @default(now())
+  firstContactedAt  DateTime?
+  amount            Decimal?      @db.Decimal(14, 2)
+  currency          String        @default("USD")
   expectedCloseDate DateTime?
   closedAt          DateTime?
   closedReason      String?
@@ -1079,8 +1351,11 @@ model Deal {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  purchaseOrderLines PurchaseOrderLine[]
+
   @@index([companyId])
   @@index([ownerId])
+  @@index([leadSourceId])
   @@index([stage])
   @@index([expectedCloseDate])
   @@index([lastActivityAt])
@@ -1442,6 +1717,9 @@ model AppSetting {
   reportingCurrency String?
 
   ratesRefreshedAt DateTime?
+
+  defaultLeadOwnerId String?
+  defaultLeadOwner   User?   @relation("DefaultLeadOwner", fields: [defaultLeadOwnerId], references: [id], onDelete: SetNull)
 
   archiveRetentionDays Int @default(180)
 
