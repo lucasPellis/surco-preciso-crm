@@ -41,6 +41,7 @@ export type CrmCache = {
 	importProcesses(options?: Options): Promise<void>;
 	importStages(options?: Options): Promise<void>;
 	importOrders(options?: Options): Promise<void>;
+	documentLabels(options?: Options): Promise<void>;
 	stages(options?: Options): Promise<void>;
 	workspace(options?: Options): Promise<void>;
 	slack(options?: Options): Promise<void>;
@@ -331,6 +332,17 @@ export function useCrmCache(): CrmCache {
 				[
 					trpc.importStages.settings.queryKey(),
 					trpc.importProcesses.list.queryKey(),
+					trpc.documentLabels.list.queryKey(),
+				],
+				options,
+			),
+
+		documentLabels: (options) =>
+			run(
+				[trpc.documentLabels.list.queryKey()],
+				[
+					trpc.importStages.settings.queryKey(),
+					trpc.importOrders.byId.queryKey(),
 				],
 				options,
 			),

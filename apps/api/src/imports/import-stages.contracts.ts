@@ -3,6 +3,7 @@ import {
 	ImportStageKind,
 	PipelineStageTone,
 } from "@crm/db/enums";
+import { IMPORT_DOCUMENT } from "@crm/db/import-document";
 import { IMPORT_STAGE } from "@crm/db/import-stage";
 import { z } from "zod";
 import { taskDueDayInput } from "../activities/task-due-date";
@@ -47,6 +48,20 @@ export const importStageArchiveInput = z.object({
 
 export const importStageKeyInput = z.object({ key: stageKeyInput });
 
+export const importStageExpectedLabelsInput = z.object({
+	key: stageKeyInput,
+	labelIds: z
+		.array(z.string().min(1))
+		.max(
+			IMPORT_DOCUMENT.maxExpectedLabels,
+			`Máximo ${IMPORT_DOCUMENT.maxExpectedLabels} documentos por etapa.`,
+		)
+		.refine(
+			(ids) => new Set(ids).size === ids.length,
+			"Un documento está repetido.",
+		),
+});
+
 export const importStageRowOutput = z.object({
 	key: z.string(),
 	name: z.string(),
@@ -56,6 +71,7 @@ export const importStageRowOutput = z.object({
 	isEntry: z.boolean(),
 	archived: z.boolean(),
 	shipmentCount: z.number(),
+	expectedLabelIds: z.array(z.string()),
 });
 
 export const importStageSettingsOutput = z.object({
@@ -75,4 +91,7 @@ export type ImportStageUpdateInput = z.infer<typeof importStageUpdateInput>;
 export type ImportStageReorderInput = z.infer<typeof importStageReorderInput>;
 export type ImportStageArchiveInput = z.infer<typeof importStageArchiveInput>;
 export type ImportStageKeyInput = z.infer<typeof importStageKeyInput>;
+export type ImportStageExpectedLabelsInput = z.infer<
+	typeof importStageExpectedLabelsInput
+>;
 export type ImportStageSettings = z.infer<typeof importStageSettingsOutput>;

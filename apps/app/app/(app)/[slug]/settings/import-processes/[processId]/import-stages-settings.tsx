@@ -4,6 +4,7 @@ import { ImportStageKind, type PipelineStageTone } from "@crm/db/enums";
 import { IMPORT_STAGE } from "@crm/db/import-stage";
 import { PIPELINE_STAGE_TONES } from "@crm/db/pipeline-stage";
 import { Button } from "@crm/ui/components/button";
+import { Checkbox } from "@crm/ui/components/checkbox";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -49,6 +50,11 @@ import {
 import { toast } from "sonner";
 import { STAGE_TONE_LABELS, STAGE_TONE_STATUS } from "@/lib/deal-stage-config";
 import {
+	type DocumentLabelRow,
+	labelOptionText,
+	splitDocumentLabels,
+} from "@/lib/import-documents";
+import {
 	applyImportStageOrder,
 	type ImportStageRow,
 	importArchiveTargets,
@@ -69,6 +75,102 @@ const KIND_LABELS = {
 
 function shipmentsLabel(count: number): string {
 	return count === 1 ? "1 envío" : `${count} envíos`;
+}
+
+function expectedLabel(count: number): string {
+	return count === 1 ? "1 documento esperado" : `${count} documentos esperados`;
+}
+
+function ExpectedDocumentsDialog({
+	stage,
+	labels,
+	labelsHref,
+	pending,
+	onClose,
+	onSave,
+}: {
+	stage: ImportStageRow;
+	labels: DocumentLabelRow[] | null;
+	labelsHref: string;
+	pending: boolean;
+	onClose: () => void;
+	onSave: (labelIds: string[]) => void;
+}) {
+	const baseId = useId();
+	const [chosen, setChosen] = useState(() => new Set(stage.expectedLabelIds));
+
+	const toggle = (id: string, checked: boolean) =>
+		setChosen((current) => {
+			const next = new Set(current);
+			if (checked) next.add(id);
+			else next.delete(id);
+			return next;
+		});
+
+	return (
+		<Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>{`Documentos de ${stage.name}`}</DialogTitle>
+					<DialogDescription>
+						Marca los documentos que esta etapa espera. Cada envío muestra
+						cuáles faltan. La lista avisa y nunca impide mover un envío.
+					</DialogDescription>
+				</DialogHeader>
+
+				{labels === null ? (
+					<div className="flex justify-center p-4">
+						<Spinner />
+					</div>
+				) : labels.length === 0 ? (
+					<p className="text-muted-foreground">
+						Todavía no hay etiquetas.{" "}
+						<Button asChild variant="link" size="inline">
+							<Link href={labelsHref}>Crea las etiquetas</Link>
+						</Button>{" "}
+						y vuelve aquí.
+					</p>
+				) : (
+					<FieldGroup>
+						{labels.map((label) => {
+							const id = `${baseId}-${label.id}`;
+							return (
+								<Field key={label.id} orientation="horizontal">
+									<Checkbox
+										id={id}
+										checked={chosen.has(label.id)}
+										onCheckedChange={(checked) =>
+											toggle(label.id, checked === true)
+										}
+									/>
+									<FieldLabel htmlFor={id}>{labelOptionText(label)}</FieldLabel>
+								</Field>
+							);
+						})}
+					</FieldGroup>
+				)}
+
+				<DialogFooter>
+					<Button variant="outline" onClick={onClose}>
+						Cancelar
+					</Button>
+					<Button
+						disabled={pending || !labels || labels.length === 0}
+						onClick={() =>
+							onSave(
+								(labels ?? [])
+									.filter((label) => chosen.has(label.id))
+									.map((label) => label.id),
+							)
+						}
+					>
+						{pending ? <Spinner data-icon="inline-start" /> : null}
+						Guardar
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 function ToneSelect({
@@ -311,6 +413,11 @@ function StageSummary({ stage }: { stage: ImportStageRow }) {
 				<span className="tabular-nums">
 					{shipmentsLabel(stage.shipmentCount)}
 				</span>
+				{stage.expectedLabelIds.length > 0 ? (
+					<span className="tabular-nums">
+						{expectedLabel(stage.expectedLabelIds.length)}
+					</span>
+				) : null}
 			</MetaRow>
 		</div>
 	);
@@ -327,8 +434,10 @@ export function ImportStagesSettings({ processId }: { processId: string }) {
 
 	const [editing, setEditing] = useState<ImportStageRow | "new" | null>(null);
 	const [archiving, setArchiving] = useState<ImportStageRow | null>(null);
+	const [choosing, setChoosing] = useState<ImportStageRow | null>(null);
 
 	const list = useQuery(trpc.importStages.settings.queryOptions({ processId }));
+	const labels = useQuery(trpc.documentLabels.list.queryOptions());
 	const [rows, applyKeys] = useOptimistic(
 		list.data?.stages,
 		(current, keys: string[]) =>
@@ -376,6 +485,15 @@ export function ImportStagesSettings({ processId }: { processId: string }) {
 			onSuccess: () => toast.success("Etapa restaurada."),
 		}),
 	);
+	const expected = useMutation(
+		trpc.importStages.setExpectedLabels.mutationOptions({
+			...settled,
+			onSuccess: () => {
+				setChoosing(null);
+				toast.success("Documentos esperados guardados.");
+			},
+		}),
+	);
 
 	if (list.isError) {
 		return (
@@ -409,7 +527,8 @@ export function ImportStagesSettings({ processId }: { processId: string }) {
 		create.isPending ||
 		update.isPending ||
 		archive.isPending ||
-		restore.isPending;
+		restore.isPending ||
+		expected.isPending;
 
 	const onReorder = (keys: string[]) => {
 		startTransition(async () => {
@@ -429,10 +548,22 @@ export function ImportStagesSettings({ processId }: { processId: string }) {
 		</Button>
 	);
 
+	const documents = (stage: ImportStageRow) => (
+		<Button
+			variant="ghost"
+			size="sm"
+			disabled={busy}
+			onClick={() => setChoosing(stage)}
+		>
+			Documentos
+		</Button>
+	);
+
 	const fixed = (stage: ImportStageRow | undefined) =>
 		stage ? (
 			<Row key={stage.key}>
 				<StageSummary stage={stage} />
+				{documents(stage)}
 				{edit(stage)}
 			</Row>
 		) : null;
@@ -475,6 +606,7 @@ export function ImportStagesSettings({ processId }: { processId: string }) {
 									className={ROW}
 								>
 									<StageSummary stage={stage} />
+									{documents(stage)}
 									{edit(stage)}
 									<Button
 										variant="ghost"
@@ -557,6 +689,22 @@ export function ImportStagesSettings({ processId }: { processId: string }) {
 					onClose={() => setArchiving(null)}
 					onConfirm={({ targetKey, occurredAt }) =>
 						archive.mutate({ key: archiving.key, targetKey, occurredAt })
+					}
+				/>
+			) : null}
+
+			{choosing ? (
+				<ExpectedDocumentsDialog
+					key={choosing.key}
+					stage={choosing}
+					labels={
+						labels.data ? splitDocumentLabels(labels.data.labels).active : null
+					}
+					labelsHref={url("/settings/document-labels")}
+					pending={expected.isPending}
+					onClose={() => setChoosing(null)}
+					onSave={(labelIds) =>
+						expected.mutate({ key: choosing.key, labelIds })
 					}
 				/>
 			) : null}

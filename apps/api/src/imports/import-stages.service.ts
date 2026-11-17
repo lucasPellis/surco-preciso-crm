@@ -19,6 +19,7 @@ import { InjectDatabase } from "../database/database.constants";
 import type {
 	ImportStageArchiveInput,
 	ImportStageCreateInput,
+	ImportStageExpectedLabelsInput,
 	ImportStageReorderInput,
 	ImportStageSettings,
 	ImportStageUpdateInput,
@@ -61,6 +62,13 @@ export class ImportStagesService {
 			this.db.importStage.findMany({
 				where: { processId },
 				orderBy: { position: "asc" },
+				include: {
+					documents: {
+						where: { label: { archivedAt: null } },
+						orderBy: [{ position: "asc" }, { label: { name: "asc" } }],
+						select: { labelId: true },
+					},
+				},
 			}),
 			this.db.shipment.groupBy({
 				by: ["stageKey"],
@@ -92,6 +100,7 @@ export class ImportStagesService {
 				isEntry: row.isEntry,
 				archived: row.archivedAt !== null,
 				shipmentCount: perStage.get(row.key) ?? 0,
+				expectedLabelIds: row.documents.map((document) => document.labelId),
 			})),
 			canManage: canManageInventory(role),
 		};
@@ -274,6 +283,40 @@ export class ImportStagesService {
 					archivedAt: null,
 					position: nextIntermediatePosition(siblings),
 				},
+			});
+			return stage.processId;
+		});
+
+		return this.settings(actingUserId, processId);
+	}
+
+	async setExpectedLabels(
+		actingUserId: string,
+		input: ImportStageExpectedLabelsInput,
+	): Promise<ImportStageSettings> {
+		await this.requireManager(actingUserId);
+
+		const processId = await this.db.$transaction(async (tx) => {
+			const stage = await this.lock(tx, input.key);
+			if (input.labelIds.length > 0) {
+				const active = await tx.documentLabel.count({
+					where: { id: { in: input.labelIds }, archivedAt: null },
+				});
+				if (active !== input.labelIds.length) {
+					throw new BadRequestException(
+						"Una etiqueta no existe o está archivada.",
+					);
+				}
+			}
+			await tx.importStageDocument.deleteMany({
+				where: { stageKey: stage.key, label: { archivedAt: null } },
+			});
+			await tx.importStageDocument.createMany({
+				data: input.labelIds.map((labelId, position) => ({
+					stageKey: stage.key,
+					labelId,
+					position,
+				})),
 			});
 			return stage.processId;
 		});

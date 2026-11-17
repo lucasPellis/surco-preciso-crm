@@ -24,9 +24,11 @@ import {
 	importOrderUpdateInput,
 	type ShipmentCreateInput,
 	type ShipmentMoveRequest,
+	type ShipmentSplitInput,
 	type ShipmentUpdateInput,
 	shipmentCreateInput,
 	shipmentMoveRequest,
+	shipmentSplitInput,
 	shipmentUpdateInput,
 } from "./import-orders.contracts";
 import { ImportOrdersService } from "./import-orders.service";
@@ -130,6 +132,18 @@ export class ImportOrdersRouter {
 		@Input() input: ShipmentCreateInput,
 	) {
 		return this.orders.createShipment(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: shipmentSplitInput,
+		output: importOrderDetailOutput,
+		meta: restMeta("POST", "/import-orders/{orderId}/shipments/split", TAGS),
+	})
+	async splitShipments(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: ShipmentSplitInput,
+	) {
+		return this.orders.splitShipments(ctx.user.id, input);
 	}
 
 	@Mutation({

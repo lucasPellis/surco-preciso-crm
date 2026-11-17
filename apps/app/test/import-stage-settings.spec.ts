@@ -22,6 +22,7 @@ function row(
 		isEntry: false,
 		archived: false,
 		shipmentCount: 0,
+		expectedLabelIds: [],
 		...extra,
 	};
 }

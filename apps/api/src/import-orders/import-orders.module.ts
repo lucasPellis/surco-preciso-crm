@@ -6,5 +6,6 @@ import { ImportOrdersService } from "./import-orders.service";
 @Module({
 	imports: [TrpcModule],
 	providers: [ImportOrdersService, ImportOrdersRouter],
+	exports: [ImportOrdersService],
 })
 export class ImportOrdersModule {}

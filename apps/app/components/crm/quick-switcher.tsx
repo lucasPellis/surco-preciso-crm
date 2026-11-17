@@ -201,6 +201,19 @@ const SETTINGS: Destination[] = [
 		],
 	},
 	{
+		id: "settings-document-labels",
+		label: "Etiquetas de documentos",
+		href: "/settings/document-labels",
+		keywords: [
+			"documentos",
+			"papeles",
+			"factura",
+			"packing list",
+			"comprobante",
+			"importaciones",
+		],
+	},
+	{
 		id: "settings-members",
 		label: "Miembros",
 		href: "/settings/members",

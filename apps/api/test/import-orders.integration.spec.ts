@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth/organization";
 import { db } from "@crm/db";
 import { ImportStageKind, PipelineStageKind } from "@crm/db/enums";
+import { IMPORT_ORDER } from "@crm/db/import-order";
 import { workspaceSlug } from "@crm/db/workspace";
 import {
 	BadRequestException,
@@ -21,7 +22,9 @@ import {
 	importOrderOptionsOutput,
 	type ShipmentCreateInput,
 	type ShipmentMoveRequest,
+	type ShipmentSplitInput,
 	type ShipmentUpdateInput,
+	shipmentSplitInput,
 } from "../src/import-orders/import-orders.contracts";
 import { ImportOrdersService } from "../src/import-orders/import-orders.service";
 import { expectOutput } from "./expect-output";
@@ -63,6 +66,8 @@ const orders = {
 		detailOf(await service.updateShipment(userId, input, NOW)),
 	moveShipment: async (userId: string, input: ShipmentMoveRequest) =>
 		detailOf(await service.moveShipment(userId, input, NOW)),
+	splitShipments: async (userId: string, input: ShipmentSplitInput) =>
+		detailOf(await service.splitShipments(userId, input, NOW)),
 };
 
 let mainProcess: TestProcess;
@@ -143,6 +148,36 @@ function ship(
 		occurredAt,
 		lines: [{ orderLineId: firstLine(order).id, quantity }],
 	});
+}
+
+function splitInput(
+	order: ImportOrderDetail,
+	perShipment: number,
+	overrides: Partial<ShipmentSplitInput> = {},
+): ShipmentSplitInput {
+	return {
+		orderId: order.id,
+		orderLineId: firstLine(order).id,
+		perShipment,
+		reference: "",
+		occurredAt: "2026-01-10",
+		...overrides,
+	};
+}
+
+function split(
+	order: ImportOrderDetail,
+	perShipment: number,
+	overrides: Partial<ShipmentSplitInput> = {},
+) {
+	return orders.splitShipments(
+		adminId,
+		splitInput(order, perShipment, overrides),
+	);
+}
+
+function quantitiesOf(order: ImportOrderDetail) {
+	return order.shipments.map((shipment) => shipment.lines[0]?.quantity);
 }
 
 function headerOf(order: ImportOrderDetail) {
@@ -597,6 +632,164 @@ describe("creating a shipment", () => {
 	});
 });
 
+describe("splitting a line into shipments", () => {
+	it("creates one shipment per unit, each in the entry stage with its own event", async () => {
+		const order = await orderWith(10);
+
+		const after = await split(order, 1, {
+			reference: "LOTE-7",
+			occurredAt: "2026-01-12",
+		});
+
+		expect(after.shipments.length).toBe(10);
+		for (const shipment of after.shipments) {
+			expect(shipment).toMatchObject({
+				reference: "LOTE-7",
+				trackingNumber: null,
+				stageChangedAt: "2026-01-12",
+				stage: { key: entryKey },
+			});
+			expect(shipment.lines.map((line) => line.quantity)).toEqual([1]);
+			expect(
+				shipment.events.map((event) => [event.stage.key, event.occurredAt]),
+			).toEqual([[entryKey, "2026-01-12"]]);
+		}
+		expect(firstLine(after)).toMatchObject({ shipped: 10, remaining: 0 });
+		const events = await db.shipmentStageEvent.findMany({
+			where: { shipment: { orderId: order.id } },
+			select: { actorId: true },
+		});
+		expect(events.map((event) => event.actorId)).toEqual(
+			Array.from({ length: 10 }, () => adminId),
+		);
+	});
+
+	it("gives the rest to the last shipment", async () => {
+		const order = await orderWith(10);
+
+		const after = await split(order, 3);
+
+		expect(quantitiesOf(after)).toEqual([3, 3, 3, 1]);
+	});
+
+	it("splits only what is left and makes one shipment when the size passes it", async () => {
+		const order = await orderWith(10);
+		await ship(order, 6);
+
+		const after = await split(order, 5);
+
+		expect(quantitiesOf(after)).toEqual([6, 4]);
+		expect(firstLine(after)).toMatchObject({ shipped: 10, remaining: 0 });
+		await expect(split(order, 1)).rejects.toBeInstanceOf(ConflictException);
+	});
+
+	it("refuses more shipments than the limit and writes nothing", async () => {
+		const order = await orderWith(IMPORT_ORDER.maxSplitShipments + 1);
+
+		await expect(split(order, 1)).rejects.toBeInstanceOf(BadRequestException);
+		await expect(split(order, 1)).rejects.toMatchObject({
+			message: expect.stringContaining(
+				`El máximo es ${IMPORT_ORDER.maxSplitShipments}`,
+			),
+		});
+		expect(await db.shipment.count({ where: { orderId: order.id } })).toBe(0);
+	});
+
+	it("splits the units that a cancelled shipment freed", async () => {
+		const order = await orderWith(4);
+		const wrong = lastShipment(await ship(order, 4));
+		await orders.moveShipment(adminId, {
+			shipmentId: wrong.id,
+			targetKey: cancelledKey,
+			occurredAt: "2026-01-11",
+		});
+
+		const after = await split(order, 1, { occurredAt: "2026-01-12" });
+
+		expect(after.shipments.length).toBe(5);
+		expect(firstLine(after)).toMatchObject({ shipped: 4, remaining: 0 });
+	});
+
+	it("refuses a day out of range, a line of another order and an archived order", async () => {
+		const order = await orderWith(3);
+		const other = await orderWith(3);
+
+		await expect(
+			split(order, 1, { occurredAt: "2026-01-04" }),
+		).rejects.toBeInstanceOf(BadRequestException);
+		await expect(
+			split(order, 1, { occurredAt: "2026-03-02" }),
+		).rejects.toBeInstanceOf(BadRequestException);
+		await expect(
+			split(order, 1, { orderLineId: firstLine(other).id }),
+		).rejects.toBeInstanceOf(BadRequestException);
+		await orders.archive(adminId, order.id);
+		await expect(split(order, 1)).rejects.toBeInstanceOf(ConflictException);
+		expect(await db.shipment.count({ where: { orderId: order.id } })).toBe(0);
+	});
+
+	it("never ships more than ordered when a split and a shipment race", async () => {
+		const order = await orderWith(10);
+		const line = firstLine(order);
+
+		const results = await Promise.allSettled([
+			service.splitShipments(adminId, splitInput(order, 1), NOW),
+			service.createShipment(
+				adminId,
+				{
+					orderId: order.id,
+					reference: "",
+					trackingNumber: "",
+					occurredAt: "2026-01-10",
+					lines: [{ orderLineId: line.id, quantity: 6 }],
+				},
+				NOW,
+			),
+		]);
+
+		const [splitResult, shipResult] = results;
+		expect(splitResult?.status).toBe("fulfilled");
+		for (const result of results) {
+			if (result.status === "rejected") {
+				expect(result.reason).toBeInstanceOf(ConflictException);
+			}
+		}
+		const shipped = await db.shipmentLine.aggregate({
+			where: { orderLineId: line.id },
+			_sum: { quantity: true },
+		});
+		expect(shipped._sum.quantity).toBe(10);
+		const shipments = await db.shipment.count({ where: { orderId: order.id } });
+		expect([
+			{ ship: "fulfilled", shipments: 5 },
+			{ ship: "rejected", shipments: 10 },
+		]).toContainEqual({ ship: shipResult?.status, shipments });
+	});
+
+	it("validates the split at the boundary", () => {
+		const valid = {
+			orderId: "o-1",
+			orderLineId: "l-1",
+			perShipment: 1,
+			reference: "",
+		};
+
+		expect(shipmentSplitInput.safeParse(valid).success).toBe(true);
+		expect(
+			shipmentSplitInput.safeParse({ ...valid, perShipment: 0 }).success,
+		).toBe(false);
+		expect(
+			shipmentSplitInput.safeParse({ ...valid, perShipment: 1.5 }).success,
+		).toBe(false);
+		expect(
+			shipmentSplitInput.safeParse({
+				...valid,
+				reference: "x".repeat(IMPORT_ORDER.referenceMaxLength + 1),
+			}).success,
+		).toBe(false);
+	});
+});
+
 describe("moving a shipment", () => {
 	it("moves on the chosen day and measures each stage", async () => {
 		const order = await orderWith(5);
@@ -1011,7 +1204,7 @@ describe("the process of an order", () => {
 });
 
 describe("picker options", () => {
-	it("offers active processes only", async () => {
+	it("offers active processes only, each with its active stages in order", async () => {
 		await setArchived(closedProcess.id, true);
 		try {
 			const options = await orders.options();
@@ -1020,6 +1213,23 @@ describe("picker options", () => {
 				id: mainProcess.id,
 				name: mainProcess.name,
 				countryCode: null,
+				stages: [
+					{
+						key: mainProcess.entryKey,
+						name: "Pedido",
+						kind: ImportStageKind.IN_PROGRESS,
+					},
+					{
+						key: mainProcess.receivedKey,
+						name: "Recibido",
+						kind: ImportStageKind.RECEIVED,
+					},
+					{
+						key: mainProcess.cancelledKey,
+						name: "Cancelado",
+						kind: ImportStageKind.CANCELLED,
+					},
+				],
 			});
 			expect(options.processes.map((item) => item.id)).not.toContain(
 				closedProcess.id,
@@ -1082,6 +1292,17 @@ describe("permissions", () => {
 						reference: "",
 						trackingNumber: "",
 						lines: [{ orderLineId: firstLine(order).id, quantity: 1 }],
+					},
+					NOW,
+				),
+			() =>
+				service.splitShipments(
+					memberId,
+					{
+						orderId: order.id,
+						orderLineId: firstLine(order).id,
+						perShipment: 1,
+						reference: "",
 					},
 					NOW,
 				),

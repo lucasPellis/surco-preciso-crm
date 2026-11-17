@@ -18,10 +18,12 @@ import { CurrencyModule } from "./currency/currency.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DatabaseModule } from "./database/database.module";
 import { DealsModule } from "./deals/deals.module";
+import { DocumentLabelsModule } from "./document-labels/document-labels.module";
 import { EnrichmentModule } from "./enrichment/enrichment.module";
 import { FieldsModule } from "./fields/fields.module";
 import { GoogleModule } from "./google/google.module";
 import { HealthModule } from "./health/health.module";
+import { ImportDocumentsModule } from "./import-documents/import-documents.module";
 import { ImportOrdersModule } from "./import-orders/import-orders.module";
 import { ImportProcessesModule } from "./import-processes/import-processes.module";
 import { ImportsModule } from "./imports/imports.module";
@@ -72,6 +74,8 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		ImportsModule,
 		ImportOrdersModule,
 		ImportProcessesModule,
+		DocumentLabelsModule,
+		ImportDocumentsModule,
 		ActivitiesModule,
 		AgentModule,
 		EnrichmentModule,

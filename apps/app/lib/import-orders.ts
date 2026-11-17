@@ -1,3 +1,10 @@
+import { ImportStageKind } from "@crm/db/enums";
+import {
+	IMPORT_ORDER,
+	splitCount,
+	splitQuantities,
+} from "@crm/db/import-order";
+import { isClosedImportKind } from "@crm/db/import-stage";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { IMPORTS_UI } from "./imports-config";
 
@@ -161,6 +168,61 @@ export function readShipmentQuantities(
 		: { ok: true, value: picked };
 }
 
+export type SplitPreview = {
+	perShipment: number;
+	count: number;
+	summary: string;
+	submitLabel: string;
+};
+
+export function unitCountLabel(units: number): string {
+	return units === 1 ? "1 unidad" : `${units} unidades`;
+}
+
+export function shipmentsRegisteredLabel(count: number): string {
+	return count === 1 ? "1 envío registrado." : `${count} envíos registrados.`;
+}
+
+export function splitPreview(
+	remaining: number,
+	raw: string,
+): Parsed<SplitPreview> {
+	const perShipment = wholeNumber(raw);
+	if (perShipment === null || perShipment < 1) {
+		return { ok: false, error: "Escribe un número entero mayor que cero." };
+	}
+	const split = splitQuantities(
+		remaining,
+		perShipment,
+		IMPORT_ORDER.maxSplitShipments,
+	);
+	if (!split.ok) {
+		return {
+			ok: false,
+			error:
+				split.error === "TOO_MANY"
+					? `Se crearían ${splitCount(remaining, perShipment)} envíos. El máximo es ${IMPORT_ORDER.maxSplitShipments}. Sube las unidades por envío.`
+					: "Esta línea no tiene unidades pendientes.",
+		};
+	}
+	const count = split.quantities.length;
+	const first = split.quantities[0] ?? 0;
+	const last = split.quantities.at(-1) ?? 0;
+	const summary =
+		first === last
+			? `${count === 1 ? "Se creará" : "Se crearán"} ${shipmentsLabel(count)} de ${unitCountLabel(first)}.`
+			: `Se crearán ${shipmentsLabel(count)}: ${count - 1} de ${unitCountLabel(first)} y 1 de ${unitCountLabel(last)}.`;
+	return {
+		ok: true,
+		value: {
+			perShipment,
+			count,
+			summary,
+			submitLabel: `Registrar ${shipmentsLabel(count)}`,
+		},
+	};
+}
+
 export function moveTargets(
 	stages: readonly ImportStageOption[],
 	currentKey: string,
@@ -210,7 +272,10 @@ export function processChoices(
 	if (saved === null || processes.some((item) => item.id === saved.id)) {
 		return [...processes];
 	}
-	return [...processes, { id: saved.id, name: saved.name, countryCode: null }];
+	return [
+		...processes,
+		{ id: saved.id, name: saved.name, countryCode: null, stages: [] },
+	];
 }
 
 export function defaultProcessId(processes: readonly ProcessOption[]): string {
@@ -232,4 +297,135 @@ export function dealLabel(deal: DealOption): string {
 	return deal.companyName === ""
 		? deal.name
 		: `${deal.name}, ${deal.companyName}`;
+}
+
+export type RouteStage = { key: string; name: string; kind: ImportStageKind };
+
+export type StepState = "done" | "current" | "pending";
+
+export type PathStep = {
+	key: string;
+	label: string;
+	state: StepState;
+	detail: string | null;
+};
+
+export type Totals = { cents: number; units: number };
+
+export function shipmentsLabel(count: number): string {
+	return count === 1 ? "1 envío" : `${count} envíos`;
+}
+
+export function shareOf(part: number, total: number): number {
+	return total === 0 ? 0 : (part / total) * 100;
+}
+
+export function lineSubtotalCents(draft: LineDraft): number | null {
+	const quantity = wholeNumber(draft.quantity);
+	const cents = centsFromCost(draft.cost);
+	return quantity === null || cents === null ? null : quantity * cents;
+}
+
+export function draftTotals(drafts: readonly LineDraft[]): Totals {
+	let cents = 0;
+	let units = 0;
+	for (const draft of drafts) {
+		const quantity = wholeNumber(draft.quantity);
+		const cost = centsFromCost(draft.cost);
+		if (quantity === null || cost === null) continue;
+		cents += quantity * cost;
+		units += quantity;
+	}
+	return { cents, units };
+}
+
+export function orderTotals(lines: readonly ImportOrderLine[]): Totals {
+	return lines.reduce(
+		(sum, line) => ({
+			cents: sum.cents + line.quantity * line.unitCostCents,
+			units: sum.units + line.quantity,
+		}),
+		{ cents: 0, units: 0 },
+	);
+}
+
+export function routeStages<Stage extends RouteStage>(
+	stages: readonly Stage[],
+): Stage[] {
+	return stages.filter((stage) => stage.kind !== ImportStageKind.CANCELLED);
+}
+
+export function routePreview(stages: readonly RouteStage[]): PathStep[] {
+	return routeStages(stages).map(
+		(stage): PathStep => ({
+			key: stage.key,
+			label: stage.name,
+			state: "pending",
+			detail: null,
+		}),
+	);
+}
+
+export function nextStageKey(
+	stages: readonly RouteStage[],
+	currentKey: string,
+): string | null {
+	const route = routeStages(stages);
+	const index = route.findIndex((stage) => stage.key === currentKey);
+	return index === -1 ? null : (route[index + 1]?.key ?? null);
+}
+
+export function shipmentPath(
+	stages: readonly RouteStage[],
+	shipment: ImportShipment,
+): PathStep[] {
+	const route = routeStages(stages);
+	const currentIndex = route.findIndex(
+		(stage) => stage.key === shipment.stage.key,
+	);
+	const open = !isClosedImportKind(shipment.stage.kind);
+	const latest = shipment.events.at(-1);
+
+	return route.map((stage, index): PathStep => {
+		const step = { key: stage.key, label: stage.name };
+		if (open && index === currentIndex) {
+			return {
+				...step,
+				state: "current",
+				detail:
+					latest === undefined || latest.days === null
+						? null
+						: daysLabel(latest.days),
+			};
+		}
+		const reached =
+			currentIndex === -1 ||
+			index < currentIndex ||
+			(!open && index === currentIndex);
+		const event = shipment.events.findLast(
+			(item) => item.stage.key === stage.key,
+		);
+		if (reached && event !== undefined) {
+			return { ...step, state: "done", detail: formatDay(event.occurredAt) };
+		}
+		if (reached && currentIndex !== -1) {
+			return { ...step, state: "pending", detail: "Omitida" };
+		}
+		return { ...step, state: "pending", detail: null };
+	});
+}
+
+export function orderStatusLabel(
+	lines: readonly ImportOrderLine[],
+	shipments: readonly ImportShipment[],
+): string {
+	const ordered = lines.reduce((sum, line) => sum + line.quantity, 0);
+	const received = lines.reduce((sum, line) => sum + line.received, 0);
+	const shipped = lines.reduce((sum, line) => sum + line.shipped, 0);
+	if (ordered > 0 && received >= ordered) return "Recibida";
+	if (shipments.some((shipment) => !isClosedImportKind(shipment.stage.kind))) {
+		return "En camino";
+	}
+	if (shipped === 0) return "Sin envíos";
+	return "Pendiente de envío";
 }

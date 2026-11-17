@@ -58,7 +58,7 @@ columns. On a narrow screen the columns stack.
 - Header: the order number. Actions: *Editar* (a link to the edit page), *Nuevo envío*,
   *Archivar* or *Restaurar*.
 - Below: supplier, process, date, total in USD and units, then the notes.
-- *Recorrido*: the route of the process. Each step shows how many shipments are in it now.
+- No order-level route strip. Each shipment card shows its own path. The header shows the overall state.
   The description gives the overall state: *Sin envíos*, *En camino*, *Pendiente de envío*
   or *Recibida*.
 - *Líneas*: product, unit cost, subtotal, then a bar and a count for shipped and for

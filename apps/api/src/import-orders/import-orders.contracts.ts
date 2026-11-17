@@ -1,4 +1,5 @@
 import {
+	DocumentDirection,
 	ImportCountry,
 	ImportStageKind,
 	PipelineStageTone,
@@ -74,6 +75,14 @@ export const shipmentCreateInput = z.object({
 		.max(IMPORT_ORDER.maxLines, `Máximo ${IMPORT_ORDER.maxLines} líneas.`),
 });
 
+export const shipmentSplitInput = z.object({
+	orderId: recordId,
+	orderLineId: recordId,
+	perShipment: quantity,
+	reference: shipmentText.reference,
+	occurredAt: taskDueDayInput.optional(),
+});
+
 export const shipmentUpdateInput = z.object({
 	id: recordId,
 	...shipmentText,
@@ -115,6 +124,29 @@ const stageOutput = z.object({
 	tone: z.enum(PipelineStageTone),
 });
 
+const documentLabelOutput = z.object({
+	id: z.string(),
+	name: z.string(),
+	direction: z.enum(DocumentDirection),
+	archived: z.boolean(),
+});
+
+const detailStageOutput = stageOutput.extend({
+	expectedLabels: z.array(documentLabelOutput),
+});
+
+const shipmentDocumentOutput = z.object({
+	id: z.string(),
+	filename: z.string(),
+	contentType: z.string(),
+	size: z.number(),
+	uploadedAt: z.string(),
+	uploadedByName: z.string().nullable(),
+	eventId: z.string(),
+	stage: stageOutput.pick({ key: true, name: true }),
+	label: documentLabelOutput.nullable(),
+});
+
 const orderLineOutput = z.object({
 	id: z.string(),
 	productId: z.string(),
@@ -153,6 +185,7 @@ const shipmentOutput = z.object({
 		}),
 	),
 	orderToReceivedDays: z.number().nullable(),
+	documents: z.array(shipmentDocumentOutput),
 });
 
 export const importOrderDetailOutput = z.object({
@@ -169,7 +202,8 @@ export const importOrderDetailOutput = z.object({
 	}),
 	lines: z.array(orderLineOutput),
 	shipments: z.array(shipmentOutput),
-	stages: z.array(stageOutput),
+	stages: z.array(detailStageOutput),
+	documentsEnabled: z.boolean(),
 	canManage: z.boolean(),
 });
 
@@ -194,6 +228,7 @@ export const importOrderOptionsOutput = z.object({
 			id: z.string(),
 			name: z.string(),
 			countryCode: z.enum(ImportCountry).nullable(),
+			stages: z.array(stageOutput.pick({ key: true, name: true, kind: true })),
 		}),
 	),
 });
@@ -204,6 +239,7 @@ export type ImportOrderUpdateInput = z.infer<typeof importOrderUpdateInput>;
 export type ImportOrderIdInput = z.infer<typeof importOrderIdInput>;
 export type ImportOrderListInput = z.infer<typeof importOrderListInput>;
 export type ShipmentCreateInput = z.infer<typeof shipmentCreateInput>;
+export type ShipmentSplitInput = z.infer<typeof shipmentSplitInput>;
 export type ShipmentUpdateInput = z.infer<typeof shipmentUpdateInput>;
 export type ShipmentMoveRequest = z.infer<typeof shipmentMoveRequest>;
 export type ImportOrderRow = z.infer<typeof importOrderRowOutput>;

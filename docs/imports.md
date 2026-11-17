@@ -1,8 +1,10 @@
 # Imports — read when touching import processes, stages, purchase orders or shipments
 
-The specs are `docs/superpowers/specs/2026-11-14-product-lifecycle-design.md` and
-`docs/superpowers/specs/2026-11-15-import-processes-design.md`. This page holds the rules
-the code depends on.
+The specs are `docs/superpowers/specs/2026-11-14-product-lifecycle-design.md`,
+`docs/superpowers/specs/2026-11-15-import-processes-design.md`,
+`docs/superpowers/specs/2026-11-16-order-pages-design.md` and
+`docs/superpowers/specs/2026-11-16-shipment-documents-design.md`. This page holds the
+rules the code depends on.
 
 ## Shape
 
@@ -87,6 +89,17 @@ the code depends on.
   writer must take the same lock before it reads a quantity. The two-writers test in
   `apps/api/test/import-orders.integration.spec.ts` fails without it.
 - A stage move locks the `shipment` row, not the order row. It writes no line.
+- `importOrders.splitShipments` splits one order line. The user gives N units per
+  shipment. It creates `ceil(remaining / N)` shipments of N units. The last one takes
+  the rest. `splitQuantities` in `packages/db/src/import-order.ts` owns the rule.
+- A split creates at most `IMPORT_ORDER.maxSplitShipments` (50) shipments. More is
+  refused and nothing is written. N larger than `remaining` gives one shipment.
+- A split takes the order lock first, through `lockEntryStage`, like `createShipment`.
+  It reads `remaining` with `lineProgress`, so a cancelled shipment frees its units.
+- Each split shipment gets its own entry event with the chosen day and the actor. The
+  reference is copied to every shipment. A split sets no tracking number.
+- The split transaction has a timeout of `IMPORT_ORDER.splitTimeoutMs`. It writes the
+  shipments one by one, in order.
 - Never call `Promise.all` on the transaction client.
 
 ## Lines and deals
@@ -97,6 +110,41 @@ the code depends on.
   (`OPEN_STAGE_FILTER`). A link that exists survives the deal closing.
 - A new or changed product needs an active product.
 
+## Documents
+
+- A file is an `Attachment` on one `ShipmentStageEvent`. Each shipment has its own files.
+- A `DocumentLabel` tags a file. `direction` is `IN` (we receive it) or `OUT` (we make or
+  present it). The name is unique ignoring case: `create` and `update` take an advisory
+  lock first. A label is archived, never deleted. An archived label stays on its files,
+  leaves every checklist and cannot tag a new file.
+- `ImportStageDocument` lists the labels a stage expects. `importStages.setExpectedLabels`
+  replaces the active links of one stage and keeps the links to archived labels. A process
+  duplicate copies the links.
+- The checklist of a stage reads every file of the shipment (`documentChecklist` in
+  `packages/db/src/import-document.ts`). A packing list of one stage counts at every stage.
+  The checklist warns. It never blocks a move.
+- `IMPORT_DOCUMENT` holds the types, the 20 MB limit, the token and link lifetimes and the
+  access mode (`private`).
+- Upload: `importDocuments.uploadToken` checks the role, the storage, the type, the size
+  and the event. It builds `import-documents/<shipmentId>/<eventId>/<uuid>-<name>` and
+  returns a client token for that pathname only. The browser calls `put` from
+  `@vercel/blob/client`, then `importDocuments.attach`. No REST route and no
+  `onUploadCompleted`.
+- `attach` trusts the file name only. It checks the pathname prefix, reads the size and the
+  type with `head`, and removes the blob when it refuses after the upload.
+- Every Blob call goes through `documentBlob` (`@crm/db/import-document-blob`). Specs
+  replace its methods with `spyOn`. A client file never imports it.
+- `remove` deletes the row, then the blob. A failed blob removal is a `warn` log with the
+  document id.
+- Download: `/[slug]/imports/files/[documentId]` calls `importDocuments.downloadUrl` and
+  redirects to a signed URL valid 5 minutes. Members download.
+- Without `BLOB_READ_WRITE_TOKEN`, `documentsEnabled` is false. The upload button is
+  disabled and says why. The files and the checklist still show.
+- Files are allowed on received and cancelled shipments and on archived orders.
+- Screens: `/settings/document-labels`; *Documentos* on each stage of the stage editor; the
+  *Documentos* panel of each shipment card (`[orderId]/shipment-documents.tsx`); the
+  missing labels of the target stage in the move dialog.
+
 ## Archive and permissions
 
 - Archiving an order is a bare `archivedAt` update. An archived order refuses edits
@@ -106,8 +154,24 @@ the code depends on.
 
 ## Screen
 
-- `/imports`: `orders-table.tsx`, `order-detail-sheet.tsx`, `order-form-sheet.tsx`,
-  `shipment-dialogs.tsx`. Parsing and labels are in `apps/app/lib/import-orders.ts`.
+- `/imports`: `orders-table.tsx`. A row opens the order page. *Nueva orden* opens
+  `/imports/new`.
+- `/imports/new` and `/imports/[orderId]/edit`: `order-form.tsx`, one form for both.
+  Lines are an editable table. Enter in the last row adds a row. The server writes the
+  order number.
+- `/imports/[orderId]`: `[orderId]/order-view.tsx`. The route of the process with the
+  shipments in each step, the lines with shipped and received bars, and one card per
+  shipment with its path. *Avanzar* opens the move dialog on the next step.
+  `shipment-dialogs.tsx` holds the create, move and data dialogs. The create dialog has
+  two modes: *Un envío* and *Dividir en envíos separados*. The split preview and its
+  labels come from `splitPreview`.
+- Parsing, labels, totals and paths are in `apps/app/lib/import-orders.ts`. A path is a
+  list of `PathStep` for `ProcessPath` (`packages/ui/src/components/process-path.tsx`).
+  A path leaves out the `CANCELLED` stage. A step before the current one with no event
+  shows *Omitida*.
+- `importOrders.options` gives each process its active stages in order, for the route
+  preview of the create page. The edit page reads `byId().stages` for the saved process,
+  because an archived process is not in `options`.
 - `/settings/import-processes`: the process list. `/settings/import-processes/[processId]`:
   the stage editor of one process. Helpers are in
   `apps/app/lib/import-process-settings.ts` and `apps/app/lib/import-stage-settings.ts`.

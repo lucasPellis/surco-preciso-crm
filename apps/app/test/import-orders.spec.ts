@@ -19,6 +19,9 @@ import {
 	productLabel,
 	readLineDrafts,
 	readShipmentQuantities,
+	shipmentsRegisteredLabel,
+	splitPreview,
+	unitCountLabel,
 	unitsLabel,
 } from "../lib/import-orders";
 
@@ -43,7 +46,13 @@ function line(
 }
 
 function stage(key: string): ImportStageOption {
-	return { key, name: key, kind: "IN_PROGRESS", tone: "NEUTRAL" };
+	return {
+		key,
+		name: key,
+		kind: "IN_PROGRESS",
+		tone: "NEUTRAL",
+		expectedLabels: [],
+	};
 }
 
 describe("labels", () => {
@@ -174,6 +183,63 @@ describe("shipment quantities", () => {
 	});
 });
 
+describe("splitting a line", () => {
+	it("describes equal shipments and the rest on the last one", () => {
+		expect(splitPreview(10, "1")).toEqual({
+			ok: true,
+			value: {
+				perShipment: 1,
+				count: 10,
+				summary: "Se crearán 10 envíos de 1 unidad.",
+				submitLabel: "Registrar 10 envíos",
+			},
+		});
+		expect(splitPreview(10, " 3 ")).toEqual({
+			ok: true,
+			value: {
+				perShipment: 3,
+				count: 4,
+				summary: "Se crearán 4 envíos: 3 de 3 unidades y 1 de 1 unidad.",
+				submitLabel: "Registrar 4 envíos",
+			},
+		});
+		expect(splitPreview(4, "5")).toEqual({
+			ok: true,
+			value: {
+				perShipment: 5,
+				count: 1,
+				summary: "Se creará 1 envío de 4 unidades.",
+				submitLabel: "Registrar 1 envío",
+			},
+		});
+	});
+
+	it("refuses a size that is not a whole number and too many shipments", () => {
+		for (const raw of ["", "0", "1.5", "-2", "dos"]) {
+			expect(splitPreview(10, raw)).toEqual({
+				ok: false,
+				error: "Escribe un número entero mayor que cero.",
+			});
+		}
+		expect(splitPreview(60, "1")).toEqual({
+			ok: false,
+			error:
+				"Se crearían 60 envíos. El máximo es 50. Sube las unidades por envío.",
+		});
+		expect(splitPreview(0, "1")).toEqual({
+			ok: false,
+			error: "Esta línea no tiene unidades pendientes.",
+		});
+	});
+
+	it("counts units and registered shipments", () => {
+		expect(unitCountLabel(1)).toBe("1 unidad");
+		expect(unitCountLabel(3)).toBe("3 unidades");
+		expect(shipmentsRegisteredLabel(1)).toBe("1 envío registrado.");
+		expect(shipmentsRegisteredLabel(10)).toBe("10 envíos registrados.");
+	});
+});
+
 describe("choices", () => {
 	it("offers every stage but the current one", () => {
 		expect(
@@ -207,8 +273,14 @@ describe("processes", () => {
 		id: "p-1",
 		name: "Courier",
 		countryCode: "AR",
+		stages: [],
 	};
-	const sea: ProcessOption = { id: "p-2", name: "Marítimo", countryCode: null };
+	const sea: ProcessOption = {
+		id: "p-2",
+		name: "Marítimo",
+		countryCode: null,
+		stages: [],
+	};
 
 	it("keeps the archived process of a saved order among the choices", () => {
 		expect(

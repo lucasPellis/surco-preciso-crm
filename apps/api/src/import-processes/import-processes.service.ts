@@ -127,16 +127,38 @@ export class ImportProcessesService {
 					tone: true,
 					position: true,
 					isEntry: true,
+					documents: { select: { labelId: true, position: true } },
 				},
 			});
 			const taken = await this.takenKeys(tx);
+			const keyed = keyedStages(
+				steps.map((step) => ({
+					name: step.name,
+					kind: step.kind,
+					tone: step.tone,
+					position: step.position,
+					isEntry: step.isEntry,
+				})),
+				taken,
+			);
 			await tx.importProcess.create({
 				data: {
 					name: input.name,
 					countryCode: source.countryCode,
-					stages: { create: keyedStages(steps, taken) },
+					stages: { create: keyed },
 				},
 			});
+			const links = steps.flatMap((step, index) => {
+				const stageKey = keyed[index]?.key;
+				return stageKey
+					? step.documents.map((document) => ({
+							stageKey,
+							labelId: document.labelId,
+							position: document.position,
+						}))
+					: [];
+			});
+			await tx.importStageDocument.createMany({ data: links });
 		});
 
 		return this.list(actingUserId);

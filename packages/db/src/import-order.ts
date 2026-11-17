@@ -1,7 +1,8 @@
 import { ImportStageKind } from "./generated/prisma/enums";
 import { isClosedImportKind } from "./import-stage";
 
-const DAY_MS = 86_400_000;
+const SECOND_MS = 1_000;
+const DAY_MS = 86_400 * SECOND_MS;
 
 export const IMPORT_ORDER = {
 	numberPrefix: "OC",
@@ -13,6 +14,8 @@ export const IMPORT_ORDER = {
 	maxLines: 100,
 	maxQuantity: 1_000_000,
 	optionsLimit: 500,
+	maxSplitShipments: 50,
+	splitTimeoutMs: 30 * SECOND_MS,
 } as const;
 
 export function formatOrderNumber(year: number, sequence: number): string {
@@ -48,6 +51,36 @@ export function lineProgress(
 		.reduce((sum, part) => sum + part.quantity, 0);
 
 	return { shipped, received, remaining: ordered - shipped };
+}
+
+export type SplitError = "INVALID_SIZE" | "NOTHING_LEFT" | "TOO_MANY";
+
+export type Split =
+	| { ok: true; quantities: number[] }
+	| { ok: false; error: SplitError };
+
+export function splitCount(remaining: number, perShipment: number): number {
+	return Math.ceil(remaining / perShipment);
+}
+
+export function splitQuantities(
+	remaining: number,
+	perShipment: number,
+	max: number = IMPORT_ORDER.maxSplitShipments,
+): Split {
+	if (!Number.isInteger(perShipment) || perShipment < 1) {
+		return { ok: false, error: "INVALID_SIZE" };
+	}
+	if (remaining < 1) return { ok: false, error: "NOTHING_LEFT" };
+	const count = splitCount(remaining, perShipment);
+	if (count > max) return { ok: false, error: "TOO_MANY" };
+	const last = remaining - perShipment * (count - 1);
+	return {
+		ok: true,
+		quantities: Array.from({ length: count }, (_, index) =>
+			index === count - 1 ? last : perShipment,
+		),
+	};
 }
 
 export function isoDay(value: Date): string {

@@ -2,6 +2,7 @@ import { canManageInventory, workspaceRoleOf } from "@crm/auth/organization";
 import type { Db } from "@crm/db";
 import { Prisma } from "@crm/db";
 import { OPEN_STAGE_FILTER } from "@crm/db/deal-stage";
+import { documentBlob } from "@crm/db/import-document-blob";
 import {
 	formatOrderNumber,
 	IMPORT_ORDER,
@@ -9,12 +10,16 @@ import {
 	lineProgress,
 	receivedAfterDays,
 	type ShippedPart,
+	type SplitError,
+	splitCount,
+	splitQuantities,
 	withLeadTimes,
 } from "@crm/db/import-order";
 import {
 	BadRequestException,
 	ConflictException,
 	ForbiddenException,
+	type HttpException,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
@@ -39,6 +44,7 @@ import type {
 	ImportOrderUpdateInput,
 	ShipmentCreateInput,
 	ShipmentMoveRequest,
+	ShipmentSplitInput,
 	ShipmentUpdateInput,
 } from "./import-orders.contracts";
 
@@ -56,6 +62,26 @@ const STAGE_SELECT = {
 	kind: true,
 	tone: true,
 } satisfies Prisma.ImportStageSelect;
+
+const LABEL_SELECT = {
+	id: true,
+	name: true,
+	direction: true,
+	archivedAt: true,
+} satisfies Prisma.DocumentLabelSelect;
+
+type LabelRecord = Prisma.DocumentLabelGetPayload<{
+	select: typeof LABEL_SELECT;
+}>;
+
+function labelRef(label: LabelRecord) {
+	return {
+		id: label.id,
+		name: label.name,
+		direction: label.direction,
+		archived: label.archivedAt !== null,
+	};
+}
 
 const SHIPPED_SELECT = {
 	quantity: true,
@@ -90,7 +116,14 @@ const DETAIL_SELECT = {
 			stages: {
 				where: { archivedAt: null },
 				orderBy: { position: "asc" },
-				select: STAGE_SELECT,
+				select: {
+					...STAGE_SELECT,
+					documents: {
+						where: { label: { archivedAt: null } },
+						orderBy: [{ position: "asc" }, { label: { name: "asc" } }],
+						select: { label: { select: LABEL_SELECT } },
+					},
+				},
 			},
 		},
 	},
@@ -131,6 +164,18 @@ const DETAIL_SELECT = {
 					id: true,
 					occurredAt: true,
 					stage: { select: STAGE_SELECT },
+					attachments: {
+						orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+						select: {
+							id: true,
+							filename: true,
+							contentType: true,
+							size: true,
+							createdAt: true,
+							uploadedBy: { select: { name: true } },
+							label: { select: LABEL_SELECT },
+						},
+					},
 				},
 			},
 		},
@@ -196,6 +241,63 @@ function lineData(line: ImportOrderLineInput) {
 	};
 }
 
+type NewShipment = {
+	orderId: string;
+	reference: string | null;
+	trackingNumber: string | null;
+	stageKey: string;
+	occurredAt: Date;
+	actorId: string;
+	lines: ReadonlyArray<{ orderLineId: string; quantity: number }>;
+};
+
+function shipmentData(
+	shipment: NewShipment,
+): Prisma.ShipmentUncheckedCreateInput {
+	return {
+		orderId: shipment.orderId,
+		reference: shipment.reference,
+		trackingNumber: shipment.trackingNumber,
+		stageKey: shipment.stageKey,
+		stageChangedAt: shipment.occurredAt,
+		lines: {
+			create: shipment.lines.map((line) => ({
+				orderLineId: line.orderLineId,
+				quantity: line.quantity,
+			})),
+		},
+		events: {
+			create: {
+				stageKey: shipment.stageKey,
+				occurredAt: shipment.occurredAt,
+				actorId: shipment.actorId,
+			},
+		},
+	};
+}
+
+function splitRefusal(
+	error: SplitError,
+	sku: string,
+	remaining: number,
+	perShipment: number,
+): HttpException {
+	switch (error) {
+		case "NOTHING_LEFT":
+			return new ConflictException(
+				`La línea de ${sku} no tiene unidades pendientes.`,
+			);
+		case "TOO_MANY":
+			return new BadRequestException(
+				`La división crea ${splitCount(remaining, perShipment)} envíos. El máximo es ${IMPORT_ORDER.maxSplitShipments}. Sube las unidades por envío.`,
+			);
+		case "INVALID_SIZE":
+			return new BadRequestException(
+				"Las unidades por envío deben ser un número entero mayor que cero.",
+			);
+	}
+}
+
 @Injectable()
 export class ImportOrdersService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
@@ -244,7 +346,16 @@ export class ImportOrdersService {
 			this.db.importProcess.findMany({
 				where: { archivedAt: null },
 				orderBy: { name: "asc" },
-				select: { id: true, name: true, countryCode: true },
+				select: {
+					id: true,
+					name: true,
+					countryCode: true,
+					stages: {
+						where: { archivedAt: null },
+						orderBy: { position: "asc" },
+						select: { key: true, name: true, kind: true },
+					},
+				},
 			}),
 		]);
 
@@ -339,9 +450,31 @@ export class ImportOrdersService {
 						running: step.running,
 					})),
 					orderToReceivedDays: receivedAfterDays(order.orderedAt, steps),
+					documents: shipment.events.flatMap((event) =>
+						event.attachments.map((attachment) => ({
+							id: attachment.id,
+							filename: attachment.filename,
+							contentType: attachment.contentType,
+							size: attachment.size,
+							uploadedAt: attachment.createdAt.toISOString(),
+							uploadedByName: attachment.uploadedBy?.name ?? null,
+							eventId: event.id,
+							stage: { key: event.stage.key, name: event.stage.name },
+							label: attachment.label ? labelRef(attachment.label) : null,
+						})),
+					),
 				};
 			}),
-			stages: order.process.stages,
+			stages: order.process.stages.map((stage) => ({
+				key: stage.key,
+				name: stage.name,
+				kind: stage.kind,
+				tone: stage.tone,
+				expectedLabels: stage.documents.map((document) =>
+					labelRef(document.label),
+				),
+			})),
+			documentsEnabled: documentBlob.enabled(),
 			canManage: canManageInventory(role),
 		};
 	}
@@ -534,9 +667,7 @@ export class ImportOrdersService {
 		now: Date = new Date(),
 	): Promise<ImportOrderDetail> {
 		await this.requireManager(actingUserId);
-		const occurredAt = input.occurredAt
-			? this.pastDay(input.occurredAt, now)
-			: taskDayBoundaries(now).startOfToday;
+		const occurredAt = this.shipmentDay(input.occurredAt, now);
 		const lineIds = input.lines.map((line) => line.orderLineId);
 		if (new Set(lineIds).size !== lineIds.length) {
 			throw new BadRequestException(
@@ -545,24 +676,7 @@ export class ImportOrdersService {
 		}
 
 		await this.db.$transaction(async (tx) => {
-			const order = await this.lockOpenOrder(tx, input.orderId);
-			if (occurredAt < order.orderedAt) {
-				throw new BadRequestException(
-					`La fecha no puede ser anterior al ${isoDay(order.orderedAt)}, la fecha de la orden.`,
-				);
-			}
-			await this.assertProcessOpen(tx, order.processId);
-			const entry = await tx.importStage.findFirst({
-				where: {
-					processId: order.processId,
-					isEntry: true,
-					archivedAt: null,
-				},
-				select: { key: true },
-			});
-			if (!entry) {
-				throw new ConflictException("No hay una etapa de entrada activa.");
-			}
+			const stageKey = await this.lockEntryStage(tx, input.orderId, occurredAt);
 			const lines = await tx.purchaseOrderLine.findMany({
 				where: { orderId: input.orderId, id: { in: lineIds } },
 				select: {
@@ -591,28 +705,79 @@ export class ImportOrdersService {
 			}
 
 			await tx.shipment.create({
-				data: {
+				data: shipmentData({
 					orderId: input.orderId,
 					reference: blankToNull(input.reference),
 					trackingNumber: blankToNull(input.trackingNumber),
-					stageKey: entry.key,
-					stageChangedAt: occurredAt,
-					lines: {
-						create: input.lines.map((line) => ({
-							orderLineId: line.orderLineId,
-							quantity: line.quantity,
-						})),
-					},
-					events: {
-						create: {
-							stageKey: entry.key,
-							occurredAt,
-							actorId: actingUserId,
-						},
-					},
-				},
+					stageKey,
+					occurredAt,
+					actorId: actingUserId,
+					lines: input.lines,
+				}),
+				select: { id: true },
 			});
 		});
+
+		return this.detail(actingUserId, input.orderId, now);
+	}
+
+	async splitShipments(
+		actingUserId: string,
+		input: ShipmentSplitInput,
+		now: Date = new Date(),
+	): Promise<ImportOrderDetail> {
+		await this.requireManager(actingUserId);
+		const occurredAt = this.shipmentDay(input.occurredAt, now);
+
+		await this.db.$transaction(
+			async (tx) => {
+				const stageKey = await this.lockEntryStage(
+					tx,
+					input.orderId,
+					occurredAt,
+				);
+				const line = await tx.purchaseOrderLine.findFirst({
+					where: { id: input.orderLineId, orderId: input.orderId },
+					select: {
+						quantity: true,
+						product: { select: { sku: true } },
+						shipmentLines: { select: SHIPPED_SELECT },
+					},
+				});
+				if (!line) {
+					throw new BadRequestException("Una línea no pertenece a esta orden.");
+				}
+				const { remaining } = lineProgress(
+					line.quantity,
+					partsOf(line.shipmentLines),
+				);
+				const split = splitQuantities(remaining, input.perShipment);
+				if (!split.ok) {
+					throw splitRefusal(
+						split.error,
+						line.product.sku,
+						remaining,
+						input.perShipment,
+					);
+				}
+				const reference = blankToNull(input.reference);
+				for (const quantity of split.quantities) {
+					await tx.shipment.create({
+						data: shipmentData({
+							orderId: input.orderId,
+							reference,
+							trackingNumber: null,
+							stageKey,
+							occurredAt,
+							actorId: actingUserId,
+							lines: [{ orderLineId: input.orderLineId, quantity }],
+						}),
+						select: { id: true },
+					});
+				}
+			},
+			{ timeout: IMPORT_ORDER.splitTimeoutMs },
+		);
 
 		return this.detail(actingUserId, input.orderId, now);
 	}
@@ -726,6 +891,32 @@ export class ImportOrdersService {
 			);
 		}
 		return order;
+	}
+
+	private shipmentDay(day: string | undefined, now: Date): Date {
+		return day ? this.pastDay(day, now) : taskDayBoundaries(now).startOfToday;
+	}
+
+	private async lockEntryStage(
+		tx: Prisma.TransactionClient,
+		orderId: string,
+		occurredAt: Date,
+	): Promise<string> {
+		const order = await this.lockOpenOrder(tx, orderId);
+		if (occurredAt < order.orderedAt) {
+			throw new BadRequestException(
+				`La fecha no puede ser anterior al ${isoDay(order.orderedAt)}, la fecha de la orden.`,
+			);
+		}
+		await this.assertProcessOpen(tx, order.processId);
+		const entry = await tx.importStage.findFirst({
+			where: { processId: order.processId, isEntry: true, archivedAt: null },
+			select: { key: true },
+		});
+		if (!entry) {
+			throw new ConflictException("No hay una etapa de entrada activa.");
+		}
+		return entry.key;
 	}
 
 	private async assertProcessOpen(

@@ -1,0 +1,117 @@
+{
+	"$schema": "https://openapi.vercel.sh/vercel.json",
+	"services": {
+		"app": {
+			"root": "apps/app",
+			"framework": "nextjs",
+			"bindings": [
+				{
+					"type": "service",
+					"service": "api",
+					"format": "url",
+					"env": "INTERNAL_API_URL"
+				},
+				{
+					"type": "service",
+					"service": "agent",
+					"format": "url",
+					"env": "INTERNAL_AGENT_URL"
+				}
+			]
+		},
+		"api": {
+			"root": "apps/api",
+			"framework": "nestjs",
+			"bindings": [
+				{
+					"type": "service",
+					"service": "agent",
+					"format": "url",
+					"env": "INTERNAL_AGENT_URL"
+				}
+			]
+		},
+		"agent": {
+			"root": "apps/agent",
+			"framework": "eve",
+			"bindings": [
+				{
+					"type": "service",
+					"service": "api",
+					"format": "url",
+					"env": "INTERNAL_API_URL"
+				}
+			]
+		}
+	},
+	"crons": [
+		{
+			"path": "/internal/sync/mailboxes",
+			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/internal/sync/rates",
+			"schedule": "0 6 * * *"
+		},
+		{
+			"path": "/internal/telemetry/rollup",
+			"schedule": "0 7 * * *"
+		},
+		{
+			"path": "/internal/tracking/retention",
+			"schedule": "0 4 * * *"
+		},
+		{
+			"path": "/internal/archive/prune",
+			"schedule": "0 5 * * *"
+		},
+		{
+			"path": "/internal/deals/lose-paused",
+			"schedule": "30 5 * * *"
+		}
+	],
+	"rewrites": [
+		{
+			"source": "/internal/sync/mailboxes",
+			"destination": {
+				"service": "api"
+			}
+		},
+		{
+			"source": "/internal/sync/rates",
+			"destination": {
+				"service": "api"
+			}
+		},
+		{
+			"source": "/internal/telemetry/rollup",
+			"destination": {
+				"service": "api"
+			}
+		},
+		{
+			"source": "/internal/tracking/retention",
+			"destination": {
+				"service": "api"
+			}
+		},
+		{
+			"source": "/internal/archive/prune",
+			"destination": {
+				"service": "api"
+			}
+		},
+		{
+			"source": "/internal/deals/lose-paused",
+			"destination": {
+				"service": "api"
+			}
+		},
+		{
+			"source": "/(.*)",
+			"destination": {
+				"service": "app"
+			}
+		}
+	]
+}

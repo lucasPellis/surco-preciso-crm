@@ -13,12 +13,14 @@ import { restMeta } from "../trpc/openapi";
 import {
 	type ImportStageArchiveInput,
 	type ImportStageCreateInput,
+	type ImportStageExpectedLabelsInput,
 	type ImportStageKeyInput,
 	type ImportStageProcessInput,
 	type ImportStageReorderInput,
 	type ImportStageUpdateInput,
 	importStageArchiveInput,
 	importStageCreateInput,
+	importStageExpectedLabelsInput,
 	importStageKeyInput,
 	importStageProcessInput,
 	importStageReorderInput,
@@ -94,6 +96,18 @@ export class ImportStagesRouter {
 		@Input() input: ImportStageArchiveInput,
 	) {
 		return this.stages.archive(ctx.user.id, input);
+	}
+
+	@Mutation({
+		input: importStageExpectedLabelsInput,
+		output: importStageSettingsOutput,
+		meta: restMeta("PUT", "/import-stages/{key}/documents", TAGS),
+	})
+	async setExpectedLabels(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: ImportStageExpectedLabelsInput,
+	) {
+		return this.stages.setExpectedLabels(ctx.user.id, input);
 	}
 
 	@Mutation({

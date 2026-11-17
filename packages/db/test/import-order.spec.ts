@@ -8,8 +8,13 @@ import {
 	isoDay,
 	lineProgress,
 	receivedAfterDays,
+	splitCount,
+	splitQuantities,
 	withLeadTimes,
 } from "../src/import-order";
+
+const units = (count: number, quantity: number) =>
+	Array.from({ length: count }, () => quantity);
 
 const day = (value: string) => new Date(`${value}T00:00:00.000Z`);
 const TODAY = day("2026-03-01");
@@ -133,5 +138,50 @@ describe("formatOrderNumber", () => {
 	it("grows past four digits", () => {
 		expect(formatOrderNumber(2027, 9999)).toBe("OC-2027-9999");
 		expect(formatOrderNumber(2027, 10000)).toBe("OC-2027-10000");
+	});
+});
+
+describe("splitQuantities", () => {
+	it("makes one shipment per unit", () => {
+		expect(splitQuantities(10, 1)).toEqual({
+			ok: true,
+			quantities: units(10, 1),
+		});
+	});
+
+	it("gives the rest to the last shipment", () => {
+		expect(splitQuantities(10, 3)).toEqual({
+			ok: true,
+			quantities: [3, 3, 3, 1],
+		});
+		expect(splitQuantities(10, 5)).toEqual({ ok: true, quantities: [5, 5] });
+	});
+
+	it("makes one shipment when the size passes what is left", () => {
+		expect(splitQuantities(4, 5)).toEqual({ ok: true, quantities: [4] });
+	});
+
+	it("allows the limit and refuses one more", () => {
+		expect(splitQuantities(50, 1)).toEqual({
+			ok: true,
+			quantities: units(50, 1),
+		});
+		expect(splitQuantities(51, 1)).toEqual({ ok: false, error: "TOO_MANY" });
+		expect(splitQuantities(51, 1, 60)).toEqual({
+			ok: true,
+			quantities: units(51, 1),
+		});
+		expect(splitCount(51, 1)).toBe(51);
+		expect(IMPORT_ORDER.maxSplitShipments).toBe(50);
+	});
+
+	it("refuses a size that is not a positive whole number and a line with nothing left", () => {
+		for (const size of [0, -1, 1.5]) {
+			expect(splitQuantities(10, size)).toEqual({
+				ok: false,
+				error: "INVALID_SIZE",
+			});
+		}
+		expect(splitQuantities(0, 1)).toEqual({ ok: false, error: "NOTHING_LEFT" });
 	});
 });
